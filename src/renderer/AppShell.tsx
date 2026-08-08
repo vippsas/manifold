@@ -111,15 +111,25 @@ export interface AppShellProps {
   sidebarView: SidebarViewId
   onSelectSidebarView: (id: SidebarViewId) => void
   onRenameActiveProject: (name: string) => void
+  onToggleTheme: () => void
+  /** A theme id without its variant suffix, e.g. `jade`. */
+  themeFamily: string
+  onSelectThemeFamily: (family: string) => void
   runCommand: (id: string) => void
 }
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
   useLoadPluginContributions()
+  const themeControls = {
+    themeType: (p.themeClass === 'theme-light' ? 'light' : 'dark') as 'dark' | 'light',
+    onToggleTheme: p.onToggleTheme,
+    themeFamily: p.themeFamily,
+    onSelectThemeFamily: p.onSelectThemeFamily,
+  }
   if (!p.settings.setupCompleted) {
     return (
       <div className={`layout-root ${p.themeClass}`}>
-        <TitleBar />
+        <TitleBar {...themeControls} />
         <WelcomeDialog onAddProject={() => void p.addProject()} onCloneProject={p.cloneProject} onComplete={p.overlays.handleSetupComplete} />
       </div>
     )
@@ -128,7 +138,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
   if (p.projects.length === 0) {
     return (
       <div className={`layout-root ${p.themeClass}`}>
-        <TitleBar />
+        <TitleBar {...themeControls} />
         <OnboardingView variant="no-project" onAddProject={() => void p.handleAddProjectFromOnboarding()} onCloneProject={p.handleCloneFromOnboarding}
           onCreateNewProject={p.handleCreateNewProject} creatingProject={p.appEffects.creatingProject}
           cloningProject={p.appEffects.cloningProject} createError={p.projectError} />
@@ -141,7 +151,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   return (
     <div className={`layout-root ${p.themeClass}`}>
-      <TitleBar projectName={activeProjectName} />
+      <TitleBar projectName={activeProjectName} {...themeControls} />
       <div className="layout-main">
         <div className="layout-workbench">
           <ActivityBar

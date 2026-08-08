@@ -20,14 +20,14 @@ describe('parseArgs', () => {
     expect(parseArgs(['NewAgentForm'])).toMatchObject({ component: 'NewAgentForm', theme: 'manifold-dark' })
   })
   it('parses --theme, --out, --width/--height, --full and --emit-html', () => {
-    const a = parseArgs(['Foo', '--theme', 'royal-dark', '--out', 'x.png', '--width', '500', '--height', '400', '--full'])
-    expect(a).toMatchObject({ component: 'Foo', theme: 'royal-dark', out: 'x.png', width: 500, height: 400, fullPage: true })
+    const a = parseArgs(['Foo', '--theme', 'jade-dark', '--out', 'x.png', '--width', '500', '--height', '400', '--full'])
+    expect(a).toMatchObject({ component: 'Foo', theme: 'jade-dark', out: 'x.png', width: 500, height: 400, fullPage: true })
     expect(parseArgs(['Foo', '--emit-html', 'x.html']).emitHtml).toBe('x.html')
     expect(parseArgs(['Foo', '--emit-html']).emitHtml).toBe(true)
     // --emit-html's path is optional; a following flag must not be swallowed as the path.
-    const a2 = parseArgs(['Foo', '--emit-html', '--theme', 'royal-dark'])
+    const a2 = parseArgs(['Foo', '--emit-html', '--theme', 'jade-dark'])
     expect(a2.emitHtml).toBe(true)
-    expect(a2.theme).toBe('royal-dark')
+    expect(a2.theme).toBe('jade-dark')
   })
 })
 
@@ -85,8 +85,8 @@ describe('renderHtml', () => {
 
 describe('loadThemeVars (real theme conversion)', () => {
   it('resolves a known theme to CSS variables + type', async () => {
-    const { cssVars, type, id } = await loadThemeVars(REPO_ROOT, 'royal-dark')
-    expect(id).toBe('royal-dark')
+    const { cssVars, type, id } = await loadThemeVars(REPO_ROOT, 'manifold-dark')
+    expect(id).toBe('manifold-dark')
     expect(type).toBe('dark')
     expect(cssVars['--bg-primary']).toMatch(/^#/)
     expect(cssVars['--accent']).toBeTruthy()
@@ -99,7 +99,7 @@ describe('loadThemeVars (real theme conversion)', () => {
 describe('bundleEntry (real esbuild + real component)', () => {
   it('bundles the NewAgentForm fixture into a browser IIFE with inlined theme vars and CSS', async () => {
     const target = findTarget('NewAgentForm', { searchRoots: [join(REPO_ROOT, 'src', 'renderer')] })
-    const { cssVars, type } = await loadThemeVars(REPO_ROOT, 'royal-dark')
+    const { cssVars, type } = await loadThemeVars(REPO_ROOT, 'manifold-dark')
     const entrySource = buildEntrySource(target, REPO_ROOT)
     const { js, css } = await bundleEntry({ repoRoot: REPO_ROOT, entrySource, cssVars, type })
     expect(js.length).toBeGreaterThan(1000)

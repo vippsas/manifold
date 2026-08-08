@@ -45,6 +45,11 @@ describe('SettingsStore', () => {
       expect(store.getSettings()).toEqual(RESOLVED_DEFAULTS)
     })
 
+    it('opens a first launch on Manifold Dark', () => {
+      mockExistsSync.mockReturnValue(false)
+      expect(new SettingsStore().getSettings().theme).toBe('manifold-dark')
+    })
+
     it('reads and merges settings from disk', () => {
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue(JSON.stringify({ theme: 'light' }))

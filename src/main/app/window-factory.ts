@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { debugLog } from './debug-log'
 import { buildAppMenu } from './app-menu'
 import { registerIpcHandlers, type IpcDependencies } from './ipc-handlers'
-import { loadTheme, migrateLegacyTheme } from '../../shared/themes/registry'
+import { loadTheme, migrateLegacyTheme, DEFAULT_THEME } from '../../shared/themes/registry'
 import type { CrashDiagnostics } from './crash-diagnostics'
 
 // Suppress Electron's internal GUEST_VIEW_MANAGER_CALL error logging for
@@ -54,7 +54,7 @@ let ipcHandlersRegistered = false
 
 export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
   const settings = deps.getSettings()
-  const theme = settings.theme ?? 'dracula'
+  const theme = settings.theme ?? DEFAULT_THEME
   nativeTheme.themeSource = resolveThemeType(theme)
 
   const win = new BrowserWindow({

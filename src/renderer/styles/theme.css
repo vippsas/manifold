@@ -70,49 +70,52 @@
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Default color values — match the default Dracula theme.
-     Overridden by theme adapter at runtime via applyThemeCssVars(). */
-  --bg-primary: #282a36;
-  --bg-secondary: #393b47;
-  --bg-sidebar: #22232e;
-  --bg-input: #333544;
+  /* Default color values — mirror Manifold Dark, the theme a first run opens on
+     (src/shared/defaults.ts). The adapter overwrites these on mount via
+     applyThemeCssVars(), but they are what paints in the window between the first
+     frame and App mounting, so a mismatch here shows up as a flash of the wrong
+     palette. Keep them in step with data/Manifold Dark.json. */
+  --bg-primary: #06080f;
+  --bg-secondary: #0d1220;
+  --bg-sidebar: #090d18;
+  --bg-input: #121a2e;
 
-  --text-primary: #f8f8f2;
-  --text-secondary: rgba(248, 248, 242, 0.65);
-  --text-muted: rgba(248, 248, 242, 0.4);
+  --text-primary: #e6ecf7;
+  --text-secondary: #a7b4cc;
+  --text-muted: #5e6b82;
 
-  --accent: #007acc;
-  --accent-text: #ffffff;
-  --accent-hover: #2694d6;
-  --accent-hi: #3da3e2;
+  --accent: #e2c275;
+  --accent-text: #0a0e18;
+  --accent-hover: #e6cb8a;
+  --accent-hi: #e8cf93;
   --success: #66bb6a;
   --warning: #ffa726;
   --error: #ef5350;
   --status-done: var(--success);
   --status-waiting: var(--warning);
   --status-error: var(--error);
-  --status-running: #4ac9c9;
+  --status-running: #7fc8e8;
 
-  --border: #4d4f5c;
-  --divider: #3f4150;
+  --border: #1e2a40;
+  --divider: #1e2a40;
 
   --diff-added-bg: rgba(102, 187, 106, 0.12);
   --diff-deleted-bg: rgba(239, 83, 80, 0.12);
   --diff-added-gutter: rgba(102, 187, 106, 0.3);
   --diff-deleted-gutter: rgba(239, 83, 80, 0.3);
 
-  --scrollbar-thumb: #4d4f5c;
+  --scrollbar-thumb: rgba(226, 194, 117, 0.149);
   --scrollbar-track: transparent;
 
-  --tree-active-selection: #04395e;
-  --tree-inactive-selection: #37373d;
-  --tree-hover: #2a2d2e;
-  --tree-indent-guide: #585858;
+  --tree-active-selection: rgba(226, 194, 117, 0.122);
+  --tree-inactive-selection: rgba(226, 194, 117, 0.071);
+  --tree-hover: rgba(226, 194, 117, 0.051);
+  --tree-indent-guide: #1e2a40;
 
   --bg-chrome: var(--bg-secondary);
   --bg-chrome-active: var(--bg-primary);
-  --bg-overlay: var(--bg-secondary);
-  --bg-elevated: var(--bg-secondary);
+  --bg-overlay: #101219;
+  --bg-elevated: #15171d;
 
   /* The recessed canvas the rounded dock panel cards float on. */
   --dock-canvas: color-mix(in srgb, var(--bg-primary), black 15%);
@@ -123,7 +126,7 @@
 
   --control-bg: var(--bg-input);
   --control-border: var(--border);
-  --control-bg-hover: rgba(255, 255, 255, 0.08);
+  --control-bg-hover: rgba(226, 194, 117, 0.051);
 
   --overlay-backdrop: rgba(0, 0, 0, 0.44);
   --overlay-border: var(--border);
@@ -133,12 +136,12 @@
   --list-active-bg: var(--tree-active-selection);
   --list-inactive-bg: var(--tree-inactive-selection);
   --sidebar-active-bg: var(--accent-subtle);
-  --sidebar-active-border: rgba(0, 122, 204, 0.28);
+  --sidebar-active-border: rgba(226, 194, 117, 0.122);
   --sidebar-active-text: var(--text-primary);
   --statusbar-bg: var(--bg-secondary);
-  --statusbar-hover-bg: rgba(255, 255, 255, 0.08);
+  --statusbar-hover-bg: rgba(230, 236, 247, 0.08);
 
-  --accent-subtle: rgba(0, 122, 204, 0.16);
+  --accent-subtle: rgba(226, 194, 117, 0.16);
   --success-subtle: rgba(102, 187, 106, 0.16);
   --warning-subtle: rgba(255, 167, 38, 0.16);
   --error-subtle: rgba(239, 83, 80, 0.16);

@@ -28,6 +28,7 @@ import { useSidebarHandleCycle } from './hooks/dock-layout/useSidebarHandleCycle
 import { useAgentSiblingDockTabs } from './hooks/agent-session/useAgentSiblingDockTabs'
 import { useAppEffects } from './hooks/app/useAppEffects'
 import { useCommands } from './hooks/app/useCommands'
+import { themeFamilyOf } from '../shared/themes/registry'
 import { cycleAgent } from './commands/agent-cycle'
 import type { CommandContext } from './commands/command-handlers'
 import type { DockPanelId } from './hooks/dock-layout/useDockLayout'
@@ -188,6 +189,13 @@ export function App(): React.JSX.Element {
       ? themeId.replace(/-light$/, '-dark')
       : themeId.replace(/-dark$/, '-light')
     void updateSettings({ theme: nextId })
+  }, [themeId, updateSettings])
+  // Switching family keeps the current light/dark variant, so the title bar's two
+  // controls stay independent of each other.
+  const themeFamily = themeFamilyOf(themeId)
+  const selectThemeFamily = useCallback((family: string) => {
+    const suffix = themeId.endsWith('-light') ? '-light' : '-dark'
+    void updateSettings({ theme: `${family}${suffix}` })
   }, [themeId, updateSettings])
   const updateNotification = useUpdateNotification()
   const updateLog = useUpdateLog()
@@ -515,6 +523,9 @@ export function App(): React.JSX.Element {
         sidebarView={sidebarView}
         onSelectSidebarView={setSidebarView}
         onRenameActiveProject={(name) => { if (activeProjectId) void updateProject(activeProjectId, { name }) }}
+        onToggleTheme={toggleTheme}
+        themeFamily={themeFamily}
+        onSelectThemeFamily={selectThemeFamily}
       />
       <QuickOpen
         visible={quickOpenVisible && effectiveSessionId !== null}

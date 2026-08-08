@@ -6,7 +6,8 @@ import { themeList, themeDataByLabel } from './theme-data'
 
 const themeCache = new Map<string, ConvertedTheme>()
 
-const DEFAULT_THEME = 'manifold-dark'
+/** Fallback for an unresolvable theme id, and the target of legacy value migration. */
+export const DEFAULT_THEME = 'manifold-dark'
 
 // ── Theme file name mapping ────────────────────────────────────────
 
@@ -38,6 +39,30 @@ export function getThemeList(): ThemeMeta[] {
   return cachedList
 }
 
+/** A theme id with its variant suffix removed: `jade-light` → `jade`. */
+export function themeFamilyOf(themeId: string): string {
+  return themeId.replace(/-(dark|light)$/, '')
+}
+
+/**
+ * The shipped theme families, in registration order. Derived from the theme list
+ * rather than hardcoded: the title bar's previous hardcoded list kept offering
+ * Royal after that family was retired, which is exactly the drift this avoids.
+ */
+export function getThemeFamilies(): ThemeMeta[] {
+  const families: ThemeMeta[] = []
+  const seen = new Set<string>()
+
+  for (const { id, label, type } of getThemeList()) {
+    const familyId = themeFamilyOf(id)
+    if (seen.has(familyId)) continue
+    seen.add(familyId)
+    families.push({ id: familyId, label: label.replace(/ (Dark|Light)$/, ''), type })
+  }
+
+  return families
+}
+
 export function loadTheme(id: string): ConvertedTheme {
   const cached = themeCache.get(id)
   if (cached) return cached
@@ -64,5 +89,11 @@ export function loadTheme(id: string): ConvertedTheme {
 export function migrateLegacyTheme(value: string): string {
   if (value === 'dark' || value === 'vs-dark') return DEFAULT_THEME
   if (value === 'light' || value === 'vs') return DEFAULT_THEME
+  // The Royal pair was renamed to Manifold when the original Manifold themes were
+  // retired; the colors are unchanged, so a saved royal-* id maps straight across.
+  // This matters most for royal-light: without it that id falls through to
+  // loadTheme()'s unknown-id fallback, which is dark, flipping a light-theme user.
+  if (value === 'royal-dark') return 'manifold-dark'
+  if (value === 'royal-light') return 'manifold-light'
   return value
 }

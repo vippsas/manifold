@@ -1,6 +1,6 @@
 // Screenshot fixture for the whole start view — wordmark, starfield and the
 // new-agent cards as one unit, which NewAgentHero.fixture.tsx can't show alone.
-// `npm run screenshot:component OnboardingView --theme royal-dark`
+// `npm run screenshot:component OnboardingView --theme manifold-dark`
 import React from 'react'
 import type { AgentRuntime, AgentSession } from '../../../shared/types'
 import { OnboardingView } from './OnboardingView'
