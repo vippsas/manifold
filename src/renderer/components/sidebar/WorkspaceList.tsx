@@ -4,7 +4,6 @@ import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceCard } from './WorkspaceCard'
-import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { useProjectRecency } from './sidebar-recency'
 import { sortWorkspaces, type SidebarSortMode } from './sidebar-sort'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
@@ -23,7 +22,6 @@ export interface WorkspaceListProps {
   onSelectWorkspace: (id: string) => void
   onRenameWorkspace?: (id: string, name: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
-  onNewWorkspace?: () => void
   onCopyWorkspace?: (id: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void | Promise<void>
@@ -53,7 +51,6 @@ export function WorkspaceList({
   onSelectWorkspace,
   onRenameWorkspace,
   onRemoveWorkspace,
-  onNewWorkspace,
   onCopyWorkspace,
   onSelectRepo,
   onAddProject,
@@ -136,18 +133,6 @@ export function WorkspaceList({
           renderFolderFiles={renderFolderFiles}
         />
       ))}
-      {onNewWorkspace && (
-        <button
-          type="button"
-          onClick={onNewWorkspace}
-          className="sidebar-new-workspace-button"
-          style={sidebarStyles.newWorkspaceButton}
-          aria-label="New Workspace"
-        >
-          <WorkspaceGlyph />
-          <span>New workspace</span>
-        </button>
-      )}
     </div>
   )
 }
