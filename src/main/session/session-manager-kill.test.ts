@@ -145,6 +145,8 @@ describe('SessionManager — kill / interrupt / resize', () => {
 
   describe('killSession — file-watcher unwatch', () => {
     let fileWatcher: {
+      watch: ReturnType<typeof vi.fn>
+      watchAdditionalDir: ReturnType<typeof vi.fn>
       unwatch: ReturnType<typeof vi.fn>
       unwatchAdditionalDir: ReturnType<typeof vi.fn>
       setOnBranchChanged: ReturnType<typeof vi.fn>
@@ -153,6 +155,8 @@ describe('SessionManager — kill / interrupt / resize', () => {
 
     beforeEach(() => {
       fileWatcher = {
+        watch: vi.fn(),
+        watchAdditionalDir: vi.fn(),
         unwatch: vi.fn().mockResolvedValue(undefined),
         unwatchAdditionalDir: vi.fn(),
         setOnBranchChanged: vi.fn(),

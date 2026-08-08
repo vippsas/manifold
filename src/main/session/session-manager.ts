@@ -207,7 +207,20 @@ export class SessionManager {
     this.sendToRenderer('agent:sessions-changed', { projectId })
   }
 
-  async createSession(options: SpawnAgentOptions): Promise<AgentSession> { return this.lifecycle.createSession(options) }
+  async createSession(options: SpawnAgentOptions): Promise<AgentSession> {
+    const session = await this.lifecycle.createSession(options)
+    this.watchCheckout(session)
+    return session
+  }
+
+  /** Every session polls the folders it works in, whoever created it. Doing this
+   *  at the `agent:spawn` handler instead left workspace agents (created straight
+   *  through the manager) unpolled, so their status bar kept the branch the
+   *  session started on after the agent ran `git checkout -b`. */
+  private watchCheckout(session: AgentSession): void {
+    this.fileWatcher?.watch(session.worktreePath, session.id)
+    for (const dir of session.additionalDirs) this.fileWatcher?.watchAdditionalDir(dir, session.id)
+  }
 
   hasSession(sessionId: string): boolean { return this.sessions.has(sessionId) }
 
@@ -278,8 +291,7 @@ export class SessionManager {
     next.baseBranch = previous.baseBranch
     persistSessionMeta(next)
     this.verdictRecorder?.onSessionTitleChanged(next.id, displayName)
-    this.fileWatcher?.watch(next.worktreePath, next.id)
-    for (const dir of next.additionalDirs) this.fileWatcher?.watchAdditionalDir(dir, next.id)
+    this.watchCheckout(next)
     this.notifySessionsChanged(next.projectId)
     return toPublicSession(next)
   }

@@ -157,9 +157,13 @@ for a watched checkout moves **every session working in that checkout** onto it 
 `agent:sessions-changed` — the watcher polls a path once, under whichever session id watched it
 last, and a checkout is on one branch, so its sibling agents moved with it. Nothing
 is persisted — worktree meta has no branch field; discovery re-reads the branch from the checkout
-(`session-discovery.ts:106`, `:150`). Only *watched* checkouts track it, i.e. sessions spawned or
-resumed this run (`agent-handlers.ts:99`, `:236`); a dormant session gets its branch fresh from
-discovery instead.
+(`session-discovery.ts:106`, `:150`). Only *watched* checkouts track it, and registering the
+watch is `createSession`'s own job (`watchCheckout`, `session-manager.ts:220`) — the checkout
+plus every `--add-dir` folder, for whoever created the session. Doing it at the `agent:spawn`
+handler instead left the paths of every session created straight through the manager unpolled —
+workspace agents above all (`workspace-manager.ts:217`), whose status bar then kept the branch
+the agent started on. Resume registers its own (`agent-handlers.ts:234`); a dormant session gets
+its branch fresh from discovery instead.
 
 **Discover-on-disk.** On launch the renderer's `agent:sessions` IPC calls
 `discoverSessionsForProject()` or `discoverAllSessions()`. `SessionDiscovery`

@@ -36,8 +36,10 @@ it installs the timer, starts the chokidar tree-watcher, and runs one immediate 
 the path is *already* watched it re-points the entry's (and the tree-watcher entry's)
 `sessionId` to the new session instead of early-returning, so a reused worktree
 (`createWorktreeFromBranch`) emits events under the live session id rather than the first one
-that watched it (`file-watcher.ts:88`, `tree-watcher.ts:28`). The IPC layer calls `watch` on
-`agent:spawn` and `agent:resume` (`agent-handlers.ts:140`, `:272`). Teardown unwatch is owned
+that watched it (`file-watcher.ts:88`, `tree-watcher.ts:28`). Creating a session registers its
+own watch — checkout plus `--add-dir` folders — in `SessionManager.watchCheckout`
+(`session-manager.ts:220`), so a session is polled whoever created it; the IPC layer only calls
+`watch` for `agent:resume` (`agent-handlers.ts:234`). Teardown unwatch is owned
 by `SessionKiller.cleanupSession` (see below) plus `unwatchAll` on app shutdown
 (`app-lifecycle.ts:93`); `agent:delete-app` also unwatches the path explicitly. `watchAdditionalDir` (`file-watcher.ts:63`) does the same for `--add-dir` paths
 under an `additional:<sessionId>:<dir>` key.
