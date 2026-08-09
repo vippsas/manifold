@@ -12,6 +12,9 @@ interface TabBarProps {
    *  the strip — the dock group's header carries the item's view tabs, not a
    *  single pane's controls. */
   actions?: React.ReactNode
+  /** Double-clicking the strip's own background maximizes the pane — the gesture
+   *  the dock group's header tab used to carry, on the strip that replaced it. */
+  onToggleMaximize?: () => void
   onActivatePane: () => void
   onSelectTab: (filePath: string) => void
   onMoveToSplitPane?: (filePath: string, direction: 'right' | 'below') => void
@@ -20,10 +23,19 @@ interface TabBarProps {
   onCloseAllTabs?: () => void
 }
 
+/** Whether a double-click landed on the strip itself rather than on something
+ *  that owns the gesture — a file tab (which selects) or a control (which acts).
+ *  Only the bare strip toggles maximize. */
+function isStripBackground(event: React.MouseEvent<HTMLElement>): boolean {
+  const target = event.target as HTMLElement
+  return !target.closest('.code-tab') && !target.closest('button')
+}
+
 export function TabBar({
   openFiles,
   activeFilePath,
   actions,
+  onToggleMaximize,
   onActivatePane,
   onSelectTab,
   onMoveToSplitPane,
@@ -87,7 +99,10 @@ export function TabBar({
 
   return (
     <>
-      <div style={viewerStyles.tabBar}>
+      <div
+        style={viewerStyles.tabBar}
+        onDoubleClick={(event) => { if (isStripBackground(event)) onToggleMaximize?.() }}
+      >
         <div style={viewerStyles.tabStrip}>
           {openFiles.map((file, index) => (
             <FileTab
@@ -250,9 +265,15 @@ function FileTab({
   )
 }
 
-export function NoTabsHeader({ actions }: { actions?: React.ReactNode }): React.JSX.Element {
+export function NoTabsHeader({ actions, onToggleMaximize }: {
+  actions?: React.ReactNode
+  onToggleMaximize?: () => void
+}): React.JSX.Element {
   return (
-    <div style={viewerStyles.header}>
+    <div
+      style={viewerStyles.header}
+      onDoubleClick={(event) => { if (isStripBackground(event)) onToggleMaximize?.() }}
+    >
       <span className="mono" style={viewerStyles.headerText}>
         No file selected
       </span>

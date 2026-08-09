@@ -287,14 +287,15 @@ hosts `AgentHeaderActions` (the agent group's `+`, self-gated to the agent group
 right slot a `RightHeaderActions` trio (`AppShell.tsx:58`) — `ShellHeaderActions` (self-gated
 to the shell panel; `components/terminal/ShellHeaderActions.tsx:19`), `AgentCloseHeaderActions`
 (the agent group's hide-`×`, self-gated to the agent group), and `WorkspaceHeaderActions`
-(only the icon-tab group `×`;
+(the icon-tab group `×`, which in practice means the sidebar's — an editor group hides its
+header strip entirely, see below;
 `components/editor/editor-shell/WorkspaceHeaderActions.tsx:14`). The shell's controls sit in
 the *right* slot so they land at the far end of the strip, where VS Code puts its terminal
 toolbar, rather than crowding the panel's own tab. An editor pane's own controls
-— split, move a file to another pane, and the view-mode toggle — are **not** in that header:
-they sit at the right of the code viewer's own tab bar (`EditorPaneActions`, rendered through
-`CodeViewer`'s `headerActions` slot; `EditorPaneActions.tsx:40`,
-`code-viewer/CodeViewerTabs.tsx:105`). The group header belongs to the item's view tabs, and
+— split, move a file to another pane, the view-mode toggle, and the pane's `×` — are **not** in
+that header: they sit at the right of the code viewer's own tab bar (`EditorPaneActions`,
+rendered through `CodeViewer`'s `headerActions` slot; `EditorPaneActions.tsx:40`, `:141`;
+`code-viewer/CodeViewerTabs.tsx:103`). The group header belongs to the item's view tabs, and
 with a split it sits above only one of the panes it was acting on. Those controls wear the same
 header pill as every other control in a strip — a tab's `×`, the icon-tab group's `×` — rather
 than the bordered input box they used to be, which read as a form control dropped into a row of
@@ -321,9 +322,18 @@ Geometry follows VS Code too — 10px before the icon, the close action in a slo
 "shrink" sizing (content width, 80px floor) so short names do not make a ragged strip
 (`CodeViewer.styles.ts:62`, `:112`). Two numbers deliberately differ, because this pane is a
 ~330px sidebar and its strip **wraps** where VS Code scrolls one row: tabs are 30px like the
-header above rather than VS Code's 35px, which would stack to 70px as soon as a third file
-opened, and a tab is capped at 220px so one long name cannot push every other tab onto a row of
-its own. **The
+dock's own header strips rather than VS Code's 35px, which would stack to 70px as soon as a
+third file opened, and a tab is capped at 220px so one long name cannot push every other tab
+onto a row of its own. **That strip is the editor's only header: a group holding nothing but one
+editor pane hides its dockview header entirely** (`.dv-tabs-and-actions-container.dv-single-tab`
+carrying a `.dock-tab--editor`, `styles/dockview-theme.css:258`; the marker is set for `editor`
+and every `editor:N` split in `DockTab.tsx:72`). It was a second 30px strip holding only a glyph
+and a `×`, and it pushed the file tabs a row below the agent tabs one column over — the very
+alignment the strip's chrome is cut for. What it carried moved into the strip that survives: the
+`×` ends `EditorPaneActions`, and double-clicking the strip's own background (not a tab, not a
+control) toggles focus mode (`CodeViewerTabs.tsx:29`, `:104`). The guard is `dv-single-tab`, so
+an editor tabbed beside another panel keeps the header that is the only way to switch between
+them — and there **the
 Editor** renders an icon-only tab (glyph shared with the activity bar via `PanelGlyph`,
 name as tooltip) without a close button of its own. **The sidebar renders no tab at
 all**: it is alone in its column, so a tab there switched nothing and its glyph only

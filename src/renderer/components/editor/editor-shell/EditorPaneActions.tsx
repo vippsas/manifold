@@ -32,11 +32,12 @@ const MODE_LABEL: Record<'editor' | 'preview' | 'diff', string> = {
   diff: 'Diff',
 }
 
-/** The pane's own actions — split, move a file to another pane, and the
- *  view-mode toggle. They live in the code viewer's tab bar rather than the dock
- *  group's header: the group header belongs to the item's view tabs, and these
- *  act on one editor pane, which in a split is not the pane that header sits
- *  above. */
+/** The pane's own actions — split, move a file to another pane, the view-mode
+ *  toggle, and the × that closes the pane. They live in the code viewer's tab
+ *  bar rather than the dock group's header: the group header belongs to the
+ *  item's view tabs, and these act on one editor pane, which in a split is not
+ *  the pane that header sits above. For an editor there is no such header left
+ *  anyway — this strip is the pane's only one. */
 export function EditorPaneActions({ paneId }: { paneId: string }): React.JSX.Element | null {
   const state = React.useContext(DockStateContext)
   const modeControls = React.useSyncExternalStore(
@@ -132,6 +133,19 @@ export function EditorPaneActions({ paneId }: { paneId: string }): React.JSX.Ele
         menuLabel="Pane actions"
         items={items}
       />
+      {/* The × that used to sit in the dock group's header. That header is gone
+          for an editor pane (dockview-theme.css hides it — the file tabs below it
+          are the pane's real tab strip), so the close it carried ends the strip
+          that took its place, in the same 24px square it wore up there. */}
+      <button
+        type="button"
+        className="dock-header-collapse"
+        onClick={() => state.onClosePanel(paneId)}
+        title="Close editor"
+        aria-label="Close editor"
+      >
+        &times;
+      </button>
     </div>
   )
 }

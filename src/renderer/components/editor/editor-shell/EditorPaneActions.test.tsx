@@ -187,6 +187,16 @@ describe('EditorPaneActions', () => {
     unregisterEditorPaneModeControls('editor', controls)
   })
 
+  it('closes the pane from the × that replaced the dock header one', () => {
+    const onClosePanel = vi.fn()
+
+    renderHeaderActions({ onClosePanel }, 'editor:1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close editor' }))
+
+    expect(onClosePanel).toHaveBeenCalledWith('editor:1')
+  })
+
   it('does not render for a pane that is not an editor', () => {
     renderHeaderActions({}, 'shell')
 

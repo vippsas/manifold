@@ -43,6 +43,8 @@ interface CodeViewerProps {
   editorSettings?: EditorSettings
   /** Pane-level controls rendered at the right of the viewer's own header row. */
   headerActions?: React.ReactNode
+  /** Toggles focus mode for this pane, from a double-click on its tab strip. */
+  onToggleMaximize?: () => void
   onActivatePane?: () => void
   onSelectTab: (filePath: string) => void
   onMoveTabToSplitPane?: (filePath: string, direction: 'right' | 'below') => void
@@ -73,6 +75,7 @@ export function CodeViewer({
   theme,
   editorSettings = DEFAULT_SETTINGS.editor as EditorSettings,
   headerActions,
+  onToggleMaximize,
   onActivatePane = () => {},
   onSelectTab,
   onMoveTabToSplitPane,
@@ -211,6 +214,7 @@ export function CodeViewer({
           openFiles={openFiles}
           activeFilePath={activeFilePath}
           actions={headerActions}
+          onToggleMaximize={onToggleMaximize}
           onActivatePane={onActivatePane}
           onSelectTab={onSelectTab}
           onMoveToSplitPane={onMoveTabToSplitPane}
@@ -219,7 +223,7 @@ export function CodeViewer({
           onCloseAllTabs={onCloseAllTabs}
         />
       ) : (
-        <NoTabsHeader actions={headerActions} />
+        <NoTabsHeader actions={headerActions} onToggleMaximize={onToggleMaximize} />
       )}
       <div style={viewerStyles.editorContainer} onMouseDown={onActivatePane}>
         {isPdf && activeFilePath !== null && fileContent !== null ? (

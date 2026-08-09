@@ -246,6 +246,19 @@
   padding-inline: 4px;
 }
 
+/* An editor pane brings its own tab strip — the code viewer's file tabs, cut to
+   this exact height and chrome (see CodeViewer.styles.ts) — so this header would
+   be a second 30px strip carrying nothing but a glyph and a ×, and it pushed the
+   file tabs a row below the agent tabs one column over. Drop it: the file-tab row
+   becomes the card's top strip, level with the agent's. What that header held
+   moves into the strip that survives — the × to EditorPaneActions,
+   double-click-to-maximize to the tab bar itself. Only for a lone editor in the
+   group: with a second panel tabbed beside it the strip is the only way to switch
+   between them, so it stays. */
+.dockview-theme-manifold .dv-tabs-and-actions-container.dv-single-tab:has(.dock-tab--editor) {
+  display: none;
+}
+
 /* The item's icon tabs sit centered across the header strip — the way VS Code
    centers a sidebar's view tabs — instead of hugging the left edge, so the
    card reads as one item switched by its tabs rather than a stack of panels.
