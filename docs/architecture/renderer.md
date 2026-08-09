@@ -58,6 +58,19 @@ for a **home** workspace and a git branch for a **worktree** one
 workspace also sits on a branch, it just does not own the checkout. Favorites carry the
 same glyph — `ResolvedFavorite.worktree` is resolved alongside the name in `useFavorites`
 (`hooks/project/useFavorites.ts`) so the starred rows above the list read the same way.
+
+**Only home workspaces take in an agent that names no workspace.**
+`groupSessionsByWorkspace` (`hooks/app/session-workspace-map.ts:18`) buckets every session
+by workspace: one carrying a `workspaceId` goes there and nowhere else, while one without
+(the shape the New-Repo, draft-promote and deep-link spawns produce) is placed by repo —
+but only into **home** workspaces (`session-workspace-map.ts:30`). A worktree workspace owns
+a checkout of its own and every agent cut for it names it (`session-creator.ts:224`), so an
+unnamed agent is by definition working in the clone, never in that checkout. Placing it by
+repo alone put it in *both*: a second workspace over the same folders ("New Workspace, Same
+Folders") adopted the clone's agent and became its `primarySession` (`App.tsx:107`), which
+the agent panel renders in preference to the active session (`dock-agent-panel.tsx:98`) —
+so the new workspace opened on another workspace's agent, on the wrong checkout, with both
+rows' activity dots lit for the one running agent (`WorkspaceCard.tsx:108`).
 The glyph doubles as the row's disclosure control, swapping to a chevron on hover
 (`theme.css:1019`), so one column carries kind and state at once.
 
