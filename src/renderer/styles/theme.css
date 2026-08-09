@@ -648,12 +648,24 @@ select:focus-visible {
   font-size: var(--type-ui-caption);
 }
 
-/* An open menu, or a pane showing something other than the plain editor, reads
-   the way an active icon tab does — accent, not a ring around the control. */
+/* An open menu reads the way an active icon tab does — accent, not a ring around
+   the control. The wash is the app's mark for "chosen": an active tab, a
+   selected row, the control whose popover is open. */
 .pane-action--on,
 .pane-action--on:hover {
   color: var(--accent);
   background: var(--accent-subtle);
+}
+
+/* The view-mode toggle *reports* which view the pane is in rather than offering
+   a choice, so it takes the treatment a locked tab's padlock takes: the accent
+   on glyph and word, no fill. The strip it sits in is built so only the active
+   file tab carries weight (`.code-tab--active`) — a washed pill out at its right
+   edge outshouts that tab and inverts the strip's hierarchy. Its own label
+   ("Preview") already names the state, so colour is never the only carrier. */
+.pane-action--state,
+.pane-action--state:hover {
+  color: var(--accent);
 }
 
 /* Icon-only tabs (the sidebar item's view switcher): just the glyph, name as

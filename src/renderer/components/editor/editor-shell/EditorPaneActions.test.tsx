@@ -109,6 +109,28 @@ describe('EditorPaneActions', () => {
     unregisterEditorPaneModeControls('editor', controls)
   })
 
+  it('marks a non-editor view with the state class, not the selection wash', () => {
+    const base = { canShowPreview: true, canShowDiff: false, showEditor: vi.fn(), showPreview: vi.fn(), showDiff: vi.fn() }
+
+    let controls: EditorPaneModeControls = { ...base, mode: 'editor' }
+    registerEditorPaneModeControls('editor', controls)
+    let view = renderHeaderActions()
+    expect(screen.getByRole('button', { name: 'Editor' }).className).not.toMatch(/pane-action--(state|on)/)
+    view.unmount()
+    unregisterEditorPaneModeControls('editor', controls)
+
+    controls = { ...base, mode: 'preview' }
+    registerEditorPaneModeControls('editor', controls)
+    view = renderHeaderActions()
+    const preview = screen.getByRole('button', { name: 'Preview' })
+    expect(preview.className).toContain('pane-action--state')
+    // `--on` is the accent *fill* the strip reserves for what is selected; the
+    // mode toggle reports state and must not wear it.
+    expect(preview.className).not.toContain('pane-action--on')
+    view.unmount()
+    unregisterEditorPaneModeControls('editor', controls)
+  })
+
   it('invokes split-right from the pane action menu', () => {
     const onSplitEditorPane = vi.fn()
 

@@ -120,7 +120,7 @@ export function EditorPaneActions({ paneId }: { paneId: string }): React.JSX.Ele
           type="button"
           onClick={modeToggle.cycle}
           title={`Switch to ${modeToggle.nextLabel}`}
-          className={`pane-action pane-action--labeled${modeToggle.isEditor ? '' : ' pane-action--on'}`}
+          className={`pane-action pane-action--labeled${modeToggle.isEditor ? '' : ' pane-action--state'}`}
         >
           <SwapIcon />
           {modeToggle.label}

@@ -285,9 +285,13 @@ they sit at the right of the code viewer's own tab bar (`EditorPaneActions`, ren
 with a split it sits above only one of the panes it was acting on. Those controls wear the same
 header pill as every other control in a strip — a tab's `×`, the icon-tab group's `×` — rather
 than the bordered input box they used to be, which read as a form control dropped into a row of
-flat tabs; an open menu or a pane showing something other than the plain editor tints accent the
-way an active icon tab does, instead of drawing a ring around the control (`.pane-action`,
-`styles/theme.css:536`, `:563`, `:587`). **A pane's file tabs follow
+flat tabs; an open menu tints accent the way an active icon tab does, instead of drawing a ring
+around the control (`.pane-action`, `styles/theme.css:536`, `:563`, `:587`, `:654`). The
+view-mode toggle takes only the accent *colour* on its glyph and word, no wash
+(`.pane-action--state`, `styles/theme.css:666`; `EditorPaneActions.tsx:123`): the wash is the
+strip's mark for what is chosen, and out at the strip's right edge it outshouted the active file
+tab the strip is built to be about — same reasoning as the locked-agent padlock, which reports
+state in accent without a fill (`styles/theme.css:601`). **A pane's file tabs follow
 VS Code's editor tabs** (`multieditortabscontrol.css`): each carries the Seti file-type icon the
 tree uses for the same file, the name in the UI font — not the editor's monospace, which sized
 the strip like code — and, only when two open files share a basename, the disambiguating folder
