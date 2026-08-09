@@ -1,4 +1,4 @@
-import type { Project } from '../../../shared/types'
+import type { AgentSession, Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
 
 const RUNTIME_LABELS: Record<string, string> = {
@@ -28,6 +28,35 @@ export function formatBranchLabel(branchName: string, projectPath: string): stri
 
 export function runtimeLabel(runtimeId: string): string {
   return RUNTIME_LABELS[runtimeId] ?? runtimeId
+}
+
+/**
+ * The first of `Claude`, `Claude 2`, `Claude 3`… that no agent in the workspace
+ * is already called.
+ *
+ * It checks the names in use rather than counting the agents of a runtime, which
+ * is what the count it replaced got wrong: delete the middle of `Claude`,
+ * `Claude 2`, `Claude 3` and the count falls back to 2, so the next agent is
+ * named `Claude 3` on top of the one still open. Renaming an agent broke it the
+ * same way — the agent still counted, but no longer held the name.
+ *
+ * Every sibling is checked, not just the ones sharing a runtime, so a Codex
+ * agent someone renamed to `Claude 2` still pushes the next Claude to `Claude 3`.
+ */
+export function nextAgentName(
+  runtimeId: string,
+  siblings: readonly Pick<AgentSession, 'displayName'>[],
+): string {
+  const taken = new Set(
+    siblings
+      .map((session) => session.displayName?.trim())
+      .filter((name): name is string => Boolean(name)),
+  )
+  const base = runtimeLabel(runtimeId)
+  if (!taken.has(base)) return base
+  let n = 2
+  while (taken.has(`${base} ${n}`)) n += 1
+  return `${base} ${n}`
 }
 
 export interface WorkspaceRowLabel {

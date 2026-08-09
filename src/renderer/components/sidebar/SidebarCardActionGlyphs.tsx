@@ -4,25 +4,23 @@ export function NewAgentGlyph(): React.JSX.Element {
   return <span aria-hidden="true">+</span>
 }
 
-/** A branch forking off — "copy this workspace onto a fresh worktree". */
-export function CopyWorkspaceGlyph(): React.JSX.Element {
+/** The workspace row's only control: the "more actions" ellipsis, which opens
+ *  the worded menu.
+ *
+ *  It replaced a fork glyph and a folder-plus glyph sitting side by side — two
+ *  abstractions a new user had to decode from a 14px silhouette, with the words
+ *  only in a native `title` that takes a second to appear. A `+` stood here
+ *  briefly, but a plus promises *adding*, and once the row's `×` folded into
+ *  this menu the most consequential item behind it removes the workspace. The
+ *  ellipsis is the overflow affordance every toolbar already teaches, and unlike
+ *  a `▾` it cannot be confused with the disclosure chevron the row's own glyph
+ *  swaps to on hover. */
+export function WorkspaceActionsGlyph(): React.JSX.Element {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="6" cy="5" r="2.4" />
-      <circle cx="6" cy="19" r="2.4" />
-      <circle cx="18" cy="12" r="2.4" />
-      <path d="M6 7.4v9.2" />
-      <path d="M6 9c0 3 4.5 3 9.6 3" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="19" cy="12" r="1.75" />
     </svg>
   )
 }

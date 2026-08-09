@@ -218,16 +218,34 @@ describe('ProjectSidebar', () => {
     ])
   })
 
-  it('puts Copy to new worktree and Add folder on the workspace header, and no New agent', () => {
+  // A fork glyph and a folder-plus glyph used to sit here, each meaning nothing
+  // to a new user until a native `title` caught up a second later. One `+` now
+  // opens the menu, where the same actions are named in words.
+  it('runs the workspace actions from the words in the row menu', () => {
     const { props } = renderSidebar()
-
     const header = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
-    fireEvent.click(within(header!).getByRole('button', { name: 'Copy alpha-space to a new worktree' }))
-    fireEvent.click(within(header!).getByRole('button', { name: 'Add folder to alpha-space' }))
+    const actions = (): HTMLElement =>
+      within(header!).getByRole('button', { name: 'Actions for alpha-space' })
+
+    fireEvent.click(actions())
+    fireEvent.click(screen.getByText('New Workspace, Same Folders'))
+    fireEvent.click(actions())
+    fireEvent.click(screen.getByText('Add Folder…'))
 
     expect(props.onCopyWorkspace).toHaveBeenCalledWith('w1')
     expect(props.onAddProjectToWorkspace).toHaveBeenCalledWith('w1')
-    expect(within(header!).queryByRole('button', { name: /Add agent/ })).not.toBeInTheDocument()
+  })
+
+  // The row's whole action surface: the disclosure, and one menu button. Pinned
+  // so a second glyph cannot drift back in beside it.
+  it('leaves just the disclosure and the actions button on the workspace header', () => {
+    renderSidebar()
+
+    const header = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
+    const labels = within(header!).getAllByRole('button')
+      .map((b) => b.getAttribute('aria-label'))
+
+    expect(labels).toEqual(['Collapse alpha-space', 'Actions for alpha-space'])
   })
 
   it('selecting a folder row calls onSelectWorkspaceRepo', () => {
@@ -256,10 +274,15 @@ describe('ProjectSidebar', () => {
     expect(within(pair!).getByRole('button', { name: 'Remove Alpha from workspace' })).toBeInTheDocument()
   })
 
-  it('removes a workspace from its header button', () => {
+  // Removal moved off the row and into the menu: a destructive action should
+  // cost a deliberate second click, not sit a stray pixel from the disclosure.
+  it('removes a workspace from the menu, not from a glyph on the row', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByLabelText('Remove alpha-space'))
+    expect(screen.queryByLabelText('Remove alpha-space')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for alpha-space' }))
+    fireEvent.click(screen.getByText('Remove Workspace'))
 
     expect(props.onRemoveWorkspace).toHaveBeenCalledWith('w1')
   })

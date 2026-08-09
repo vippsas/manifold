@@ -10,6 +10,9 @@ export interface UseContextMenuResult {
   position: ContextMenuPosition | null
   /** Right-click handler: opens the menu at the cursor. */
   open: (e: React.MouseEvent) => void
+  /** Opens the menu at an explicit viewport point, for a button that anchors the
+   *  menu to itself rather than to the cursor. */
+  openAt: (position: ContextMenuPosition) => void
   close: () => void
 }
 
@@ -32,7 +35,9 @@ export function useContextMenu(): UseContextMenuResult {
     setPosition({ x: e.clientX, y: e.clientY })
   }, [])
 
+  const openAt = useCallback((next: ContextMenuPosition): void => setPosition(next), [])
+
   const close = useCallback((): void => setPosition(null), [])
 
-  return { position, open, close }
+  return { position, open, openAt, close }
 }

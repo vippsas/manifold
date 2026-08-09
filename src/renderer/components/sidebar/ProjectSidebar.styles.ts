@@ -194,6 +194,15 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     background: 'transparent',
   },
+  // The workspace row's actions menu trigger. Accent rather than muted like the
+  // other row glyphs: it is the row's only control, and being *found* is the
+  // whole reason it exists.
+  rowMenuButton: {
+    color: 'var(--accent)',
+    padding: 0,
+    lineHeight: 1,
+    background: 'transparent',
+  },
   // A bar of its own below the scrolling list, so however long the list grows
   // the create action stays where it was — the sidebar's one fixed edge.
   actions: {

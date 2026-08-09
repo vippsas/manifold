@@ -43,11 +43,23 @@ describe('buildWorkspaceContextMenu', () => {
       'Add to Favorites',
       '---',
       'Rename…',
-      'Copy to New Worktree',
+      'New Workspace, Same Folders',
       'Add Folder…',
       '---',
       'Remove Workspace',
     ])
+  })
+
+  // Starting an agent lives on the agent group's tab bar and nowhere else; a
+  // second route from this menu read as a competing way to do the same thing.
+  it('offers no way to start an agent', () => {
+    const items = buildWorkspaceContextMenu({
+      ...required,
+      rename: vi.fn(),
+      copyToWorktree: vi.fn(),
+      addFolder: vi.fn(),
+    })
+    expect(labels(items).some((label) => /agent/i.test(label))).toBe(false)
   })
 
   it('omits actions whose handler is absent', () => {
@@ -64,5 +76,22 @@ describe('buildWorkspaceContextMenu', () => {
   it('leaves no doubled separator when every optional action is absent', () => {
     const items = buildWorkspaceContextMenu(required)
     expect(labels(items)).toEqual(['Add to Favorites', '---', 'Remove Workspace'])
+  })
+
+  // The row's `+` button opens this menu, so it has to be worth opening even
+  // where the dock state favorites read from is absent — no favorites item, no
+  // leading separator, and never an empty menu.
+  it('drops the favorites item, and its separator, without a toggle handler', () => {
+    const items = buildWorkspaceContextMenu({
+      removeWorkspace: vi.fn(),
+      copyToWorktree: vi.fn(),
+      addFolder: vi.fn(),
+    })
+    expect(labels(items)).toEqual([
+      'New Workspace, Same Folders',
+      'Add Folder…',
+      '---',
+      'Remove Workspace',
+    ])
   })
 })

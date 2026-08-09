@@ -66,9 +66,11 @@ describe('NewAgentForm', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Codex/ }))
 
     await waitFor(() => {
+      // Named even though it is the first: an unnamed session falls back to its
+      // branch label, which every agent in the workspace shares.
       expect(props.onLaunch).toHaveBeenCalledWith({
         runtimeId: 'codex',
-        displayName: '',
+        displayName: 'Codex',
         nonInteractive: false,
       })
     })
@@ -90,15 +92,33 @@ describe('NewAgentForm', () => {
     })
   })
 
+  const session = (id: string, runtimeId: string, displayName?: string): AgentSession => ({
+    id,
+    projectId: 'p1',
+    runtimeId,
+    status: 'running',
+    pid: 1,
+    additionalDirs: [],
+    displayName,
+  } as unknown as AgentSession)
+
   it('numbers a second agent of the same provider', async () => {
-    const existingSessions = [{
-      id: 'session-a',
-      projectId: 'p1',
-      runtimeId: 'claude',
-      status: 'running',
-      pid: 1,
-      additionalDirs: [],
-    } as unknown as AgentSession]
+    const { props } = renderForm({ existingSessions: [session('a', 'claude', 'Claude')] })
+    await ready()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Claude Code/ }))
+
+    await waitFor(() => {
+      expect(props.onLaunch).toHaveBeenCalledWith(
+        expect.objectContaining({ runtimeId: 'claude', displayName: 'Claude 2' }),
+      )
+    })
+  })
+
+  // The bug this replaced: the name came from *counting* same-runtime agents, so
+  // deleting one from the middle handed its number to the next agent started.
+  it('skips a name still in use after a middle agent was deleted', async () => {
+    const existingSessions = [session('a', 'claude', 'Claude'), session('c', 'claude', 'Claude 3')]
     const { props } = renderForm({ existingSessions })
     await ready()
 
@@ -106,7 +126,7 @@ describe('NewAgentForm', () => {
 
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ runtimeId: 'claude', displayName: 'Claude Code 2' }),
+        expect.objectContaining({ runtimeId: 'claude', displayName: 'Claude 2' }),
       )
     })
   })
