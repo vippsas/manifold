@@ -106,6 +106,7 @@ export function WorkspaceCard({
   // a pulsing dot by the name, plus a highlight sweeping the name itself, so the
   // signal carries even when the eye is not on the dot.
   const isWorking = sessions.some((s) => outputtingSessionIds?.has(s.id))
+  const sweep = isWorking ? 'sidebar-label-working' : ''
 
   // The row opens the workspace it names; the chevron alone can close it again,
   // so selecting the workspace never hides what is under it.
@@ -183,17 +184,22 @@ export function WorkspaceCard({
           >
             {/* Own group, so the label's 6px gap spaces the dot off the name
                 without also prising the repo, the "/" and the name apart. */}
-            <span
-              className={isWorking ? 'sidebar-label-working' : undefined}
-              style={sidebarStyles.rowLabelPath}
-            >
+            {/* The sweep goes on each segment, never on this wrapper: one
+                `background-clip: text` element paints everything beneath it from
+                a single gradient, which flattened the repo to the name's
+                contrast and swallowed the "/". Per segment, each keeps its own
+                colour as the sweep's base, and `background-attachment: fixed`
+                (theme.css) is what still makes the three read as one band. */}
+            <span style={sidebarStyles.rowLabelPath}>
               {label.repo && (
                 <>
-                  <span style={sidebarStyles.rowRepo}>{label.repo}</span>
-                  <span style={sidebarStyles.rowRepoSep}>/</span>
+                  <span className={sweep} style={sidebarStyles.rowRepo}>{label.repo}</span>
+                  <span className={sweep} style={sidebarStyles.rowRepoSep}>/</span>
                 </>
               )}
-              <span className="truncate" style={{ minWidth: 0 }}>{label.name}</span>
+              <span className={`truncate ${sweep}`.trim()} style={{ minWidth: 0 }}>
+                {label.name}
+              </span>
             </span>
             {isWorking && (
               <span

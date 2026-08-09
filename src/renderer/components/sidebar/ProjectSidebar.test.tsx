@@ -197,6 +197,27 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('beta-space').closest('.sidebar-label-working')).toBeNull()
   })
 
+  // The sweep covers the dimmed `repo /` prefix too — but as a class on each
+  // segment, never on the span wrapping them. One `background-clip: text`
+  // element paints everything beneath it from a single gradient, so a wrapper
+  // would flatten the repo to the name's contrast and swallow the "/"; a
+  // gradient per segment keeps each one's own colour as the sweep's base.
+  it('sweeps each segment of the path on its own, not the span wrapping them', () => {
+    renderSidebar({ outputtingSessionIds: new Set(['s1']) })
+
+    const row = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
+    const repo = within(row!).getByText('Alpha')
+    const sep = within(row!).getByText('/')
+    const name = within(row!).getByText('alpha-space')
+
+    for (const segment of [repo, sep, name]) {
+      expect(segment).toHaveClass('sidebar-label-working')
+      // The segment carries it itself — nothing above it may, or the gradient
+      // would be shared and the per-segment colours lost.
+      expect(segment.parentElement?.closest('.sidebar-label-working')).toBeNull()
+    }
+  })
+
   it('calls onNewProject when New Repo is clicked', () => {
     const { props } = renderSidebar()
 

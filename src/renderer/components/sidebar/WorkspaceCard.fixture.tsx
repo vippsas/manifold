@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import type { Project } from '../../../shared/types'
+import type { AgentSession, Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
 import { WorkspaceCard } from './WorkspaceCard'
 import { DockStateContext, type DockAppState } from '../editor/editor-shell/dock-panel-types'
@@ -30,9 +30,18 @@ const workspace: Workspace = {
   worktreePaths: { p1: '/wt/better-buttons' },
 }
 
+// One agent, so the card can be shown mid-work: the dot pulses and the sweep
+// runs along the name. That state is the one where the row's dimming has to
+// survive — the sweep repaints text the segments would otherwise colour
+// themselves.
+const session = { id: 's1', projectId: 'p1' } as unknown as AgentSession
+
+// Six points across the sweep's 1.8s cycle (`sidebar-sweep`, theme.css).
+const PHASES = [0, 300, 600, 900, 1200, 1500]
+
 const noop = (): void => undefined
 
-function Card(): React.JSX.Element {
+function Card({ working = false }: { working?: boolean } = {}): React.JSX.Element {
   const [expanded, setExpanded] = useState(false)
   return (
     <WorkspaceCard
@@ -41,7 +50,8 @@ function Card(): React.JSX.Element {
       isActive
       expanded={expanded}
       onToggleExpanded={() => setExpanded((v) => !v)}
-      sessions={[]}
+      sessions={working ? [session] : []}
+      outputtingSessionIds={working ? new Set(['s1']) : undefined}
       drafts={[]}
       activeDraftId={null}
       onSelectWorkspace={noop}
@@ -87,8 +97,23 @@ function WorkspaceCardFixture(): React.JSX.Element {
         fontSize: 'var(--type-ui)',
       }}
     >
-      <style>{'.fixture-hovered .sidebar-item-actions { opacity: 0.95; pointer-events: auto; }'}</style>
+      <style>{`
+        .fixture-hovered .sidebar-item-actions { opacity: 0.95; pointer-events: auto; }
+        /* A still can't carry a 1.8s sweep, so the working card is repeated with
+           the animation paused at six points across one cycle. Read top to
+           bottom: the band crosses the path once, and the repo never comes up to
+           the name's contrast on the way. */
+        .fixture-phase .sidebar-label-working { animation-play-state: paused; }
+        ${PHASES.map((ms, i) => `.fixture-phase-${i} .sidebar-label-working { animation-delay: -${ms}ms; }`).join('\n')}
+      `}</style>
       <Panel label="at rest"><Card /></Panel>
+      <Panel label="working — one sweep across the path, the repo dimmed throughout">
+        {PHASES.map((_, i) => (
+          <div key={i} className={`fixture-phase fixture-phase-${i}`}>
+            <Card working />
+          </div>
+        ))}
+      </Panel>
       <Panel label="hovered — one ⋯ for every action">
         <div className="fixture-hovered"><Card /></div>
       </Panel>

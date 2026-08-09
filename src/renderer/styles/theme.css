@@ -1047,9 +1047,24 @@ select:focus-visible {
 }
 
 /* A working workspace says so twice on the same row: the dot pulses, and an
-   accent highlight sweeps along the repo/name it belongs to. Text-only — the
+   accent highlight sweeps along the whole `repo / name` path. Text-only — the
    row never moves or resizes — and it holds `currentColor` as its base so the
-   label reads exactly as it does at rest between sweeps. */
+   label reads exactly as it does at rest between sweeps.
+
+   It goes on each segment of the path separately, never on the span wrapping
+   them. Everything under one `background-clip: text` element is painted from
+   that element's single gradient, so wrapping the path flattened it: the dimmed
+   repo came back in the row's own colour, and the "/" vanished. A gradient per
+   segment keeps each one's colour as its own base — the sweep crosses a dimmed
+   repo dimly and the name at full contrast (`WorkspaceCard.tsx:186`).
+
+   `background-attachment: fixed` is what still makes that read as *one* sweep.
+   Without it each segment sizes its gradient to itself, so the band crosses a
+   short repo faster than a long name and the "/" blinks on its own — three
+   sweeps in a row. Fixed positions every segment's gradient against the same
+   box instead of its own, so one band travels the path at one speed. It also
+   ties every working row in the sidebar to that box, so they sweep in step,
+   as a wave down the column rather than each row on its own timer. */
 .sidebar-label-working {
   background: linear-gradient(
     90deg,
@@ -1059,11 +1074,15 @@ select:focus-visible {
     currentColor 58%,
     currentColor 100%
   );
-  background-size: 200% auto;
+  /* A length, not a percentage: shared positioning means the tile can't be
+     relative to any one segment. 360px over 1.8s puts a pass across a ~180px
+     label at about the cadence the per-label version had. */
+  background-size: 360px 100%;
+  background-attachment: fixed;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmer 2s linear infinite;
+  animation: sidebar-sweep 1.8s linear infinite;
 }
 
 /* The disclosure on rows that also carry a selection — an agent, or a repo
@@ -1964,6 +1983,14 @@ select:focus-visible {
 @keyframes shimmer {
   0% { background-position: -200% center; }
   100% { background-position: 200% center; }
+}
+
+/* The sidebar's working sweep travels one tile width, so it loops seamlessly on
+   a `background-size` given as a length. `shimmer` above is percentage-based and
+   shared with the chat thinking indicator, which sizes its gradient to itself. */
+@keyframes sidebar-sweep {
+  from { background-position-x: 0; }
+  to { background-position-x: 360px; }
 }
 
 @keyframes spin {
