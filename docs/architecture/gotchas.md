@@ -1,7 +1,7 @@
 ---
 description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, and dockview layout restore/width-0 — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
 covers: [src/renderer/components/modals/useNewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
-updated: 2026-08-03
+updated: 2026-08-09
 owner: see .github/CODEOWNERS
 ---
 
@@ -136,35 +136,44 @@ where it started.
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
-after `fromJSON` so the collapse survives (`dock-layout-loader.ts:95`). (c) Clear the
+after `fromJSON` so the collapse survives (`dock-layout-loader.ts:89`). (c) Clear the
 pending debounced save on unmount (`useDockLayout.ts:247-252`). (d) Promote wrapper roots
 (flipping the serialized orientation) before patching the ratio
 (`dock-layout-builders.ts:45`). (e) Skip the sidebar pin when it would leave no unpinned
-group to absorb the change (`dock-layout-helpers.ts:240`), and after a hint-based reopen
+group to absorb the change (`dock-layout-sidebar-width.ts:123`), and after a hint-based reopen
 restore the default proportions — a reopened sidebar is sized to its 1/6 share, and a
 reopened center pane shrinks a sidebar that had grown past a third of the dock back to
-1/6 (`dock-layout-loader.ts:292-315`) — since `addPanel` naively splits the reference
+1/6 (`dock-layout-loader.ts:245-270`) — since `addPanel` naively splits the reference
 group 50/50. A group the user has dragged a workspace pane into is exempt from both
 shrinks — it is a center pane, not a sidebar (`isPureSidebarGroup`,
-`dock-layout-loader.ts:25`). (f) Releasing a pin
-pokes a same-size `setSize` on the group (`dock-layout-helpers.ts:173`), which triggers a
+`dock-layout-loader.ts:28`). (f) Releasing a pin
+pokes a same-size `setSize` on the group (`dock-layout-sidebar-width.ts:50`), which triggers a
 relayout that re-runs the enablement check against the released constraints — chosen over
 a forced `api.layout()` because a forced pass re-applies the splitview's stale cached
 proportions and undoes the pinned resize. (g) Ask for widths in *rendered* terms:
 `setRenderedWidth` sets the size, measures what the gap took, and asks again for the slot
 that lands on the width wanted (`useSidebarHandleCycle.ts:75`); `withPinnedSidebars` then
 holds the sidebar to the width it promised once the mutation is done, rather than trusting
-the constraint clamp (`dock-layout-helpers.ts:256`). The regression tests drive the
+the constraint clamp (`dock-layout-sidebar-width.ts:141`). The regression tests drive the
 **real** dockview library
 and the **real** layout helpers rather than an approximation:
 `dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,
 `dock-layout-default-ratio.test.tsx`, `dock-layout-reopen-empty.test.tsx`,
 `dock-layout-sash-enablement.test.tsx` (inspects the real sash DOM for stuck
 `dv-disabled` classes), `dock-layout-toggle-drift.test.tsx` (drives five close/reopen cycles
-against a dock with the app's real `gap`, asserting the sidebar ends where it began), and
+against a dock with the app's real `gap`, asserting the sidebar ends where it began),
+`dock-layout-pane-homes.test.tsx` (drives every open/close order onto the one canonical
+arrangement — see (h) below), and
 `dock-layout-drag-restore.test.tsx` — the last
 wires `element.offsetWidth` to dockview's tracked group width because jsdom has no layout
-engine (`:30-36`). More in [Renderer](renderer.md).
+engine (`:30-36`). (h) **A direction is relative to the reference pane's *cell*, not to the
+region you meant** — `addPanel(agent, 'below')` puts the shell under the agent's column
+alone, so the same panes arrange differently depending on the order they were opened in;
+and a pane closed under another lets dockview promote its sibling branch to the root,
+flipping the sticky orientation. Both are pinned by giving every pane one home and
+re-asserting it on open — never replaying a snapshot's position
+(`PANEL_RESTORE_HINTS`, `dock-layout-model.ts:35`; `spanShellAcrossWorkspace`,
+`dock-layout-shell-span.ts:50`). More in [Renderer](renderer.md).
 
 ## 5. Verify against the real code path, not an approximation
 
