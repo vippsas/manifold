@@ -10,7 +10,7 @@
   "capabilities": ["workspace:manage", "workspace:read"],
   "contributes": {
     "views": [
-      { "id": "manifold.worktrees.panel", "title": "Worktrees", "description": "Overview of every repo's managed worktrees.", "launcher": false }
+      { "id": "manifold.worktrees.panel", "title": "Worktrees", "description": "Overview of every repo's managed worktrees.", "launcher": false, "icon": "layers" }
     ]
   }
 }

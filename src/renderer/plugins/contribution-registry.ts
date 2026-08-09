@@ -49,6 +49,14 @@ export function getLauncherContributions(): RegisteredPanel[] {
   return [...panels.values()].filter((p) => p.launcher)
 }
 
+/** Every view an enabled plugin contributes, for the activity rail's plugin
+ *  group. Deliberately ignores `launcher`: that flag governs the agent's Apps
+ *  list, and the rail's promise is simpler — an enabled plugin gets an icon.
+ *  Disabled plugins never reach the registry, so no check is needed here. */
+export function getPluginContributions(): RegisteredPanel[] {
+  return [...panels.values()].filter((p) => p.source === 'plugin')
+}
+
 /** id → renderer component, for contributions that have one (internal modules). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getPanelComponents(): Record<string, React.FC<any>> {

@@ -3,6 +3,7 @@ import type { DockPanelId } from '../hooks/dock-layout/useDockLayout'
 import { PANEL_TITLES } from '../hooks/dock-layout/dock-layout-helpers'
 import { SIDEBAR_VIEW_IDS, SIDEBAR_VIEW_TITLES, type SidebarViewId } from './sidebar/sidebar-views'
 import { activityBarStyles } from './ActivityBar.styles'
+import { PluginRailGroup, type PluginRailProps } from './PluginRailGroup'
 
 function glyph(paths: React.ReactNode): React.JSX.Element {
   return (
@@ -103,7 +104,7 @@ const SETTINGS_GLYPH = glyph(
 
 export interface ActivityBarProps {
   dockLayout: {
-    isPanelVisible: (id: DockPanelId) => boolean
+    isPanelVisible: (id: string) => boolean
     togglePanel: (id: DockPanelId) => void
     focusPanel: (id: string) => void
   }
@@ -112,6 +113,9 @@ export interface ActivityBarProps {
   onSelectSidebarView: (id: SidebarViewId) => void
   hasActiveSession: boolean
   onOpenSettings?: () => void
+  /** Wiring for the plugin group. Omitted only by fixtures and tests that are
+   *  not exercising it; the app always supplies it. */
+  pluginRail?: PluginRailProps
 }
 
 export function ActivityBar({
@@ -120,6 +124,7 @@ export function ActivityBar({
   onSelectSidebarView,
   hasActiveSession,
   onOpenSettings,
+  pluginRail,
 }: ActivityBarProps): React.JSX.Element {
   const sidebarOpen = dockLayout.isPanelVisible('sidebar')
 
@@ -182,6 +187,7 @@ export function ActivityBar({
           </button>
         )
       })}
+      {pluginRail && <PluginRailGroup {...pluginRail} />}
       {onOpenSettings && <span style={activityBarStyles.spacer} aria-hidden />}
       {onOpenSettings && (
         <button

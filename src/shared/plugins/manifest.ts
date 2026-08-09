@@ -1,5 +1,6 @@
 // src/shared/plugins/manifest.ts
 /** A plugin's package.json, modeled on VS Code's extension manifest. */
+import type { PluginIconId } from './icons'
 
 /** Capabilities gate access to the privileged `manifold` API namespaces. This is the
  *  single source of truth: the manifest field, the parser, and the gated-api checks all
@@ -25,6 +26,9 @@ export interface PluginViewContribution {
   description?: string
   /** Whether the view appears in the "+ Apps" launcher. */
   launcher?: boolean
+  /** Which host glyph the activity rail draws for this view. Unset — or a name
+   *  this host doesn't know — falls back to the generic plugin glyph. */
+  icon?: PluginIconId
   /** 'webview' (iframe, default) or 'tree' (native TreeDataProvider). */
   type?: 'webview' | 'tree'
   /** Exact https origins this view's webview may embed in iframes (CSP frame-src).

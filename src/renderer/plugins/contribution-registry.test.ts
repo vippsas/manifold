@@ -4,6 +4,7 @@ import {
   getLauncherContributions,
   getPanelComponents,
   getPanelContributions,
+  getPluginContributions,
   registerPanelContribution,
   resetToInternal,
 } from './contribution-registry'
@@ -34,6 +35,21 @@ describe('contribution-registry', () => {
     expect(getLauncherContributions().map((p) => p.id)).toContain('example.hello')
     expect(getPanelComponents()['example.hello']).toBeUndefined()
     expect(getPanelContributions().some((p) => p.id === 'example.hello')).toBe(true)
+  })
+
+  // The activity rail shows every enabled plugin, so its selector must ignore
+  // `launcher` — which governs the agent's Apps list only — and must not pick
+  // up internal contributions, which the rail's built-in groups already cover.
+  it('collects plugin views for the rail regardless of the launcher flag', () => {
+    registerPanelContribution({
+      id: 'example.stats', title: 'Statistics', description: 'x', launcher: false, source: 'plugin',
+    })
+    registerPanelContribution({
+      id: 'internal.example', title: 'Example', description: 'x', launcher: true, source: 'internal',
+    })
+
+    expect(getPluginContributions().map((p) => p.id)).toEqual(['example.stats'])
+    expect(getLauncherContributions().map((p) => p.id)).toEqual(['internal.example'])
   })
 
   it('resets back to just the internal contributions', () => {

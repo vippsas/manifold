@@ -6,6 +6,7 @@
  * Shared across the main process, the (future) extension host, and the renderer
  * so all three agree on the shape. Phase 0 uses only `PanelContribution`.
  */
+import type { PluginIconId } from './icons'
 
 /** Where a contribution originates. */
 export type ContributionSource = 'internal' | 'plugin'
@@ -23,6 +24,8 @@ export interface PanelContribution {
   description: string
   /** Whether the panel appears in the "+ Apps" launcher menu. */
   launcher: boolean
+  /** Which host glyph the activity rail draws for this panel. */
+  icon?: PluginIconId
   /** Origin of the contribution. */
   source: ContributionSource
   /** 'webview' (default) or 'tree'. */

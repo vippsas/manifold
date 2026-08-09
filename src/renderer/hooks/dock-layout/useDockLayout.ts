@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DockviewApi, SerializedDockview } from 'dockview'
 import {
   applyLayoutChangePreservingSidebarWidths,
+  findPluginViewReferencePanel,
   findTopLeftWorkspaceReferencePanel,
   isEditorPanelId,
   loadOrBuildLayout,
@@ -51,7 +52,7 @@ export interface UseDockLayoutResult {
   ensureEditorPanel: (preferredPanelId?: string | null) => string
   splitEditorPane: (referencePanelId: string, direction: EditorSplitDirection) => string | null
   findEditorPanelForSplit: (referencePanelId: string, direction: EditorSplitDirection) => string | null
-  isPanelVisible: (id: DockPanelId) => boolean
+  isPanelVisible: (id: string) => boolean
   resetLayout: () => void
   editorPanelIds: string[]
   layoutVersion: number
@@ -208,10 +209,15 @@ export function useDockLayout(
     // editor is open, take the editor's place to the right of the agent and
     // split that region 50/50, leaving the sidebar at its pinned width.
     const editorPanelId = findOpenEditorPanelId(api)
+    // Nothing to position against; dockview throws on a referencePanel that
+    // isn't there. Reachable because the activity rail can open a plugin view
+    // with no agent panel in the dock at all.
+    const referencePanelId = editorPanelId ?? findPluginViewReferencePanel(api)
     if (editorPanelId) {
       api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: editorPanelId, direction: 'within' } })
+    } else if (referencePanelId == null) {
+      api.addPanel({ id: viewId, component: 'pluginView', title })
     } else {
-      const referencePanelId = api.getPanel('agent') ? 'agent' : (findTopLeftWorkspaceReferencePanel(api) ?? 'agent')
       applyLayoutChangePreservingSidebarWidths(api, () => {
         api.addPanel({ id: viewId, component: 'pluginView', title, position: { referencePanel: referencePanelId, direction: 'right' } })
         const refGroup = api.getPanel(referencePanelId)?.group
@@ -231,8 +237,10 @@ export function useDockLayout(
     if (!api) return
     const existing = api.getPanel(viewId)
     if (existing) { existing.api.setActive(); return }
-    const referencePanelId = findTopLeftWorkspaceReferencePanel(api) ?? 'agent'
-    api.addPanel({ id: viewId, component: 'pluginTreeView', title, position: { referencePanel: referencePanelId, direction: 'within' } })
+    const referencePanelId = findTopLeftWorkspaceReferencePanel(api)
+    api.addPanel(referencePanelId == null
+      ? { id: viewId, component: 'pluginTreeView', title }
+      : { id: viewId, component: 'pluginTreeView', title, position: { referencePanel: referencePanelId, direction: 'within' } })
     saveLayout()
     bumpVersion()
   }, [bumpVersion, saveLayout]) // eslint-disable-line react-hooks/exhaustive-deps

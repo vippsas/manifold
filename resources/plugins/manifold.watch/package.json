@@ -15,6 +15,7 @@
         "title": "Watch",
         "description": "Watch videos with your agent: frames, transcript, report.",
         "launcher": true,
+        "icon": "video",
         "frameSources": ["https://www.youtube.com"]
       }
     ]
