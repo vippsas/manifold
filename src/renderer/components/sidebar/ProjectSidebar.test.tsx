@@ -197,6 +197,18 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('beta-space').closest('.sidebar-label-working')).toBeNull()
   })
 
+  // Everything under the sweep is painted from its one gradient, so the dimmed
+  // `repo /` prefix has to stay outside it: within, the repo came back at the
+  // row's own contrast and the "/" — dimmed with opacity, which isolates it from
+  // an ancestor's background — all but vanished.
+  it('keeps the dimmed repo prefix out of the sweep', () => {
+    renderSidebar({ outputtingSessionIds: new Set(['s1']) })
+
+    const row = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
+    expect(within(row!).getByText('Alpha').closest('.sidebar-label-working')).toBeNull()
+    expect(within(row!).getByText('/').closest('.sidebar-label-working')).toBeNull()
+  })
+
   it('calls onNewProject when Add Repository is clicked', () => {
     const { props } = renderSidebar()
 

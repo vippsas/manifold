@@ -1035,9 +1035,15 @@ select:focus-visible {
 }
 
 /* A working workspace says so twice on the same row: the dot pulses, and an
-   accent highlight sweeps along the repo/name it belongs to. Text-only — the
-   row never moves or resizes — and it holds `currentColor` as its base so the
-   label reads exactly as it does at rest between sweeps. */
+   accent highlight sweeps along the workspace's own name. Text-only — the row
+   never moves or resizes — and it holds `currentColor` as its base so the name
+   reads exactly as it does at rest between sweeps.
+
+   Scope it to a run of text that is all one colour. Everything under this
+   element is painted from this one gradient, so across the whole `repo / name`
+   path it repainted the dimmed repo in the *row's* colour, and the "/" — dimmed
+   with `opacity`, which isolates it from an ancestor's background — came out
+   barely visible (`WorkspaceCard.tsx:186`). */
 .sidebar-label-working {
   background: linear-gradient(
     90deg,

@@ -183,17 +183,24 @@ export function WorkspaceCard({
           >
             {/* Own group, so the label's 6px gap spaces the dot off the name
                 without also prising the repo, the "/" and the name apart. */}
-            <span
-              className={isWorking ? 'sidebar-label-working' : undefined}
-              style={sidebarStyles.rowLabelPath}
-            >
+            <span style={sidebarStyles.rowLabelPath}>
               {label.repo && (
                 <>
                   <span style={sidebarStyles.rowRepo}>{label.repo}</span>
                   <span style={sidebarStyles.rowRepoSep}>/</span>
                 </>
               )}
-              <span className="truncate" style={{ minWidth: 0 }}>{label.name}</span>
+              {/* The sweep goes on the name alone, not the path around it: it
+                  paints every glyph beneath it from one gradient, so on the
+                  whole path it repainted the dimmed repo at full contrast and
+                  left the "/" — dimmed by opacity, which isolates it from that
+                  gradient — barely visible. */}
+              <span
+                className={`truncate${isWorking ? ' sidebar-label-working' : ''}`}
+                style={{ minWidth: 0 }}
+              >
+                {label.name}
+              </span>
             </span>
             {isWorking && (
               <span
