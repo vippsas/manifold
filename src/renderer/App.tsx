@@ -27,6 +27,7 @@ import { useDockLayout } from './hooks/dock-layout/useDockLayout'
 import { useSidebarHandleCycle } from './hooks/dock-layout/useSidebarHandleCycle'
 import { useAgentSiblingDockTabs } from './hooks/agent-session/useAgentSiblingDockTabs'
 import { useAppEffects } from './hooks/app/useAppEffects'
+import { groupSessionsByWorkspace } from './hooks/app/session-workspace-map'
 import { useCommands } from './hooks/app/useCommands'
 import { themeFamilyOf } from '../shared/themes/registry'
 import { cycleAgent } from './commands/agent-cycle'
@@ -79,24 +80,10 @@ export function App(): React.JSX.Element {
   }, [favorites, activateFavorite])
   const [quickOpenVisible, setQuickOpenVisible] = useState(false)
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
-  // Every agent hangs under a workspace, because every repo does. A workspace
-  // agent names its workspace outright; an agent started against a single repo is
-  // placed by whichever workspace holds that repo.
-  const sessionsByWorkspace = useMemo(() => {
-    const map: Record<string, AgentSession[]> = {}
-    for (const sessions of Object.values(sessionsByProject ?? {})) {
-      for (const sx of sessions) {
-        if (sx.workspaceId) {
-          (map[sx.workspaceId] ??= []).push(sx)
-          continue
-        }
-        for (const workspace of workspaces) {
-          if (workspace.projectIds.includes(sx.projectId)) (map[workspace.id] ??= []).push(sx)
-        }
-      }
-    }
-    return map
-  }, [sessionsByProject, workspaces])
+  const sessionsByWorkspace = useMemo(
+    () => groupSessionsByWorkspace(sessionsByProject ?? {}, workspaces),
+    [sessionsByProject, workspaces],
+  )
   const workspaceIdBySession = useMemo(() => {
     const map: Record<string, string> = {}
     for (const [workspaceId, sessions] of Object.entries(sessionsByWorkspace)) {

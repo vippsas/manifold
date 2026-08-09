@@ -64,8 +64,8 @@ describe('sidebar sort toggle', () => {
     expect(screen.getByLabelText(SORTED_ALPHA)).toBeInTheDocument()
   })
 
-  it('leaves the Add Repository action in place', () => {
+  it('leaves the New Repo action in place', () => {
     renderSidebar()
-    expect(screen.getByLabelText('Add Repository')).toBeInTheDocument()
+    expect(screen.getByLabelText('New Repo')).toBeInTheDocument()
   })
 })
