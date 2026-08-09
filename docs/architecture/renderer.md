@@ -27,7 +27,7 @@ boundaries. Individual panels and hooks are catalogued only enough to locate the
 - `src/renderer/hooks/` — the renderer's data/state hooks, grouped into domain subfolders: `agent-session/`, `project/`, `search/`, `terminal/`, `editor/`, `app/`, `settings/`, `theme/`, `plugin-ui/`, and the `dock-layout/` subsystem that drives dockview (a few cross-cutting utilities like `useAutoFocus`/`useContainerWidth` stay at the root).
 - `src/renderer/components/home/` — the global **Dashboard** home-layer surface: `DashboardHomeView` (a full-screen overlay opened by the `view.dashboard` command — command palette or the native View menu — and by the New Agent modal's "View all worktrees" link through `dockState.onOpenDashboard`; no window chrome button opens it) renders a host-owned card grid (`dashboard-cards.ts`) of summary tiles; selecting one drills into that module's plugin webview by view id (`PluginViewPanel`) with a back-to-grid control. The cards are Worktrees and Statistics (the latter an all-projects view via `verdicts.listAll()`); each card's headline numbers come from a thin `dashboard:*-summary` IPC (`DashboardHomeView.tsx:39`, `dashboard-cards.ts:65`). When the Statistics webview opens with cached open PR records, its bridge posts one automatic `verify-prs` request so the panel can refresh stale PR state without waiting for the manual button.
 - `src/renderer/modules/launcher-modules.ts` — derives the "+ Apps" launcher list from the contribution registry.
-- `src/renderer/plugins/` — the renderer-side panel contribution registry (`contribution-registry.ts`, `internal-contributions.ts`, `use-contributions.ts`).
+- `src/renderer/plugins/` — the renderer-side panel contribution registry (`contribution-registry.ts`, `internal-contributions.ts`, `use-contributions.ts`). Two selectors read it: `getLauncherContributions()` for the agent's Apps list (`launcher: true` only) and `getPluginContributions()` for the activity rail (every plugin view, whatever `launcher` says).
 - `src/renderer-shared/chat/` — chat UI/logic (`ChatPane`, `useChat`, `useAgentStatus`, `useSlashCommands`) factored into its own top-level dir so chat surfaces can share it.
 
 Not detailed here: the per-component internals (each `components/*` subtree), `styles/` CSS, `assets/`, and the leaf helpers `session-selection.ts` / `terminal-input-filter.ts`.
@@ -206,7 +206,7 @@ offset its `position: fixed` from the measured viewport point. Triggers keep the
 
 **Activity bar.** A fixed (non-collapsible) icon rail sits left of the dock
 (`components/ActivityBar.tsx`), labeled via a CSS hover tooltip
-(`.activity-bar-tooltip`), in two groups either side of a divider. The **top group is the
+(`.activity-bar-tooltip`), in three groups separated by dividers. The **top group is the
 one sidebar's view switcher**: a button per `SIDEBAR_VIEW_IDS` entry — Explorer, Source
 Control, Search (`sidebar/sidebar-views.ts:10`) — following VS Code exactly. Picking a
 different view swaps what the sidebar shows and focuses it; clicking the view already
@@ -217,7 +217,21 @@ through `dockLayout.togglePanel(id)`; each renders accent-colored with an edge i
 bar while its panel is visible (`isPanelVisible`), and the session-dependent `editor` is
 disabled while no agent session is active. `shell` is not gated: its terminals run in the
 workspace checkout, not in an agent's worktree, so the panel opens with nothing running. **The file tree has no rail item**
-— it hangs under a repo's row inside the Explorer. The command catalog carries a
+— it hangs under a repo's row inside the Explorer.
+
+The **third group is one icon per view an enabled plugin contributes**
+(`PluginRailGroup.tsx:21`), reading `usePluginContributions()` — which, unlike the agent
+Apps list's `useLauncherContributions()`, deliberately ignores the `launcher` flag, so
+Worktrees and Statistics (`launcher: false`) get icons too. Clicking toggles that view's
+dock panel the way the group above it does: `onOpenPluginView` / `onOpenPluginTreeView` to
+open, `onClosePanel` to close, `isPanelVisible(viewId)` for the active marking
+(`AppShell.tsx:165`). The rail renders outside `DockStateContext`, so this wiring is
+passed down as the `pluginRail` prop rather than read from context. The glyph comes from
+the view's `icon` manifest field resolved against a closed host-owned set
+(`plugin-glyphs.tsx:13`); an absent or unrecognised name falls back to the generic `plugin`
+glyph. With no enabled plugin views the group renders nothing — divider included.
+
+The command catalog carries a
 `view.toggle.*` command and accelerator per panel plus a `view.sidebar.*` command per
 sidebar view (`src/shared/commands/catalog.ts:65`, `:72`); the latter route through
 `ctx.showSidebarView`, which opens the sidebar when it is collapsed rather than silently

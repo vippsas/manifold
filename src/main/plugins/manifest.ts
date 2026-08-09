@@ -9,6 +9,7 @@ import {
   type PluginContributions,
   type PluginViewContribution,
 } from '../../shared/plugins/manifest'
+import { isPluginIconId } from '../../shared/plugins/icons'
 
 export type ManifestParseResult =
   | { ok: true; manifest: ManifoldPluginManifest }
@@ -86,6 +87,10 @@ export function parseManifest(raw: unknown): ManifestParseResult {
         title: view.title,
         description: typeof view.description === 'string' ? view.description : undefined,
         launcher: typeof view.launcher === 'boolean' ? view.launcher : undefined,
+        // An icon name this host doesn't know is dropped rather than rejected,
+        // so a plugin built against a newer host still loads here — it just
+        // falls back to the generic plugin glyph.
+        icon: isPluginIconId(view.icon) ? view.icon : undefined,
         type: view.type === 'tree' || view.type === 'webview' ? view.type : undefined,
         frameSources,
       })

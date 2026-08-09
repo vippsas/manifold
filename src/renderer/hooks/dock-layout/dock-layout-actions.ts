@@ -16,7 +16,7 @@ export interface DockActionHandlers {
   togglePanel: (id: DockPanelId) => void
   closePanel: (id: string) => void
   toggleMaximizePanel: (id: string) => void
-  isPanelVisible: (id: DockPanelId) => boolean
+  isPanelVisible: (id: string) => boolean
   resetLayout: () => void
 }
 
@@ -116,7 +116,7 @@ export function useDockActions(
     toggleMaximizedGroup(api, id)
   }, [ctx])
 
-  const isPanelVisible = useCallback((id: DockPanelId): boolean => {
+  const isPanelVisible = useCallback((id: string): boolean => {
     const api = ctx.apiRef.current
     if (!api) return true
     if (id === 'editor') return ctx.editorPanelIdsRef.current.size > 0

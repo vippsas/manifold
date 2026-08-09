@@ -160,6 +160,16 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
             onSelectSidebarView={p.onSelectSidebarView}
             hasActiveSession={p.activeSessionId != null}
             onOpenSettings={() => p.overlays.setShowSettings(true)}
+            // The rail renders outside DockStateContext, so the plugin group's
+            // dock wiring is handed down explicitly rather than read from it.
+            pluginRail={{
+              isOpen: (viewId) => (p.dockLayout as ActivityBarProps['dockLayout']).isPanelVisible(viewId),
+              onOpen: (viewId, title, kind) => {
+                if (kind === 'tree') p.dockState.onOpenPluginTreeView(viewId, title)
+                else p.dockState.onOpenPluginView(viewId, title)
+              },
+              onClose: (viewId) => p.dockState.onClosePanel(viewId),
+            }}
           />
           <DockStateContext.Provider value={p.dockState}>
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative', padding: 'var(--space-xs)', background: 'var(--dock-canvas)' }}>

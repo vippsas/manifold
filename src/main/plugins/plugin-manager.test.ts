@@ -58,6 +58,13 @@ describe('viewContributionsOf', () => {
   it('returns [] when a plugin has no views', () => {
     expect(viewContributionsOf([desc('p.c', [])])).toEqual([])
   })
+  // The renderer's activity rail picks its glyph off this field, so it has to
+  // survive the hop from manifest to contribution.
+  it('carries the view icon through to the renderer contribution', () => {
+    const out = viewContributionsOf([desc('p.e', [{ id: 'e.view', title: 'E', icon: 'chart' }])])
+    expect(out[0].icon).toBe('chart')
+    expect(viewContributionsOf([desc('p.f', [{ id: 'f.view', title: 'F' }])])[0].icon).toBeUndefined()
+  })
 })
 
 describe('frameSourcesOf', () => {

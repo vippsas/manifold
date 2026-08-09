@@ -1,12 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ActivityBar, type ActivityBarProps } from './ActivityBar'
-import type { DockPanelId } from '../hooks/dock-layout/useDockLayout'
 import type { SidebarViewId } from './sidebar/sidebar-views'
 
-function makeDockLayout(visible: DockPanelId[] = []): ActivityBarProps['dockLayout'] {
+function makeDockLayout(visible: string[] = []): ActivityBarProps['dockLayout'] {
   return {
-    isPanelVisible: (id: DockPanelId) => visible.includes(id),
+    isPanelVisible: (id: string) => visible.includes(id),
     togglePanel: vi.fn(),
     focusPanel: vi.fn(),
   }

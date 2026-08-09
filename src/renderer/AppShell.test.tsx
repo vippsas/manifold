@@ -60,6 +60,8 @@ vi.mock('./components/plugin-ui/PluginUiHost', async () => {
 
 vi.mock('./plugins/use-contributions', () => ({
   useLoadPluginContributions: vi.fn(),
+  // The activity rail's plugin group reads this; no plugins in these fixtures.
+  usePluginContributions: () => [],
 }))
 
 const project = {

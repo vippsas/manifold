@@ -41,14 +41,16 @@ glyph table cannot drift:
 
 ```ts
 // src/shared/plugins/icons.ts (new)
-export const PLUGIN_ICON_IDS = ['chart', 'branch', 'loop', 'video', 'plugin'] as const
+export const PLUGIN_ICON_IDS = ['chart', 'layers', 'loop', 'video', 'plugin'] as const
 export type PluginIconId = typeof PLUGIN_ICON_IDS[number]
 export function isPluginIconId(value: unknown): value is PluginIconId
 ```
 
-Five names: four for the bundled plugins plus `plugin` (a puzzle piece) as the fallback for
+Five names, describing the shape rather than the plugin using it: four for the bundled
+plugins plus `plugin` (the detached-square extensions mark) as the fallback for
 any view that declares no icon or an unrecognised one. The set grows when a plugin needs a
-name, not before.
+name, not before. There is deliberately no `branch` glyph: Source Control already owns that
+shape further up the same rail, so Worktrees takes `layers` instead.
 
 The field threads through the four places a view contribution is described today:
 
@@ -67,7 +69,7 @@ The four bundled manifests under `resources/plugins/` declare their icon:
 | Plugin | View | `icon` |
 | --- | --- | --- |
 | `manifold.statistics` | `manifold.statistics.panel` | `chart` |
-| `manifold.worktrees` | `manifold.worktrees.panel` | `branch` |
+| `manifold.worktrees` | `manifold.worktrees.panel` | `layers` |
 | `manifold.loop` | `manifold.loop.panel` | `loop` |
 | `manifold.watch` | `manifold.watch.panel` | `video` |
 
@@ -136,14 +138,25 @@ with no `position` when the resolved reference panel is absent. Same fallback in
 This is the one pre-existing-code change the feature requires; it is in scope because the
 feature is what makes the path reachable.
 
-### 5. No session gating
+### 5. Worktrees at dock width
+
+Found during verification, not anticipated at design time. The Worktrees panel was drawn
+only as a full-window Dashboard card, so its KPI row and board were fixed
+`repeat(4,1fr)` / `repeat(3,1fr)` grids; in a half-width dock pane the Prune column was
+clipped off the right edge. Both become `repeat(auto-fit,minmax(…,1fr))` so they wrap, and
+`.wt-col` gains `min-width:0` — a grid item's automatic minimum is its content, and the
+long mono branch names were otherwise holding the columns open
+(`resources/plugins/manifold.worktrees/src/webview/panel-css.ts`). Statistics, Loop, and
+Watch already reflowed correctly and are untouched.
+
+### 6. No session gating
 
 Statistics and Worktrees are global surfaces with no reason to require an agent, so the
 plugin group carries no equivalent of `PanelRailItem.sessionOnly`. Loop and Watch are
 agent-scoped in their own behaviour, but that is the plugin's concern to report, not the
 rail's to pre-empt.
 
-### 6. Accessibility and affordance
+### 7. Accessibility and affordance
 
 Each button matches the existing rail items exactly: `aria-label={title}`,
 `aria-pressed={isOpen}`, the `.activity-bar-item--active` class when open, and the hover

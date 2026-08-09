@@ -42,6 +42,7 @@ export function viewContributionsOf(plugins: PluginDescriptor[]): PluginPanelCon
         title: v.title,
         description: v.description ?? '',
         launcher: v.launcher ?? false,
+        icon: v.icon,
         source: 'plugin',
         pluginId: p.id,
         kind: v.type === 'tree' ? 'tree' : 'webview',

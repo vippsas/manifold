@@ -51,6 +51,15 @@ export function findAdjacentEditorPanelId(
   return match?.panelId ?? null
 }
 
+/** The panel a newly opened plugin view positions itself against: the agent
+ *  when it is open, otherwise the top-left workspace panel. Null when the dock
+ *  holds nothing to position against — the activity rail can open a plugin view
+ *  into an empty dock, and dockview throws on a referencePanel that isn't there. */
+export function findPluginViewReferencePanel(api: DockviewApi): string | null {
+  if (api.getPanel('agent')) return 'agent'
+  return findTopLeftWorkspaceReferencePanel(api)
+}
+
 const NON_WORKSPACE_PANEL_IDS = new Set<string>(['sidebar'])
 
 export function findTopLeftWorkspaceReferencePanel(api: DockviewApi): string | null {

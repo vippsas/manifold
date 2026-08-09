@@ -91,6 +91,23 @@ describe('parseManifest', () => {
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.manifest.contributes?.views?.[0].frameSources).toBeUndefined()
   })
+  it('keeps a view icon the host ships a glyph for', () => {
+    const r = parseManifest({ ...valid, contributes: { views: [{ id: 'v1', title: 'V', icon: 'chart' }] } })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.contributes?.views?.[0].icon).toBe('chart')
+  })
+  // Dropped, not rejected: a plugin built against a newer host still loads here,
+  // and the rail falls back to the generic plugin glyph.
+  it('drops an unrecognised view icon without failing the manifest', () => {
+    const r = parseManifest({ ...valid, contributes: { views: [{ id: 'v1', title: 'V', icon: 'rocket' }] } })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.contributes?.views?.[0].icon).toBeUndefined()
+  })
+  it('omits the view icon when not declared', () => {
+    const r = parseManifest({ ...valid, contributes: { views: [{ id: 'v1', title: 'V' }] } })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.manifest.contributes?.views?.[0].icon).toBeUndefined()
+  })
   it('does not pass raw unvalidated fields through (no `as unknown as`)', () => {
     // A non-string `main` must not survive as a typed string; it is coerced to undefined.
     const r = parseManifest({ ...valid, main: 42 })

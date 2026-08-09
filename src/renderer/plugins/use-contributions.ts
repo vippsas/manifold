@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import {
   getLauncherContributions,
+  getPluginContributions,
   registerPanelContribution,
   resetToInternal,
   subscribeContributions,
@@ -31,5 +32,14 @@ export function useLoadPluginContributions(): void {
 export function useLauncherContributions(): RegisteredPanel[] {
   const [items, setItems] = useState<RegisteredPanel[]>(() => getLauncherContributions())
   useEffect(() => subscribeContributions(() => setItems(getLauncherContributions())), [])
+  return items
+}
+
+/** Live plugin-contributed views for the activity rail; re-renders when the
+ *  registry changes, so enabling or disabling a plugin in Settings adds or
+ *  removes its icon without a reload. */
+export function usePluginContributions(): RegisteredPanel[] {
+  const [items, setItems] = useState<RegisteredPanel[]>(() => getPluginContributions())
+  useEffect(() => subscribeContributions(() => setItems(getPluginContributions())), [])
   return items
 }

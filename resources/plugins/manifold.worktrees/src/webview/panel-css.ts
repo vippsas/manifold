@@ -3,8 +3,10 @@ export const PANEL_CSS = `
   .wt-root { height:100%; overflow:auto; box-sizing:border-box; padding:var(--space-md) var(--space-lg) 48px;
     font-family:var(--font-sans); font-size:var(--type-ui-small); color:var(--text-secondary); }
 
-  /* KPI tiles */
-  .wt-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--space-sm); }
+  /* KPI tiles. auto-fit rather than a fixed 4: the panel is no longer only the
+     full-window Dashboard card — the activity rail opens it in a half-width dock
+     pane, where four fixed columns overflow instead of wrapping. */
+  .wt-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:var(--space-sm); }
   .wt-kpi { position:relative; overflow:hidden; background:var(--bg-elevated); border:1px solid var(--border);
     border-radius:var(--radius-lg); padding:var(--space-md); box-shadow:var(--shadow-subtle); }
   .wt-kpi .v { font-size:28px; font-weight:680; line-height:1; letter-spacing:-.02em; color:var(--text-primary);
@@ -20,9 +22,11 @@ export const PANEL_CSS = `
   .wt-kpi.prune .v { color:var(--status-error); } .wt-kpi.prune .glow { background:var(--status-error); }
 
   /* Board columns */
-  .wt-board { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-md); margin-top:var(--space-lg);
-    align-items:start; }
-  .wt-col { background:color-mix(in srgb, var(--text-primary) 2%, transparent); border:1px solid var(--divider);
+  .wt-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:var(--space-md);
+    margin-top:var(--space-lg); align-items:start; }
+  /* min-width:0 — a grid item's auto minimum is its content, so the long mono
+     branch names would otherwise push the columns wider than the pane. */
+  .wt-col { min-width:0; background:color-mix(in srgb, var(--text-primary) 2%, transparent); border:1px solid var(--divider);
     border-radius:var(--radius-lg); padding:var(--space-sm); }
   .wt-colhead { display:flex; align-items:center; gap:var(--space-sm); padding:2px 4px var(--space-sm); }
   .wt-colhead .ct { margin-left:auto; font-size:var(--type-ui-caption); color:var(--text-muted);
