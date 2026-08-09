@@ -8,8 +8,9 @@ import type { DockPanelId } from '../../../hooks/dock-layout/useDockLayout'
 /** Right-side header actions for every dock group: a single × for groups made
  *  of icon-only tabs (the sidebar, the editor) — those tabs carry no per-tab
  *  close button of their own (see DockTab), and the sidebar renders no tab at
- *  all, so the group header is what closes them. The editor's pane actions are
- *  deliberately not here; they live in the code viewer's own tab bar (see
+ *  all, so the group header is what closes them. In practice this serves the
+ *  sidebar: an editor alone in its group hides this header entirely, and its ×
+ *  and pane actions both live in the code viewer's own tab bar (see
  *  EditorPaneActions). */
 export function WorkspaceHeaderActions(props: IDockviewHeaderActionsProps): React.JSX.Element {
   const state = React.useContext(DockStateContext)

@@ -69,6 +69,7 @@ function EditorPanel({ api }: { api: { id: string } }): React.JSX.Element {
       theme={s.theme}
       editorSettings={s.editorSettings}
       headerActions={<EditorPaneActions paneId={paneId} />}
+      onToggleMaximize={() => s.onToggleMaximize(paneId)}
       onActivatePane={() => s.onActivateEditorPane(paneId)}
       onSelectTab={(filePath) => s.onSelectOpenFile(filePath, paneId)}
       onMoveTabToSplitPane={(filePath, direction) => s.onMoveFileToSplitPane(filePath, paneId, direction)}

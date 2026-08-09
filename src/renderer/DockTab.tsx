@@ -2,6 +2,7 @@ import React from 'react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
 import { isSiblingPanelId, parseSiblingSessionId } from './hooks/agent-session/agent-siblings'
+import { isEditorPanelId } from './hooks/dock-layout/dock-layout-helpers'
 import { formatBranchLabel } from './components/sidebar/agent-labels'
 import { AgentSettingsModal } from './components/modals/AgentSettingsModal'
 import { PanelGlyph, type GlyphId } from './components/ActivityBar'
@@ -40,7 +41,10 @@ function TrashIcon(): React.JSX.Element {
 /** Panels whose tabs carry no close button of their own — a single × in the
  *  group header closes the whole item (see WorkspaceHeaderActions). The sidebar
  *  is here despite rendering no tab at all: the header × is the only way to
- *  close it. */
+ *  close it. The editor is the exception that proves the rule — alone in its
+ *  group it hides that header (dockview-theme.css) and its × rides the file-tab
+ *  strip instead (EditorPaneActions); this tab shows only when it shares a
+ *  group with another panel. */
 export const ICON_TAB_PANELS = new Set<string>(['sidebar', 'editor'])
 
 /** The sidebar renders no tab at all: it is alone in its column, a lone tab
@@ -63,10 +67,16 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   if (HEADLESS_TAB_PANELS.has(api.id)) {
     return <div className="dock-tab dock-tab--headless" aria-label={title} />
   }
+  // An editor pane carries a tab strip of its own — the code viewer's file tabs —
+  // so a group holding nothing but one editor hides this header entirely (see
+  // dockview-theme.css). The marker is what that rule matches on, and it goes on
+  // both editor tab shapes: the icon tab the first pane renders and the text tab
+  // a split pane (`editor:N`) falls through to below.
+  const editorClass = isEditorPanelId(api.id) ? ' dock-tab--editor' : ''
   if (ICON_TAB_PANELS.has(api.id)) {
     return (
       <div
-        className="dock-tab dock-tab--icon"
+        className={`dock-tab dock-tab--icon${editorClass}`}
         title={title}
         aria-label={title}
         onDoubleClick={() => state?.onToggleMaximize(api.id)}
@@ -146,7 +156,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   }
   return (
     <div
-      className="dock-tab"
+      className={`dock-tab${editorClass}`}
       onDoubleClick={() => state?.onToggleMaximize(api.id)}
     >
       <span className="dock-tab__label truncate">{title}</span>

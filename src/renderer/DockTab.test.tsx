@@ -238,6 +238,23 @@ describe('DockTab', () => {
     expect(container.querySelector('svg')).not.toBeNull()
   })
 
+  it('marks every editor pane tab so the theme can drop its header strip', () => {
+    // The strip is a second 30px row above the pane's own file tabs, which the
+    // theme hides for a lone editor (dockview-theme.css keys on this class).
+    // A split pane falls through to the text tab, and must carry it too.
+    const first = render(<DockTab {...makeHeaderProps('editor', 'Editor')} />)
+    expect(first.container.querySelector('.dock-tab--editor')).not.toBeNull()
+    first.unmount()
+
+    const split = render(<DockTab {...makeHeaderProps('editor:1', 'Editor')} />)
+    expect(split.container.querySelector('.dock-tab--editor')).not.toBeNull()
+    split.unmount()
+
+    // Panels that are not editors keep an ordinary tab.
+    const shell = render(<DockTab {...makeHeaderProps('shell', 'Shell')} />)
+    expect(shell.container.querySelector('.dock-tab--editor')).toBeNull()
+  })
+
   it('double-clicking an icon-only tab still toggles focus mode', () => {
     const onToggleMaximize = vi.fn()
     render(
