@@ -25,11 +25,22 @@ export const PANEL_TITLES: Record<DockPanelId, string> = {
 
 export type Direction = 'right' | 'left' | 'above' | 'below' | 'within'
 
-// Fallback positions when no snapshot exists (matches the default layout).
-// The sidebar is the one left column and always reopens as a column of its own;
-// the editor is a document pane that opens beside the agent on demand.
-export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; dir: Direction }>> = {
-  sidebar: [{ ref: 'agent', dir: 'left' }, { ref: 'editor', dir: 'left' }],
+/** Where a pane opens. `ref: null` means "relative to the dock root" rather
+ *  than to another pane — dockview re-roots the grid along that axis first. */
+export interface RestoreHint {
+  ref: DockPanelId | null
+  dir: Direction
+}
+
+// Every pane has one home, tried in order against whatever is currently open.
+// The sidebar anchors to the dock root, not to the agent: removing a pane can
+// leave dockview's root orientation vertical (it promotes a lone child branch
+// to the root), and a sidebar anchored to the agent then reopens as a cell in
+// the top row instead of a full-height column. The root-relative add flips the
+// root back. The shell opens below the agent and is then widened to span the
+// whole workspace row by `spanShellAcrossWorkspace`.
+export const PANEL_RESTORE_HINTS: Record<DockPanelId, RestoreHint[]> = {
+  sidebar: [{ ref: null, dir: 'left' }],
   agent: [{ ref: 'sidebar', dir: 'right' }, { ref: 'editor', dir: 'left' }, { ref: 'shell', dir: 'above' }],
   editor: [{ ref: 'agent', dir: 'right' }, { ref: 'shell', dir: 'above' }],
   shell: [{ ref: 'agent', dir: 'below' }, { ref: 'editor', dir: 'below' }],
@@ -37,16 +48,6 @@ export const PANEL_RESTORE_HINTS: Record<DockPanelId, Array<{ ref: DockPanelId; 
 
 export function isEditorPanelId(panelId: string): boolean {
   return panelId === 'editor' || panelId.startsWith(EDITOR_PANEL_ID_PREFIX)
-}
-
-/**
- * Whether a reopening panel may land as a tab beside `otherId`. The sidebar is
- * a container for its own view switcher, never a tab strip shared with a
- * workspace pane — without this a panel closed back when it happened to share
- * the sidebar's group would rejoin it from its snapshot.
- */
-export function mayShareTabGroup(panelId: string, otherId: string): boolean {
-  return panelId !== 'sidebar' && otherId !== 'sidebar'
 }
 
 export function parseEditorPanelOrder(panelId: string): number {

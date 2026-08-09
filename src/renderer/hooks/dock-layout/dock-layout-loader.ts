@@ -5,7 +5,6 @@ import {
   PANEL_TITLES,
   SIDEBAR_PANEL_IDS,
   applyLayoutChangePreservingSidebarWidths,
-  mayShareTabGroup,
   restoreCollapsedSidebarWidths,
   withPinnedSidebars,
   type Direction,
@@ -13,6 +12,7 @@ import {
   type GridNode,
   type LayoutRefs,
 } from './dock-layout-helpers'
+import { spanShellAcrossWorkspace } from './dock-layout-shell-span'
 
 /** The default share of the dock width the sidebar column gets (matches the
  *  1:5 default layout and the share the sanitizer normalizes a restored
@@ -30,45 +30,36 @@ function isPureSidebarGroup(api: DockviewApi, group: DockGroup): boolean {
 }
 
 /**
- * Size the group containing `panelId` to roughly `fraction` of the dock height,
- * in place. Replaces an api.fromJSON() patch that tore down and remounted every
- * panel; a group setSize resizes without remounting, leaving the agent
- * terminal (and its xterm scrollback) intact.
+ * Size the group containing `panelId` along one axis, in place. Replaces an
+ * api.fromJSON() patch that tore down and remounted every panel; a group
+ * setSize resizes without remounting, leaving the agent terminal (and its xterm
+ * scrollback) intact.
  */
-function applyPanelHeightFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
-  if (api.height <= 0) return
+function applyPanelSize(api: DockviewApi, panelId: string, axis: ReopenAxis, px: number, refs?: LayoutRefs): void {
+  if (px <= 0) return
   const group = api.getPanel(panelId)?.group
   if (!group) return
   try {
     if (refs) refs.isRestoringRef.current = true
     try {
-      group.api.setSize({ height: Math.round(api.height * fraction) })
+      group.api.setSize(axis === 'width' ? { width: px } : { height: px })
     } finally {
       if (refs) refs.isRestoringRef.current = false
     }
     if (refs) refs.lastLayoutRef.current = api.toJSON()
   } catch (err) {
-    console.warn(`[applyPanelHeightFraction] failed for '${panelId}':`, err)
+    console.warn(`[applyPanelSize] failed for '${panelId}':`, err)
   }
 }
 
-/** Width twin of applyPanelHeightFraction: size the group containing
- *  `panelId` to roughly `fraction` of the dock width, in place. */
+function applyPanelHeightFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
+  if (api.height <= 0) return
+  applyPanelSize(api, panelId, 'height', Math.round(api.height * fraction), refs)
+}
+
 function applyPanelWidthFraction(api: DockviewApi, panelId: string, fraction: number, refs?: LayoutRefs): void {
   if (api.width <= 0) return
-  const group = api.getPanel(panelId)?.group
-  if (!group) return
-  try {
-    if (refs) refs.isRestoringRef.current = true
-    try {
-      group.api.setSize({ width: Math.round(api.width * fraction) })
-    } finally {
-      if (refs) refs.isRestoringRef.current = false
-    }
-    if (refs) refs.lastLayoutRef.current = api.toJSON()
-  } catch (err) {
-    console.warn(`[applyPanelWidthFraction] failed for '${panelId}':`, err)
-  }
+  applyPanelSize(api, panelId, 'width', Math.round(api.width * fraction), refs)
 }
 
 /**
@@ -154,14 +145,16 @@ export function hidePanel(
 }
 
 type ReopenAxis = 'width' | 'height'
-export interface ReopenPlacement {
-  referencePanelId: string
-  direction: Direction
-  size?: { axis: ReopenAxis; px: number }
-}
+type ReopenOrientation = 'HORIZONTAL' | 'VERTICAL'
 
 const orthogonalOri = (o: ReopenOrientation): ReopenOrientation => (o === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL')
-type ReopenOrientation = 'HORIZONTAL' | 'VERTICAL'
+
+/** The axis a pane opened in `direction` is sized along. */
+function axisOfDirection(direction: Direction | undefined): ReopenAxis | undefined {
+  if (direction === 'left' || direction === 'right') return 'width'
+  if (direction === 'above' || direction === 'below') return 'height'
+  return undefined
+}
 
 /** Indices from the grid root down to the leaf containing `panelId` ([] = root leaf). */
 function findLeafPath(node: GridNode, panelId: string): number[] | null {
@@ -173,68 +166,37 @@ function findLeafPath(node: GridNode, panelId: string): number[] | null {
   return null
 }
 
-/** First surviving panel in a subtree; `fromEnd` walks children in reverse so
- *  the chosen panel is the one bordering the reopened pane. */
-function aliveInSubtree(node: GridNode, isAlive: (id: string) => boolean, fromEnd: boolean): string | undefined {
-  if (node.type === 'leaf') return node.data.views.find(isAlive)
-  const order = fromEnd ? [...node.data].reverse() : node.data
-  for (const child of order) {
-    const found = aliveInSubtree(child, isAlive, fromEnd)
-    if (found) return found
-  }
-  return undefined
-}
-
 /**
- * Work out exactly where a closed pane should reopen, from the layout snapshot
- * taken when it was hidden — its original tab group if a co-tenant survives,
- * otherwise the side of its surviving neighbour (preferring the pane that sat
- * before it, so it lands back in its old slot) plus its captured size. Returns
- * undefined when nothing adjacent survives, so the caller falls back to hints.
- * Branch orientation alternates from grid.orientation each level down.
+ * The pixel size a pane had when it was closed, and the axis it was measured
+ * along. Only the size is remembered, never the position: a snapshot describes
+ * a layout that may no longer exist, and replaying its geometry put reopened
+ * panes wherever the tree happened to have drifted — under the wrong pane, or
+ * as a column beside the agent. Panes now always reopen at their one home
+ * (PANEL_RESTORE_HINTS) and the remembered size is re-applied there.
+ *
+ * Branch orientation alternates from grid.orientation each level down, so the
+ * axis is only meaningful if the pane reopens along the same one — the caller
+ * checks that before applying it.
  */
-export function computeReopenPlacement(
+export function readRememberedSize(
   snapshot: SerializedDockview,
   panelId: string,
-  isAlive: (panelId: string) => boolean,
-): ReopenPlacement | undefined {
+): { axis: ReopenAxis; px: number } | undefined {
   const root = snapshot.grid.root as GridNode
   const path = findLeafPath(root, panelId)
+  // A root leaf filled the whole dock, so its size says nothing about the pane.
   if (!path || path.length === 0) return undefined
 
-  const parentPath = path.slice(0, -1)
-  const pIndex = path[path.length - 1]
-  let parent: GridNode = root
-  for (const idx of parentPath) {
-    if (parent.type !== 'branch') return undefined
-    parent = parent.data[idx]
+  let node: GridNode = root
+  for (const index of path) {
+    if (node.type !== 'branch') return undefined
+    node = node.data[index]
   }
-  if (parent.type !== 'branch') return undefined
-
-  const leafNode = parent.data[pIndex]
-  if (leafNode?.type === 'leaf') {
-    const mate = leafNode.data.views
-      .filter((v) => v !== panelId && mayShareTabGroup(panelId, v))
-      .find(isAlive)
-    if (mate) return { referencePanelId: mate, direction: 'within' }
-  }
+  if (node.size <= 0) return undefined
 
   const rootOri = (snapshot.grid.orientation as ReopenOrientation) ?? 'HORIZONTAL'
-  const parentOri = parentPath.length % 2 === 0 ? rootOri : orthogonalOri(rootOri)
-  const axis: ReopenAxis = parentOri === 'HORIZONTAL' ? 'width' : 'height'
-  const px = leafNode?.size ?? 0
-
-  for (const [sibIndex, before] of [[pIndex - 1, true], [pIndex + 1, false]] as const) {
-    const sibling = parent.data[sibIndex]
-    if (!sibling) continue
-    const ref = aliveInSubtree(sibling, isAlive, before)
-    if (!ref) continue
-    const direction: Direction = parentOri === 'HORIZONTAL'
-      ? (before ? 'right' : 'left')
-      : (before ? 'below' : 'above')
-    return { referencePanelId: ref, direction, ...(px > 0 ? { size: { axis, px } } : {}) }
-  }
-  return undefined
+  const parentOri = (path.length - 1) % 2 === 0 ? rootOri : orthogonalOri(rootOri)
+  return { axis: parentOri === 'HORIZONTAL' ? 'width' : 'height', px: node.size }
 }
 
 export function showPanelFromSnapshot(
@@ -244,36 +206,26 @@ export function showPanelFromSnapshot(
   closedPanelSnapshots: React.MutableRefObject<Map<DockPanelId, SerializedDockview>>,
   refs: LayoutRefs,
 ): void {
-  const placement = computeReopenPlacement(snapshot, id, (pid) => api.getPanel(pid) !== undefined)
-  if (placement) {
-    // Reopen at its exact prior position, in place — no api.fromJSON(), no remount.
-    withPinnedSidebars(api, () => {
-      api.addPanel({
-        id,
-        component: id,
-        title: PANEL_TITLES[id],
-        position: { referencePanel: placement.referencePanelId, direction: placement.direction },
-      })
-      if (placement.size) {
-        const group = api.getPanel(id)?.group
-        group?.api.setSize(placement.size.axis === 'width'
-          ? { width: placement.size.px }
-          : { height: placement.size.px })
-      }
-    }, id)
-    refs.lastLayoutRef.current = api.toJSON()
-  } else {
-    // Nothing adjacent survived — reopen at its default spot.
-    showPanelFromHints(api, id, refs)
+  const direction = showPanelFromHints(api, id, refs)
+  const remembered = readRememberedSize(snapshot, id)
+  // Skip a size measured across the other axis — the pane was a column then and
+  // is a bar now (or vice versa), so its old width is not a usable height.
+  if (remembered && remembered.axis === axisOfDirection(direction)) {
+    applyPanelSize(api, id, remembered.axis, remembered.px, refs)
   }
   closedPanelSnapshots.current.delete(id)
 }
 
-export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: LayoutRefs): void {
-  const hints = PANEL_RESTORE_HINTS[id]
-  let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | undefined
+/** Open `id` at its home and return the direction that placed it. */
+export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: LayoutRefs): Direction | undefined {
+  let position: { referencePanel: ReturnType<DockviewApi['getPanel']>; direction: Direction } | { direction: Direction } | undefined
   let usedDirection: Direction | undefined
-  for (const hint of hints) {
+  for (const hint of PANEL_RESTORE_HINTS[id]) {
+    if (hint.ref === null) {
+      position = { direction: hint.dir }
+      usedDirection = hint.dir
+      break
+    }
     const ref = api.getPanel(hint.ref)
     if (ref) {
       position = { referencePanel: ref, direction: hint.dir }
@@ -289,6 +241,7 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
       ...(position ? { position } : {}),
     })
     if (usedDirection === 'below') {
+      if (id === 'shell') spanShellAcrossWorkspace(api)
       applyPanelHeightFraction(api, id, 1 / 3, refs)
     } else if (usedDirection !== 'within' && SIDEBAR_PANEL_IDS.has(id)) {
       // addPanel splits the reference group 50/50; the sidebar reopened via
@@ -314,4 +267,5 @@ export function showPanelFromHints(api: DockviewApi, id: DockPanelId, refs?: Lay
       }
     }
   }
+  return usedDirection
 }

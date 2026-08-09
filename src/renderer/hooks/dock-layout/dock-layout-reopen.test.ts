@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { SerializedDockview } from 'dockview'
-import { computeReopenPlacement } from './dock-layout-loader'
+import { readRememberedSize } from './dock-layout-loader'
 
 type Ori = 'HORIZONTAL' | 'VERTICAL'
 
@@ -13,51 +13,39 @@ function snap(root: unknown, orientation: Ori = 'HORIZONTAL'): SerializedDockvie
   return { grid: { root, width: 1000, height: 700, orientation }, panels: {} } as unknown as SerializedDockview
 }
 
-const alive = (...ids: string[]) => (id: string): boolean => ids.includes(id)
-
-describe('computeReopenPlacement', () => {
-  it('reopens a horizontally-split pane to the right of its surviving left neighbor', () => {
+describe('readRememberedSize', () => {
+  it('reads a top-level pane of a horizontal grid as a width', () => {
     const root = branch([leaf(['sidebar']), leaf(['agent']), leaf(['shell'], 250)])
-    expect(computeReopenPlacement(snap(root, 'HORIZONTAL'), 'shell', alive('sidebar', 'agent')))
-      .toEqual({ referencePanelId: 'agent', direction: 'right', size: { axis: 'width', px: 250 } })
+    expect(readRememberedSize(snap(root, 'HORIZONTAL'), 'shell')).toEqual({ axis: 'width', px: 250 })
   })
 
-  it('reopens a vertically-split pane below its surviving upper neighbor', () => {
+  it('reads a nested pane as a height, since branch orientation alternates', () => {
     const center = branch([leaf(['agent']), leaf(['shell'], 200)]) // nested branch → VERTICAL
     const root = branch([leaf(['sidebar']), center])
-    expect(computeReopenPlacement(snap(root, 'HORIZONTAL'), 'shell', alive('sidebar', 'agent')))
-      .toEqual({ referencePanelId: 'agent', direction: 'below', size: { axis: 'height', px: 200 } })
+    expect(readRememberedSize(snap(root, 'HORIZONTAL'), 'shell')).toEqual({ axis: 'height', px: 200 })
   })
 
-  it('rejoins its original tab group when a co-tenant survives', () => {
-    const root = branch([leaf(['sidebar']), leaf(['agent', 'editor'])])
-    expect(computeReopenPlacement(snap(root), 'editor', alive('sidebar', 'agent')))
-      .toEqual({ referencePanelId: 'agent', direction: 'within' })
+  it('follows the grid orientation rather than assuming horizontal', () => {
+    const root = branch([branch([leaf(['sidebar']), leaf(['agent'])]), leaf(['shell'], 180)])
+    expect(readRememberedSize(snap(root, 'VERTICAL'), 'shell')).toEqual({ axis: 'height', px: 180 })
   })
 
-  it('uses the surviving right neighbor when the left neighbor is also gone', () => {
-    const root = branch([leaf(['sidebar']), leaf(['shell'], 250), leaf(['agent'])])
-    expect(computeReopenPlacement(snap(root, 'HORIZONTAL'), 'shell', alive('agent')))
-      .toEqual({ referencePanelId: 'agent', direction: 'left', size: { axis: 'width', px: 250 } })
+  it('finds a pane that shared a tab group', () => {
+    const root = branch([leaf(['sidebar']), leaf(['agent', 'editor'], 640)])
+    expect(readRememberedSize(snap(root), 'editor')).toEqual({ axis: 'width', px: 640 })
   })
 
-  it('returns undefined when no neighbor survives (caller falls back to hints)', () => {
-    const root = branch([leaf(['shell'])])
-    expect(computeReopenPlacement(snap(root), 'shell', alive())).toBeUndefined()
+  it('ignores a pane that filled the whole dock — its size says nothing', () => {
+    expect(readRememberedSize(snap(leaf(['shell'])), 'shell')).toBeUndefined()
   })
 
-  // The sidebar is a container, never a tab strip shared with a workspace
-  // pane: a snapshot taken while one had been dragged into it must not tab
-  // them together again.
-  it('reopens the sidebar beside a workspace pane, never as one of its tabs', () => {
-    const root = branch([leaf(['agent']), leaf(['sidebar', 'editor'], 250)])
-    expect(computeReopenPlacement(snap(root, 'HORIZONTAL'), 'sidebar', alive('agent', 'editor')))
-      .toEqual({ referencePanelId: 'agent', direction: 'right', size: { axis: 'width', px: 250 } })
+  it('ignores a pane the snapshot does not contain', () => {
+    const root = branch([leaf(['sidebar']), leaf(['agent'])])
+    expect(readRememberedSize(snap(root), 'shell')).toBeUndefined()
   })
 
-  it('reopens a workspace pane beside the sidebar, never as one of its tabs', () => {
-    const root = branch([leaf(['sidebar', 'editor'], 250), leaf(['agent'])])
-    expect(computeReopenPlacement(snap(root, 'HORIZONTAL'), 'editor', alive('sidebar', 'agent')))
-      .toEqual({ referencePanelId: 'agent', direction: 'left', size: { axis: 'width', px: 250 } })
+  it('ignores a zero size (a collapsed pane restores from its own path)', () => {
+    const root = branch([leaf(['sidebar'], 0), leaf(['agent'])])
+    expect(readRememberedSize(snap(root), 'sidebar')).toBeUndefined()
   })
 })

@@ -99,4 +99,22 @@ describe('dock layout toggles do not remount sibling panels', () => {
     // Agent stayed mounted across the entire hide + reopen cycle.
     expect(mounts.agent).toBe(1)
   })
+
+  // Opening the shell while an editor column exists moves that column into the
+  // row above it (spanShellAcrossWorkspace). A group move re-parents the
+  // existing element rather than rebuilding it, so the moved pane — and the
+  // agent beside it — must survive.
+  it('spanning the shell across the workspace keeps the moved panes mounted', async () => {
+    const dv = await setupDock()
+    act(() => {
+      dv.addPanel({ id: 'editor', component: 'editor', position: { referencePanel: 'agent', direction: 'right' } })
+    })
+    await waitFor(() => expect(mounts.editor).toBe(1))
+
+    act(() => { showPanelFromHints(dv, 'shell', makeRefs()) })
+    await waitFor(() => expect(dv.getPanel('shell')).toBeDefined())
+
+    expect(mounts.agent).toBe(1)
+    expect(mounts.editor).toBe(1)
+  })
 })

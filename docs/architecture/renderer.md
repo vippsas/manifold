@@ -274,7 +274,7 @@ than a timer off `window.resize`: a container resize reaches the grid as a bare
 dockview defers its own relayout by a frame, which left every timer-based guess measuring
 the dock one resize behind. Observers deliver in registration order, so dockview's — registered
 first — has already relaid out by the time this one runs. The re-pin then has to hand back the
-group's share of the theme gap (`dock-layout-helpers.ts:211`), which the pinned pass shaves off;
+group's share of the theme gap (`dock-layout-helpers.ts:212`), which the pinned pass shaves off;
 uncompensated it walked the sidebar ~3px thinner on every resize, and the loss persisted with
 the layout. Both are pinned by `dock-layout-window-resize.test.tsx`, which gives its test dock
 the app's `gap: 6` — without the gap the drift cannot reproduce. Panels are
@@ -362,7 +362,7 @@ bar); only the double-click sash width-cycle gesture remains from the collapse m
 tab bar (`AgentHeaderActions.tsx`) — and only for the active session; there is no "+ Apps" header button. Double-clicking a tab
 toggles **focus mode**: `DockTab`'s `onDoubleClick` calls `onToggleMaximize` (`DockTab.tsx:38`), which
 maximizes that pane's group via dockview's native `maximizeGroup`/`exitMaximizedGroup`
-(`hooks/dock-layout/dock-layout-helpers.ts:272`) — hiding every other pane and the sidebar
+(`hooks/dock-layout/dock-layout-helpers.ts:279`) — hiding every other pane and the sidebar
 in place (no remount) and restoring them exactly on the second double-click. **There is one
 sidebar column and it is never a tab beside a workspace pane.** The default arrangement is
 `sidebar | agent` at a 1:5 width ratio, with the editor and the shell opening on demand — so
@@ -372,13 +372,28 @@ enforces the ratio by patching the serialized grid, first promoting any single-b
 root left behind by a sticky VERTICAL grid orientation — `api.clear()` keeps the orientation
 the last `fromJSON` set, so after showing a layout with a bottom pane the columns would
 otherwise nest one level deeper and the patch would miss them, yielding equal halves (#803)
-(`hooks/dock-layout/dock-layout-builders.ts:45`). The sidebar's restore hints put it left of
-the agent, so it only ever reopens as the left column, while the editor reopens as a document
-pane right of the agent (`PANEL_RESTORE_HINTS`,
-`hooks/dock-layout/dock-layout-helpers.ts:31`); `mayShareTabGroup` bars any panel from tabbing
-into the sidebar even when a snapshot taken while they shared a group says otherwise
-(`hooks/dock-layout/dock-layout-helpers.ts:48`, applied in `computeReopenPlacement`,
-`hooks/dock-layout/dock-layout-loader.ts:216`).
+(`hooks/dock-layout/dock-layout-builders.ts:45`). **Every pane has one home, and opening it
+is the only thing that decides where it lands** (`PANEL_RESTORE_HINTS`,
+`hooks/dock-layout/dock-layout-helpers.ts:42`): the sidebar is the full-height left column,
+the agent and editor are columns of the workspace row, and the shell is a bar spanning that
+row. The sidebar anchors to the dock *root* rather than to the agent (`ref: null`,
+`hooks/dock-layout/dock-layout-loader.ts:224`) — removing a pane can leave dockview's root
+orientation vertical, since it promotes a lone child branch to the root, and a sidebar
+anchored to the agent then reopens as a cell inside the top row instead of a column; the
+root-relative add flips the root back. The shell opens below the agent and is then widened
+across the row by `spanShellAcrossWorkspace`, which moves any workspace column that stayed
+beside it into the row above (`hooks/dock-layout/dock-layout-shell-span.ts:50`) — `addPanel`
+splits only the reference pane's *cell*, so without this the same two panes arranged
+differently depending on the order they were opened in. Moving a group re-parents its
+element rather than rebuilding it, so the panes survive the restructure
+(`dock-layout-no-remount.test.tsx`).
+A reopened pane **keeps its size but not its position**: `readRememberedSize` reads the
+pixel size (and the axis it was measured along) out of the snapshot taken when the pane was
+hidden, and it is re-applied at the pane's home only when the pane reopens along the same
+axis (`hooks/dock-layout/dock-layout-loader.ts:181`, `:210`). Replaying the snapshot's
+*position* is what used to land a reopened shell under the editor, or as a full-height column
+left of the agent, once the tree had drifted from the layout the snapshot described
+(`dock-layout-pane-homes.test.tsx` pins each sequence).
 Saved layouts are sanitized before
 `api.fromJSON`; the sanitizer strips retired panels — `fileTree`, plus the old model's
 `projects` / `sourceControl` / `modifiedFiles` columns, now views of the one sidebar
@@ -391,7 +406,7 @@ column back to the one-sixth share the default layout builds** — in either dir
 column that drifted narrow reopens as wide as a fresh window's, and stale stacked sidebar
 columns are pulled in too — before the loader persists repaired snapshots
 (`hooks/dock-layout/dock-layout-sanitize.ts:126`, `:155`;
-`hooks/dock-layout/dock-layout-loader.ts:100`). One sixth is therefore the sidebar's width
+`hooks/dock-layout/dock-layout-loader.ts:92`). One sixth is therefore the sidebar's width
 at every app start; a drag holds only for the session. A **collapsed** sidebar is exempt
 (size 0 is a state, not a width) and survives the restart.
 **The editor is a document pane**, not a tab of the sidebar: it materializes on the first
@@ -693,7 +708,7 @@ agent (`AgentChatView`), which the agent panel switches between
 - **`App` is the only stateful node.** State and IPC live in `App` + hooks; `AppShell` and the panels are presentational and read everything from props or `DockStateContext`. Adding state to a panel breaks the single-source assumption (and the dock-state memo discipline).
 - **Panels are dictionary-driven.** A panel exists iff its id is in `PANEL_COMPONENTS`; built-in *modules* additionally come from the contribution registry spread. Adding a panel means a `PANEL_IDS`/`PANEL_TITLES` entry plus a registry or `PANEL_COMPONENTS` entry — not new JSX in the shell.
 - **StrictMode double-mounts in dev.** Every panel (notably the agent terminal) mounts twice on first render; effects and layout code under `dock-layout/` must be idempotent and resize in place rather than rebuild on remount.
-- **A collapsed sidebar doesn't survive `api.fromJSON` on its own.** Collapse holds a sidebar at width 0 via a runtime `minimumWidth: 0` constraint, but dockview's `toJSON` drops `minimumWidth <= 0`, so a restore (now only at app start) recreates the group at dockview's 100px default and reopens it. `loadOrBuildLayout` re-applies any saved sub-minimum sidebar width right after `fromJSON` to preserve the collapse (`hooks/dock-layout/dock-layout-helpers.ts:357`, `hooks/dock-layout/dock-layout-loader.ts:95`).
+- **A collapsed sidebar doesn't survive `api.fromJSON` on its own.** Collapse holds a sidebar at width 0 via a runtime `minimumWidth: 0` constraint, but dockview's `toJSON` drops `minimumWidth <= 0`, so a restore (now only at app start) recreates the group at dockview's 100px default and reopens it. `loadOrBuildLayout` re-applies any saved sub-minimum sidebar width right after `fromJSON` to preserve the collapse (`hooks/dock-layout/dock-layout-helpers.ts:364`, `hooks/dock-layout/dock-layout-loader.ts:87`).
 - **The layout belongs to the window, not to the selected agent.** There is one saved layout for the whole app; `loadOrBuildLayout` runs once, from `onReady`, and nothing reloads it on a switch (`hooks/dock-layout/useDockLayout.ts:235`, `hooks/dock-layout/dock-layout-loader.ts:78`). Selecting another agent, worktree or workspace only changes what the panes show — the arrangement, sizes and open panels stay put. Layouts used to be saved per session and restored on every switch, which replayed `api.fromJSON`: panels appeared and vanished, panes resized, the sidebar lost a few pixels per switch, and every panel (the sidebar included, which then re-sorted itself) remounted mid-click. `activeSessionId` no longer selects a layout either: the editor and shell open on demand, so a window with no agent yet starts from the same `sidebar | agent` default as one with many, and nothing rebuilds when the first agent arrives (`useDockLayout.ts:79`; pinned by `dock-layout-session-switch-stability.test.tsx`).
 - **"Search" and "Web preview" aren't dock panels.** Search is a view of the one `sidebar` panel, plus the `SearchModal` overlay around the same body; HTML preview is an `<iframe>` inside `CodeViewer`. Looking for either in `PANEL_COMPONENTS` will fail.
 - **Monaco workers must be configured before an editor mounts.** `monaco-setup` is imported as the first line of `index.tsx` for exactly this reason; reordering it breaks worker resolution.
