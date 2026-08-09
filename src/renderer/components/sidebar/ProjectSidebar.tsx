@@ -5,7 +5,7 @@ import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { FavoritesList } from './FavoritesList'
-import { AddFolderGlyph, SortModeGlyph } from './SidebarCardActionGlyphs'
+import { SortModeGlyph } from './SidebarCardActionGlyphs'
 import { useSidebarSortMode } from './sidebar-sort'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
@@ -68,7 +68,7 @@ export function ProjectSidebar({
 
   return (
     <div style={sidebarStyles.root}>
-      <div role="toolbar" aria-label="Repository actions" style={sidebarStyles.actionToolbar}>
+      <div role="toolbar" aria-label="Workspace list actions" style={sidebarStyles.actionToolbar}>
         <span style={sidebarStyles.toolbarLabel}>Workspaces</span>
         <div style={sidebarStyles.toolbarActions}>
           <button
@@ -80,16 +80,6 @@ export function ProjectSidebar({
             title={sortLabel}
           >
             <SortModeGlyph mode={sortMode} />
-          </button>
-          <button
-            type="button"
-            onClick={onNewProject}
-            className="sidebar-toolbar-button sidebar-toolbar-button--primary"
-            style={{ ...sidebarStyles.toolbarButton, ...sidebarStyles.toolbarButtonPrimary }}
-            aria-label="Add Repository"
-            title="Add Repository"
-          >
-            <AddFolderGlyph />
           </button>
         </div>
       </div>
@@ -119,8 +109,17 @@ export function ProjectSidebar({
           renderFolderFiles={renderFolderFiles}
         />
       </div>
-      {onNewWorkspace && (
-        <div style={sidebarStyles.actions}>
+      <div style={sidebarStyles.actions}>
+        <button
+          type="button"
+          onClick={onNewProject}
+          className="sidebar-new-repo-button"
+          style={sidebarStyles.newRepoButton}
+          aria-label="New Repo"
+        >
+          + New Repo
+        </button>
+        {onNewWorkspace && (
           <button
             type="button"
             onClick={onNewWorkspace}
@@ -130,8 +129,8 @@ export function ProjectSidebar({
           >
             + New Workspace
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

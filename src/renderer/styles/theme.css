@@ -1216,6 +1216,11 @@ select:focus-visible {
   border-color: var(--accent);
 }
 
+.sidebar-new-repo-button:hover {
+  background: var(--list-hover-bg);
+  color: var(--text-primary);
+}
+
 .sidebar-card-actions button:hover {
   color: var(--text-primary);
   background: var(--control-bg-hover);
@@ -1287,12 +1292,6 @@ select:focus-visible {
   color: var(--text-primary);
   background: var(--list-hover-bg);
   border-color: var(--control-border);
-}
-
-.sidebar-toolbar-button--primary:hover {
-  color: var(--accent);
-  background: var(--sidebar-active-bg);
-  border-color: color-mix(in srgb, var(--accent), transparent 50%);
 }
 
 .sidebar-toolbar-button:focus-visible {

@@ -1,5 +1,24 @@
 import type React from 'react'
 
+// The two create actions in the bottom bar. They never shrink below their basis
+// — they wrap to a stack instead — so "+ New Workspace" cannot clip to
+// "+ New Workspac…" in a narrowed sidebar.
+const footerButton: React.CSSProperties = {
+  flex: '1 0 120px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 'var(--space-xs)',
+  height: 'var(--control-height)',
+  padding: '0 var(--space-sm)',
+  borderRadius: 'var(--radius-sm)',
+  background: 'transparent',
+  fontSize: 'var(--type-ui-small)',
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  transition: 'border-color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium)',
+}
+
 export const sidebarStyles: Record<string, React.CSSProperties> = {
   root: {
     display: 'flex',
@@ -41,13 +60,7 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     flexShrink: 0,
   },
-  toolbarButtonPrimary: {
-    color: 'var(--text-secondary)',
-    marginLeft: 'auto',
-  },
-  // Holds both toolbar actions as one right-aligned cluster, so Add stays at the
-  // edge with Sort beside it. toolbarButtonPrimary's own marginLeft: 'auto' is
-  // inert inside a content-sized group, so it needs no change.
+  // Holds the toolbar's actions as one right-aligned cluster.
   toolbarActions: {
     marginLeft: 'auto',
     display: 'flex',
@@ -204,31 +217,31 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     background: 'transparent',
   },
   // A bar of its own below the scrolling list, so however long the list grows
-  // the create action stays where it was — the sidebar's one fixed edge.
+  // the create actions stay where they were — the sidebar's one fixed edge.
   actions: {
     display: 'flex',
+    flexWrap: 'wrap',
+    gap: 'var(--space-sm)',
     padding: 'var(--space-sm)',
     borderTop: '1px solid var(--border)',
     flexShrink: 0,
+  },
+  // Registering a repo is the prerequisite, not the act, so it wears the neutral
+  // hairline and cedes the accent to the workspace CTA beside it. It lives here
+  // in words rather than as a folder-plus glyph in the top toolbar, where the
+  // silhouette read as "new workspace" and doubled that button.
+  newRepoButton: {
+    ...footerButton,
+    border: '1px solid var(--control-border)',
+    color: 'var(--text-secondary)',
   },
   // Transparent behind an accent hairline: unmistakably a control rather than
   // one more row, while staying under the metal plate the primary agent CTA
   // owns. Hover brightens the hairline (.sidebar-new-workspace-button).
   newWorkspaceButton: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 'var(--space-xs)',
-    height: 'var(--control-height)',
-    padding: '0 var(--space-sm)',
+    ...footerButton,
     border: '1px solid color-mix(in srgb, var(--accent), transparent 70%)',
-    borderRadius: 'var(--radius-sm)',
-    background: 'transparent',
     color: 'var(--accent)',
-    fontSize: 'var(--type-ui-small)',
-    cursor: 'pointer',
-    transition: 'border-color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium)',
   },
   cardActions: {
     display: 'flex',
