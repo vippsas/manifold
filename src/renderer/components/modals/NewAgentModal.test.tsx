@@ -42,7 +42,7 @@ describe('NewAgentModal', () => {
 
     await waitFor(() => expect(baseProps.onLaunch).toHaveBeenCalledWith({
       runtimeId: 'claude',
-      displayName: '',
+      displayName: 'Claude',
       nonInteractive: false,
     }))
     expect(baseProps.onClose).toHaveBeenCalled()

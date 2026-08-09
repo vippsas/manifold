@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AgentRuntime, AgentSession } from '../../../shared/types'
+import { nextAgentName } from '../sidebar/agent-labels'
 
 export type AgentMode = 'interactive' | 'chat'
 
@@ -8,7 +9,8 @@ export type AgentMode = 'interactive' | 'chat'
  *  and every agent started here joins it. */
 export interface NewAgentLaunchOptions {
   runtimeId: string
-  /** The agent's name; blank leaves it named after its runtime. */
+  /** The agent's name. Always set: an unnamed session falls back to its branch
+   *  label, which every agent in the workspace shares. */
   displayName: string
   nonInteractive?: boolean
 }
@@ -81,13 +83,15 @@ export function useNewAgentForm({
       if (runtime?.installed === false) return
       setError('')
 
-      // The workspace names the agent after its runtime; a second agent of the
-      // same runtime is disambiguated with a number ("Claude Code 2"). A blank
-      // name lets the downstream default name it "Claude Code", so only the
-      // duplicates carry a number.
-      const base = runtime?.name ?? runtimeId
-      const sameRuntimeCount = existingSessions.filter((s) => s.runtimeId === runtimeId).length
-      const displayName = sameRuntimeCount === 0 ? '' : `${base} ${sameRuntimeCount + 1}`
+      // The workspace names the agent after its runtime, taking the first free
+      // slot among the names already in use ("Claude", then "Claude 2"…).
+      //
+      // Every agent is named explicitly, including the first. A blank name used
+      // to be left undefined downstream (`session-creator.ts:190`), and a
+      // session with no name falls back to its branch label (`DockTab.tsx:93`)
+      // — which every agent in a workspace shares. So the first Claude agent and
+      // the first Codex agent, both unnamed, showed the *same* tab label.
+      const displayName = nextAgentName(runtimeId, existingSessions)
 
       const options: NewAgentLaunchOptions = {
         runtimeId,

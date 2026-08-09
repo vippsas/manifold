@@ -61,7 +61,6 @@ export function WorkspaceList({
   onDiscardDraft,
   renderFolderFiles,
 }: WorkspaceListProps): React.JSX.Element {
-  const [removing, setRemoving] = useState<string | null>(null)
   // One workspace open at a time: the list reads as a column of names until you
   // open one, and opening another closes the one before it.
   const [expandedId, setExpandedId] = useState<string | null>(activeWorkspaceId)
@@ -81,13 +80,11 @@ export function WorkspaceList({
     [],
   )
 
+  // Adapts the list's async remover to the card's void-returning prop. It no
+  // longer tracks which row is in flight: that flag only ever disabled the row's
+  // `×`, and removal now lives behind a menu that closes on the click.
   const handleRemove = useCallback(
-    (id: string): void => {
-      setRemoving(id)
-      void onRemoveWorkspace(id).finally(() => {
-        setRemoving((c) => (c === id ? null : c))
-      })
-    },
+    (id: string): void => { void onRemoveWorkspace(id) },
     [onRemoveWorkspace],
   )
 
@@ -121,7 +118,6 @@ export function WorkspaceList({
           onSelectWorkspace={onSelectWorkspace}
           onRenameWorkspace={onRenameWorkspace}
           onRemoveWorkspace={handleRemove}
-          removing={removing === workspace.id}
           onCopyWorkspace={onCopyWorkspace}
           onSelectRepo={onSelectRepo}
           onAddProject={onAddProject}

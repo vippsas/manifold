@@ -32,7 +32,7 @@ describe('WorkspaceCard context menu', () => {
 
     expect(screen.getByText('Add to Favorites')).toBeTruthy()
     expect(screen.getByText('Rename…')).toBeTruthy()
-    expect(screen.getByText('Copy to New Worktree')).toBeTruthy()
+    expect(screen.getByText('New Workspace, Same Folders')).toBeTruthy()
     expect(screen.getByText('Add Folder…')).toBeTruthy()
     expect(screen.getByText('Remove Workspace')).toBeTruthy()
   })

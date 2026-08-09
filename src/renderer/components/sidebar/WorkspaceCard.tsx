@@ -3,13 +3,14 @@ import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import { isWorktreeWorkspace, type Workspace } from '../../../shared/workspace-types'
 import { ContextMenu } from '../common/ContextMenu'
+import { Tooltip } from '../common/Tooltip'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { buildWorkspaceContextMenu } from './workspace-context-menu'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { DraftAgentItem } from './DraftAgentItem'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
-import { AddFolderGlyph, CopyWorkspaceGlyph, FilesChevronGlyph } from './SidebarCardActionGlyphs'
+import { FilesChevronGlyph, WorkspaceActionsGlyph } from './SidebarCardActionGlyphs'
 import { projectFolderKey, useFolderDisclosure } from './folder-disclosure'
 import { workspaceRowLabel } from './agent-labels'
 import { WorkspaceRepoRow } from './WorkspaceRepoRow'
@@ -32,7 +33,6 @@ export interface WorkspaceCardProps {
   onRenameWorkspace?: (id: string, name: string) => void
   /** Takes no event: the context menu calls it too, and a menu item has none. */
   onRemoveWorkspace: (id: string) => void
-  removing: boolean
   onCopyWorkspace?: (id: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void | Promise<void>
@@ -64,7 +64,6 @@ export function WorkspaceCard({
   onSelectWorkspace,
   onRenameWorkspace,
   onRemoveWorkspace,
-  removing,
   onCopyWorkspace,
   onSelectRepo,
   onAddProject,
@@ -113,6 +112,14 @@ export function WorkspaceCard({
   const selectAndExpand = (): void => {
     onSelectWorkspace(workspace.id)
     if (!expanded) onToggleExpanded()
+  }
+
+  // The `+` opens the same menu right-click does, but hung under the button
+  // rather than at the cursor, so it reads as belonging to the control.
+  const openActionsMenu = (e: React.MouseEvent<HTMLButtonElement>): void => {
+    e.stopPropagation()
+    const r = e.currentTarget.getBoundingClientRect()
+    menu.openAt({ x: r.left, y: r.bottom + 4 })
   }
 
   return (
@@ -198,45 +205,27 @@ export function WorkspaceCard({
             )}
           </span>
         )}
+        {/* One control, not a cluster. The `×` that used to sit here is now
+            "Remove Workspace" in this menu — a destructive action reads better
+            as a word among its siblings than as a glyph a stray click can hit. */}
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
-          {onCopyWorkspace && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onCopyWorkspace(workspace.id) }}
-              onKeyDown={(e) => e.stopPropagation()}
-              className="sidebar-icon-button"
-              style={sidebarStyles.addButton}
-              aria-label={`Copy ${workspace.name} to a new worktree`}
-              title="Copy to new worktree — a new workspace with these folders on a fresh branch"
-            >
-              <CopyWorkspaceGlyph />
-            </button>
-          )}
-          {onAddProject && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); void onAddProject(workspace.id) }}
-              onKeyDown={(e) => e.stopPropagation()}
-              className="sidebar-icon-button"
-              style={sidebarStyles.addButton}
-              aria-label={`Add folder to ${workspace.name}`}
-              title="Add folder"
-            >
-              <AddFolderGlyph />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onRemoveWorkspace(workspace.id) }}
-            onKeyDown={(e) => e.stopPropagation()}
-            disabled={removing}
-            className="sidebar-icon-button"
-            style={sidebarStyles.removeButton}
-            aria-label={`Remove ${workspace.name}`}
-            title="Remove workspace"
+          <Tooltip
+            label="Workspace actions"
+            detail="New workspace, add a folder, rename, remove — or right-click the row."
           >
-            &times;
-          </button>
+            <button
+              type="button"
+              onClick={openActionsMenu}
+              onKeyDown={(e) => e.stopPropagation()}
+              className="sidebar-icon-button"
+              style={sidebarStyles.rowMenuButton}
+              aria-haspopup="menu"
+              aria-expanded={menu.position !== null}
+              aria-label={`Actions for ${workspace.name}`}
+            >
+              <WorkspaceActionsGlyph />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -267,13 +256,16 @@ export function WorkspaceCard({
         />
       ))}
 
-      {menu.position && dock && (
+      {/* Not gated on `dock`: the `+` button opens this menu, and a button that
+          silently does nothing wherever the dock state is absent would be worse
+          than the glyphs it replaced. Favoriting drops out instead. */}
+      {menu.position && (
         <ContextMenu
           x={menu.position.x}
           y={menu.position.y}
           items={buildWorkspaceContextMenu({
-            isFavorite: dock.isFavorite(workspace.id),
-            toggleFavorite: () => dock.onToggleFavorite(workspace.id),
+            isFavorite: dock?.isFavorite(workspace.id),
+            toggleFavorite: dock ? () => dock.onToggleFavorite(workspace.id) : undefined,
             rename: onRenameWorkspace ? () => setNameDraft(label.name) : undefined,
             copyToWorktree: onCopyWorkspace ? () => onCopyWorkspace(workspace.id) : undefined,
             addFolder: onAddProject ? () => void onAddProject(workspace.id) : undefined,

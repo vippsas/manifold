@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
-import { workspaceRowLabel } from './agent-labels'
+import { nextAgentName, workspaceRowLabel } from './agent-labels'
 
 function project(name: string, id = name): Project {
   return { id, name, path: `/repos/${name}`, baseBranch: 'main', addedAt: '2026-08-07T00:00:00.000Z' }
@@ -58,5 +58,47 @@ describe('workspaceRowLabel', () => {
   it('invents no label for a workspace with no repos', () => {
     expect(workspaceRowLabel(workspace('empty', []), PROJECTS))
       .toEqual({ repo: null, name: 'empty' })
+  })
+})
+
+describe('nextAgentName', () => {
+  const named = (...names: (string | undefined)[]): { displayName?: string }[] =>
+    names.map((displayName) => ({ displayName }))
+
+  it('names the first agent after its runtime, unnumbered', () => {
+    expect(nextAgentName('claude', [])).toBe('Claude')
+  })
+
+  it('numbers the second', () => {
+    expect(nextAgentName('claude', named('Claude'))).toBe('Claude 2')
+  })
+
+  // The bug it replaced: a count of same-runtime agents reads 2 here, and would
+  // hand "Claude 3" to an agent while the original "Claude 3" is still open.
+  it('takes the free slot left by a deleted middle agent', () => {
+    expect(nextAgentName('claude', named('Claude', 'Claude 3'))).toBe('Claude 2')
+  })
+
+  it('keeps climbing past a run of taken names', () => {
+    expect(nextAgentName('claude', named('Claude', 'Claude 2', 'Claude 3'))).toBe('Claude 4')
+  })
+
+  // A count could not see this either: the agent still counted, but had let go
+  // of the name it was counted for.
+  it('reuses the name a renamed agent gave up', () => {
+    expect(nextAgentName('claude', named('Shipping fix'))).toBe('Claude')
+  })
+
+  // Names, not runtimes, are what collide on a tab.
+  it('avoids a name held by an agent of another runtime', () => {
+    expect(nextAgentName('claude', named('Claude', 'Claude 2'))).toBe('Claude 3')
+  })
+
+  it('leaves an unnamed legacy agent holding nothing', () => {
+    expect(nextAgentName('claude', named(undefined, '  '))).toBe('Claude')
+  })
+
+  it('falls back to the runtime id for an unknown runtime', () => {
+    expect(nextAgentName('mystery', [])).toBe('mystery')
   })
 })

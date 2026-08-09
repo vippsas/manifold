@@ -40,6 +40,7 @@ import { DEFAULT_SIDEBAR_VIEW, type SidebarViewId } from './components/sidebar/s
 import { useFavorites } from './hooks/project/useFavorites'
 import type { AgentSession, AgentSettingsUpdate, ResolvedFavorite } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
+import { pickUnusedNorwegianCityName } from '../shared/norwegian-cities'
 import { clampUiScale } from '../shared/defaults'
 import { AppShell, type NewAgentTarget } from './AppShell'
 import { QuickOpen } from './components/editor/quick-open/QuickOpen'
@@ -296,25 +297,32 @@ export function App(): React.JSX.Element {
     if (activeWorkspaceId === id) setActiveWorkspaceId(null)
   }, [activeWorkspaceId, removeProject, removeWorkspace, setActiveWorkspaceId, workspaces])
 
-  // "Copy to new worktree": a new workspace over the same folders. Creation cuts
-  // the worktrees eagerly, so by the time it lands in the sidebar it is a real
-  // place on a fresh branch — entering it drops you on its empty agent view.
+  // "New Workspace, Same Folders": a new workspace over the same folders. It
+  // inherits the folders and the runtime and nothing else — the checkout is cut
+  // from each repo's own clone at its base branch, so no work carries over.
+  // Creation cuts the worktrees eagerly, so by the time it lands in the sidebar
+  // it is a real place on a fresh branch — entering it drops you on its empty
+  // agent view.
+  //
+  // It is named after a city, not `<source> 2`. The old suffix promised what the
+  // action does not deliver: `jessheim 2` reads as a second draft of jessheim,
+  // when the two share no branch and no commits. The repo prefix on the row
+  // (`manifold / Oslo`) already says which folders it spans, so the name is free
+  // to say only "somewhere else" — and a city is what Manifold already calls an
+  // unnamed unit of work (`agent-handlers.ts:91`).
   const copyWorkspaceToWorktree = useCallback(async (id: string): Promise<void> => {
     const source = workspaces.find((candidate) => candidate.id === id)
     if (!source) return
-    const names = new Set(workspaces.map((w) => w.name))
-    const base = source.name.replace(/ \d+$/, '')
-    let counter = 2
-    while (names.has(`${base} ${counter}`)) counter += 1
     const created = await createWorkspace({
-      name: `${base} ${counter}`,
+      name: pickUnusedNorwegianCityName(workspaces.map((w) => w.name)),
       projectIds: source.projectIds,
       runtimeId: source.runtimeId,
     })
     setActiveWorkspaceId(created.id)
     if (created.projectIds[0]) setActiveProject(created.projectIds[0])
-    // The copy has no agents yet; landing on the source's agent would look like
-    // nothing happened. An empty agent view is the new place asking to be used.
+    // The new workspace has no agents yet; landing on the source's agent would
+    // look like nothing happened. An empty agent view is the new place asking
+    // to be used.
     setActiveSession(null)
   }, [createWorkspace, setActiveProject, setActiveSession, workspaces])
 
