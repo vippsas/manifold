@@ -61,25 +61,6 @@ export function RepoGlyph(): React.JSX.Element {
   )
 }
 
-export function AddFolderGlyph(): React.JSX.Element {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2Z" />
-      <path d="M11 11v5M8.5 13.5h5" />
-    </svg>
-  )
-}
-
 export function ConfigureAgentGlyph(): React.JSX.Element {
   return (
     <svg

@@ -197,25 +197,36 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('beta-space').closest('.sidebar-label-working')).toBeNull()
   })
 
-  it('calls onNewProject when Add Repository is clicked', () => {
+  it('calls onNewProject when New Repo is clicked', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add Repository' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New Repo' }))
 
     expect(props.onNewProject).toHaveBeenCalled()
   })
 
-  // The toolbar carries the sort toggle and Add Repository, in that order, and
-  // nothing else — it is pinned exactly so a third action cannot drift in.
-  it('renders just the sort toggle and Add Repository in the compact top toolbar', () => {
+  // The toolbar carries the sort toggle and nothing else — it is pinned exactly
+  // so an action cannot drift back in beside it. Both *create* actions are words
+  // in the bottom bar, where a folder-plus glyph up here read as "new workspace"
+  // to the eye and duplicated the button below.
+  it('renders just the sort toggle in the compact top toolbar', () => {
     renderSidebar()
 
-    const toolbar = screen.getByRole('toolbar', { name: 'Repository actions' })
+    const toolbar = screen.getByRole('toolbar', { name: 'Workspace list actions' })
     const buttons = within(toolbar).getAllByRole('button')
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Sorted by recently used — click to sort A–Z',
-      'Add Repository',
     ])
+  })
+
+  // New Repo before New Workspace: a workspace is built out of repos, so the
+  // prerequisite reads first, and the accented workspace CTA keeps the edge.
+  it('names both create actions in the bottom bar, prerequisite first', () => {
+    renderSidebar()
+
+    const bar = screen.getByRole('button', { name: 'New Workspace' }).parentElement
+    const buttons = within(bar!).getAllByRole('button')
+    expect(buttons.map((button) => button.textContent)).toEqual(['+ New Repo', '+ New Workspace'])
   })
 
   // A fork glyph and a folder-plus glyph used to sit here, each meaning nothing
@@ -353,10 +364,10 @@ describe('ProjectSidebar', () => {
   // Its own bar below the scrolling list, not the list's last row: with enough
   // workspaces to scroll, a row would leave the viewport and take the only way
   // to create a workspace with it.
-  it('keeps New Workspace outside the scrolling list', () => {
+  it.each(['New Repo', 'New Workspace'])('keeps %s outside the scrolling list', (label) => {
     renderSidebar()
 
-    const button = screen.getByLabelText('New Workspace')
+    const button = screen.getByLabelText(label)
     const scroller = screen.getByText('alpha-space').closest('[style*="overflow"]')
 
     expect(scroller).not.toBeNull()
