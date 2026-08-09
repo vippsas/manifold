@@ -136,25 +136,25 @@ where it started.
 
 **Guardrail.** (a) Skip the width bookkeeping and the save while a group is maximized
 (`dock-layout-lifecycle.ts:41`). (b) Re-apply the saved sub-minimum sidebar widths right
-after `fromJSON` so the collapse survives (`dock-layout-loader.ts:87`). (c) Clear the
+after `fromJSON` so the collapse survives (`dock-layout-loader.ts:89`). (c) Clear the
 pending debounced save on unmount (`useDockLayout.ts:247-252`). (d) Promote wrapper roots
 (flipping the serialized orientation) before patching the ratio
 (`dock-layout-builders.ts:45`). (e) Skip the sidebar pin when it would leave no unpinned
-group to absorb the change (`dock-layout-helpers.ts:247`), and after a hint-based reopen
+group to absorb the change (`dock-layout-sidebar-width.ts:123`), and after a hint-based reopen
 restore the default proportions — a reopened sidebar is sized to its 1/6 share, and a
 reopened center pane shrinks a sidebar that had grown past a third of the dock back to
-1/6 (`dock-layout-loader.ts:240-270`) — since `addPanel` naively splits the reference
+1/6 (`dock-layout-loader.ts:245-270`) — since `addPanel` naively splits the reference
 group 50/50. A group the user has dragged a workspace pane into is exempt from both
 shrinks — it is a center pane, not a sidebar (`isPureSidebarGroup`,
-`dock-layout-loader.ts:26`). (f) Releasing a pin
-pokes a same-size `setSize` on the group (`dock-layout-helpers.ts:174`), which triggers a
+`dock-layout-loader.ts:28`). (f) Releasing a pin
+pokes a same-size `setSize` on the group (`dock-layout-sidebar-width.ts:50`), which triggers a
 relayout that re-runs the enablement check against the released constraints — chosen over
 a forced `api.layout()` because a forced pass re-applies the splitview's stale cached
 proportions and undoes the pinned resize. (g) Ask for widths in *rendered* terms:
 `setRenderedWidth` sets the size, measures what the gap took, and asks again for the slot
 that lands on the width wanted (`useSidebarHandleCycle.ts:75`); `withPinnedSidebars` then
 holds the sidebar to the width it promised once the mutation is done, rather than trusting
-the constraint clamp (`dock-layout-helpers.ts:265`). The regression tests drive the
+the constraint clamp (`dock-layout-sidebar-width.ts:141`). The regression tests drive the
 **real** dockview library
 and the **real** layout helpers rather than an approximation:
 `dock-layout-no-remount.test.tsx`, `useSidebarHandleCycle.collapse.test.tsx`,
@@ -172,7 +172,7 @@ alone, so the same panes arrange differently depending on the order they were op
 and a pane closed under another lets dockview promote its sibling branch to the root,
 flipping the sticky orientation. Both are pinned by giving every pane one home and
 re-asserting it on open — never replaying a snapshot's position
-(`PANEL_RESTORE_HINTS`, `dock-layout-helpers.ts:42`; `spanShellAcrossWorkspace`,
+(`PANEL_RESTORE_HINTS`, `dock-layout-model.ts:35`; `spanShellAcrossWorkspace`,
 `dock-layout-shell-span.ts:50`). More in [Renderer](renderer.md).
 
 ## 5. Verify against the real code path, not an approximation

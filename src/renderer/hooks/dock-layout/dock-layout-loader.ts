@@ -4,14 +4,16 @@ import {
   PANEL_RESTORE_HINTS,
   PANEL_TITLES,
   SIDEBAR_PANEL_IDS,
-  applyLayoutChangePreservingSidebarWidths,
-  restoreCollapsedSidebarWidths,
-  withPinnedSidebars,
   type Direction,
   type DockPanelId,
   type GridNode,
   type LayoutRefs,
-} from './dock-layout-helpers'
+} from './dock-layout-model'
+import {
+  applyLayoutChangePreservingSidebarWidths,
+  restoreCollapsedSidebarWidths,
+  withPinnedSidebars,
+} from './dock-layout-sidebar-width'
 import { spanShellAcrossWorkspace } from './dock-layout-shell-span'
 
 /** The default share of the dock width the sidebar column gets (matches the

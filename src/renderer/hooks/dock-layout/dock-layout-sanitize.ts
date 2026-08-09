@@ -1,6 +1,6 @@
 import type { SerializedDockview } from 'dockview'
 import { isSiblingPanelId, parseSiblingSessionId } from '../agent-session/agent-siblings'
-import { PANEL_IDS, isEditorPanelId, type DockPanelId, type GridNode } from './dock-layout-helpers'
+import { PANEL_IDS, isEditorPanelId, type DockPanelId, type GridNode } from './dock-layout-model'
 
 // `fileTree` retired with the standalone Files panel. `projects` and
 // `sourceControl` retired into the one `sidebar` panel, which hosts them as
