@@ -99,7 +99,9 @@ Statistics rows.
 
 **Run.** `SessionStreamWirer.wireOutputStreaming()` (`session-stream-wirer.ts:112`) is the hot
 path. Each PTY chunk appends to `session.outputBuffer` (capped at 100 KB, trimmed to 50 KB),
-runs `detectStatus`/`detectAddDir`/`detectUrl`, feeds the chat adapter, and emits
+runs `detectStatus`/`detectAddDir`/`detectUrl`, feeds the chat adapter **only for chat-mode
+sessions** (`session-stream-wirer.ts:144` — an interactive agent paints a TUI, and its redraw
+frames stripped of ANSI would land in chat history as unreadable half-sentences), and emits
 `agent:output`/`agent:status`/`agent:activity`. Chat-mode print runs instead use
 `wireStreamJsonOutput()` (`session-stream-wirer.ts:189`), which buffers partial NDJSON lines
 in `streamJsonLineBuffer` and dispatches each complete event to `handleStreamJsonEvent`.

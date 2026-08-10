@@ -34,6 +34,7 @@ import type { WorktreeManager } from '../git/worktree-manager'
 import type { PtyPool } from '../agent/pty-pool'
 import type { ProjectRegistry } from '../store/project-registry'
 import type { SessionStreamWirer } from './session-stream-wirer'
+import type { ChatAdapter } from '../agent/chat-adapter'
 
 function createProjectRegistry(): ProjectRegistry {
   return {
@@ -488,5 +489,39 @@ describe('SessionCreator', () => {
     // were wired against the live pty spawned after the meta read.
     expect(session.worktreePath).toBe('/repo/.manifold/worktrees/manifold-oslo')
     expect(streamWirer.wireOutputStreaming).toHaveBeenCalledWith('pty-1', expect.anything())
+  })
+
+  it('gives each agent in the same folder its own chat storage key', async () => {
+    const setSessionStorage = vi.fn()
+    const chatAdapter = { setSessionStorage, addUserMessage: vi.fn() } as unknown as ChatAdapter
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      createPtyPool(),
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => chatAdapter,
+    )
+
+    const spawnInProjectRoot = async () => {
+      vi.mocked(gitExec).mockResolvedValueOnce('main\n')
+      return creator.create({
+        projectId: 'proj-1',
+        runtimeId: 'codex',
+        prompt: 'build the app',
+        branchName: 'main',
+        noWorktree: true,
+        stayOnBranch: true,
+      })
+    }
+
+    const first = await spawnInProjectRoot()
+    const second = await spawnInProjectRoot()
+
+    // Both agents run directly in the project root, so a path-only storage key
+    // would hand the second agent the first one's chat history.
+    expect(first.worktreePath).toBe('/repo')
+    expect(second.worktreePath).toBe('/repo')
+    const [firstKey, secondKey] = setSessionStorage.mock.calls.map((call) => call[1])
+    expect(firstKey).not.toBe(secondKey)
   })
 })

@@ -1,7 +1,7 @@
 ---
 description: The AI runtimes layer and PTY pool — the runtime registry, command building (interactive vs print-mode), theme/ANSI sync, and the process boundary the session subsystem spawns into.
 covers: [src/main/agent]
-updated: 2026-07-31
+updated: 2026-08-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -27,7 +27,7 @@ calls into here; this layer holds no session state of its own and is pure given 
 - `src/main/agent/status-detector.ts` — `detectStatus()`: maps recent PTY output to an `AgentStatus` using per-runtime regex patterns.
 - `src/main/agent/ollama-models.ts` — `listOllamaModels()`: parses `ollama list`.
 - `src/main/agent/ai-prompt.ts` — `runAiPrompt()`: stdin-fed one-shot child process (used by memory compression).
-- `src/main/agent/chat-adapter.ts` — `ChatAdapter` + `stripAnsi`/`parseOptions`: turns raw PTY chunks into persisted `ChatMessage`s. `clearSession(id, true, storageKey)` also removes persisted history when agent settings intentionally replace an agent with a fresh session, including a discovered session whose chat has not yet been opened.
+- `src/main/agent/chat-adapter.ts` — `ChatAdapter` + `stripAnsi`/`parseOptions`: turns raw PTY chunks into persisted `ChatMessage`s. `clearSession(id, true, storageKey)` also removes persisted history when agent settings intentionally replace an agent with a fresh session, including a discovered session whose chat has not yet been opened. `chatStorageKey(worktreePath, sessionId)` builds the persistence key: history is scoped to the **agent**, not the folder, because several agents share one checkout under `noWorktree` and a path-only key handed a newly started agent the previous agent's transcript.
 
 ## How it works
 

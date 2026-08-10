@@ -81,6 +81,17 @@ export function parseOptions(text: string): { cleanText: string; options: string
   return { cleanText, options }
 }
 
+/**
+ * Key under which a session's chat history is persisted.
+ *
+ * Scoped to the agent, not the folder: several agents can run in one checkout
+ * (`noWorktree` sessions live in the project root), so a path-only key hands a
+ * newly started agent the previous agent's transcript.
+ */
+export function chatStorageKey(worktreePath: string, sessionId: string): string {
+  return `${worktreePath}#${sessionId}`
+}
+
 export class ChatAdapter {
   private messages = new Map<string, ChatMessage[]>()
   private listeners = new Map<string, Set<MessageListener>>()
