@@ -2,7 +2,8 @@
 
 Built-in plugins are TypeScript modules that ship inside the Manifold app bundle
 and extend it through the `manifold` runtime API. The reference implementation is
-`resources/plugins/hello/`.
+`resources/plugins/manifold.loop/` — the broadest bundled example (commands, a webview
+panel, storage, and privileged capabilities).
 
 ---
 
@@ -28,7 +29,7 @@ storage paths, and view identifiers.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | yes | Plugin name segment, e.g. `hello` |
+| `name` | yes | Plugin name segment, e.g. `loop` |
 | `publisher` | yes | Publisher segment, e.g. `manifold` |
 | `version` | yes | SemVer string |
 | `displayName` | no | Human-readable name shown in UI |
@@ -216,11 +217,11 @@ npm run plugin:new -- <name> --publisher acme
 ```
 
 This creates `resources/plugins/<publisher>.<name>/` with a minimal `package.json`
-and `src/plugin.ts` wired up with a single hello command. Edit from there, then
+and `src/plugin.ts` wired up with a single greeting command. Edit from there, then
 `npm run build:plugins` to compile.
 
-See `resources/plugins/hello/` for a worked example with storage, configuration,
-workspace events, and a webview panel.
+See `resources/plugins/manifold.loop/` for a worked example with storage, commands,
+and a webview panel, and `resources/plugins/manifold.worktrees/` for a smaller one.
 
 ---
 

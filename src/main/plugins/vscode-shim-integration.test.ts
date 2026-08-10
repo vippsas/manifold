@@ -12,8 +12,8 @@ import { createHostCommandsService } from './host-commands-service'
 import type { PluginModule } from '../../shared/plugins/api-types'
 import type { MessageLevel } from '../../shared/plugins/ui'
 
-const FIXTURE = resolve(__dirname, '../../../resources/plugins/hello-vscode')
-const FIXTURE_MAIN = resolve(FIXTURE, 'out/extension.js')
+const FIXTURE = resolve(__dirname, '__fixtures__/vscode-extension')
+const FIXTURE_MAIN = resolve(FIXTURE, 'extension.js')
 
 // A real CommonJS `require` for this ESM test file. Loading the fixture through
 // this goes through Node's native CJS loader — the SAME `Module._load` that
@@ -115,13 +115,13 @@ describe('vscode shim end-to-end (in-memory RPC)', () => {
 
     // --- Drive activation from the main side, as ExtensionHost does. ---
     const activationProxy = main.getProxy<{ $activate(t: ActivationTarget): Promise<void> }>(PLUGIN_ACTIVATION)
-    await activationProxy.$activate({ id: 'manifold.hello-vscode', root: FIXTURE, main: './out/extension.js', kind: 'vscode' })
+    await activationProxy.$activate({ id: 'fixture.vscode-extension', root: FIXTURE, main: './extension.js', kind: 'vscode' })
 
     // The fixture registered its command through the real CommandRegistry.
-    expect(registry.has('helloVscode.hello')).toBe(true)
+    expect(registry.has('fixture.greet')).toBe(true)
 
     // Executing routes main -> host -> fixture handler -> shim.window.showInformationMessage.
-    const result = await registry.execute('helloVscode.hello', [])
+    const result = await registry.execute('fixture.greet', [])
     expect(result).toBe('greeted:1')
 
     // showInformationMessage reached HOST_UI.

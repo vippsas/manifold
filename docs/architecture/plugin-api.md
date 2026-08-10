@@ -1,7 +1,7 @@
 ---
 description: The plugin authoring API contract — the `manifold` runtime module, manifest fields, capabilities, and `contributes` that built-in plugins are written against.
 covers: [src/shared/plugins]
-updated: 2026-08-09
+updated: 2026-08-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -88,11 +88,12 @@ The renderer reads two different slices of that registry: the Apps launcher hono
 - `CAPABILITIES` / `isCapability` / `BUILTIN_ONLY_CAPABILITIES` / `isBuiltinOnlyCapability` — `manifest.ts:7`–`17`.
 - `RpcEndpoint` — `rpc.ts:32`. `registerService(ctx, impl)` + `getProxy<T>(ctx)`; the `HOST_*`/`PLUGIN_*` context ids (`rpc.ts:15`) name each service across the boundary.
 
-The reference plugin is `resources/plugins/hello/` — `package.json` declares
-`storage`, `workspace:read`, `configuration` and contributes a panel + two commands;
-`src/plugin.ts` exercises `commands`, `window` (webview + `showInputBox`/`showQuickPick`/
-`showInformationMessage`), `storage.global`, `configuration`, and
-`workspace.onDidChangeActiveProject`.
+The reference plugin is `resources/plugins/manifold.loop/` — `package.json` declares
+`agent:control`, `lm`, `workspace:read`, `storage` and contributes a panel + commands;
+`src/plugin.ts` exercises `commands`, `window` (webview + `showWarningMessage`),
+`storage`, `agents`, `lm`, and `workspace.onDidChangeActiveSession`. `resources/plugins/manifold.worktrees/` is the smaller
+read-mostly example. The VS Code shim's end-to-end fixture is test-only and lives outside
+the bundle at `src/main/plugins/__fixtures__/vscode-extension/`.
 
 ## Interactions
 

@@ -49,16 +49,19 @@ export class SettingsStore {
     // The external provisioner flow was removed; scrub the now-orphaned `provisioning`
     // field from configs written by older builds so it is not re-persisted on every write.
     delete (settings as { provisioning?: unknown }).provisioning
-    // One-time seed of the default-disabled plugin set (the bundled demo plugins).
-    // `disabledPlugins` shipped after some configs were already written, so a plain
-    // merge would let an old `disabledPlugins: []` shadow the default. Union the
-    // defaults in once and mark it done, so a plugin the user later enables is not
-    // re-disabled on the next launch.
-    if (!settings.pluginDefaultsSeeded) {
-      const seed = DEFAULT_SETTINGS.disabledPlugins ?? []
-      settings.disabledPlugins = Array.from(new Set([...(settings.disabledPlugins ?? []), ...seed]))
-      settings.pluginDefaultsSeeded = true
+    // Seed the default-disabled plugin set into `disabledPlugins`, once per id: a
+    // plain merge would let an already-written `disabledPlugins: []` shadow the
+    // default. Tracking which ids were seeded (rather than a single "seeded" flag)
+    // means a plugin that becomes default-disabled in a later release still reaches
+    // existing configs, while a plugin the user has since enabled is never re-disabled.
+    const seeded = new Set(settings.seededDisabledPlugins ?? [])
+    const unseeded = (DEFAULT_SETTINGS.disabledPlugins ?? []).filter((id) => !seeded.has(id))
+    if (unseeded.length > 0) {
+      settings.disabledPlugins = Array.from(new Set([...(settings.disabledPlugins ?? []), ...unseeded]))
+      settings.seededDisabledPlugins = [...seeded, ...unseeded]
     }
+    // The boolean marker this replaced is orphaned; scrub it so it is not re-persisted.
+    delete (settings as { pluginDefaultsSeeded?: unknown }).pluginDefaultsSeeded
     return settings
   }
 

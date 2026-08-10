@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-08-06
+updated: 2026-08-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -56,9 +56,11 @@ over `{ ...DEFAULT_SETTINGS }` so unknown/missing top-level keys fall back, then
 `resolveDefaults()` for the fields that need deeper merging (`settings-store.ts:22`):
 `storagePath` defaults to `~/.manifold` when blank; `memory`, `search.ai`, `editor`, and
 `notifications` are merged field-by-field over their defaults; and
-`disabledPlugins` is seeded once with the default-disabled set, guarded by a
-`pluginDefaultsSeeded` flag so a user-enabled plugin is not re-disabled on next launch
-(`settings-store.ts:38`, `:57`). `updateSettings(partial)` shallow-merges and writes
+`disabledPlugins` is seeded from the default-disabled set once *per id*, recording the ids
+it applied in `seededDisabledPlugins`, so a plugin that becomes default-disabled in a later
+release still reaches an existing config while a user-enabled plugin is never re-disabled on
+next launch; the older boolean `pluginDefaultsSeeded` marker is scrubbed on read
+(`settings-store.ts:38`, `:52`). `updateSettings(partial)` shallow-merges and writes
 (`settings-store.ts:90`). `getSettings()` returns a shallow copy. There is no `useWorktrees`
 setting any more: an agent never chooses a worktree, since a checkout of one's own *is* a
 workspace, so the New Agent form always spawns in the repository itself

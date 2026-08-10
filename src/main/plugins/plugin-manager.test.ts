@@ -146,19 +146,16 @@ describe('PluginManager openView logging', () => {
   })
 })
 
-describe('hello-world sample plugins disabled by default', () => {
-  const HELLO_IDS = ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode', 'mark-wiemer.helloworld-2022']
-
-  it('reports each hello-world sample plugin as disabled under DEFAULT_SETTINGS', () => {
+describe('default-disabled plugins', () => {
+  it('reports every DEFAULT_SETTINGS.disabledPlugins id as disabled', () => {
     const mgr = makeManager({ disabledPlugins: DEFAULT_SETTINGS.disabledPlugins })
-    for (const id of HELLO_IDS) expect(mgr.isEnabled(id)).toBe(false)
+    for (const id of DEFAULT_SETTINGS.disabledPlugins) expect(mgr.isEnabled(id)).toBe(false)
   })
 
-  it('keeps the bundled hello views out of the launcher by default, while other plugins stay visible', () => {
+  it('keeps a default-disabled plugin out of the contributions, while other plugins stay visible', () => {
     const mgr = makeManager({ disabledPlugins: DEFAULT_SETTINGS.disabledPlugins })
     ;(mgr as never as { plugins: PluginDescriptor[] }).plugins = [
-      desc('manifold.hello', [{ id: 'manifold.hello.panel', title: 'Hello', launcher: true }]),
-      desc('manifold.hello-tree', [{ id: 'manifold.hello-tree.view', title: 'Hello Tree', launcher: true }]),
+      desc('manifold.statistics', [{ id: 'manifold.statistics.panel', title: 'Statistics', launcher: false }]),
       desc('acme.real', [{ id: 'acme.real.view', title: 'Real', launcher: true }]),
     ]
     const ids = mgr.listViewContributions().map((c) => c.pluginId)

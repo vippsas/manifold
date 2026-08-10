@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-08-06
+updated: 2026-08-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -50,8 +50,11 @@ fixed) or `<storageRoot>` (= `settings.storagePath`, configurable, default `<con
 **`<configHome>/config.json`** — the `ManifoldSettings` object. `SettingsStore` reads it on
 construction; a missing/corrupt file falls back to `DEFAULT_SETTINGS` (`settings-store.ts:77`).
 `resolveDefaults()` is the migration seam: it backfills `storagePath`, deep-merges
-`memory`/`search`/`editor`/`notifications`, and one-time-seeds
-`disabledPlugins` (`settings-store.ts:22`). Every `updateSettings()` rewrites the whole file
+`memory`/`search`/`editor`/`notifications`, and seeds `disabledPlugins` once per default
+id (tracked in `seededDisabledPlugins`) (`settings-store.ts:22`). `DEFAULT_SETTINGS.disabledPlugins`
+currently holds `manifold.statistics` (`defaults.ts:84`), paired with `SETTINGS_HIDDEN_PLUGINS`
+(`defaults.ts:22`) — the ids Settings → Plugins omits — so that plugin ships dark and only a
+hand-edited `config.json` turns it back on. Every `updateSettings()` rewrites the whole file
 (`:92`). `storagePath` itself is set here and consumed across the app — its `mkdirSync` on
 change lives in the IPC layer, not the store (`ipc/settings-handlers.ts:18`). `ManifoldSettings`
 also carries a bare-number `uiScale` (`src/shared/types.ts:178`), defaulting to `1`

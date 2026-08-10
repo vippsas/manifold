@@ -21,11 +21,11 @@ import * as fs from 'node:fs'
 import { SettingsStore } from './settings-store'
 
 /** DEFAULT_SETTINGS has storagePath: '', but resolveDefaults() fills it in at runtime;
- *  it also seeds the default-disabled plugins once and sets the pluginDefaultsSeeded marker. */
+ *  it also seeds the default-disabled plugins and records the ids it seeded. */
 const RESOLVED_DEFAULTS = {
   ...DEFAULT_SETTINGS,
   storagePath: '/mock-home/.manifold',
-  pluginDefaultsSeeded: true,
+  seededDisabledPlugins: [...DEFAULT_SETTINGS.disabledPlugins],
 }
 
 const mockExistsSync = vi.mocked(fs.existsSync)
@@ -97,41 +97,62 @@ describe('SettingsStore', () => {
   })
 
   describe('default-disabled plugin seeding', () => {
-    const HELLO = ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode', 'mark-wiemer.helloworld-2022']
+    const DEFAULT_DISABLED = DEFAULT_SETTINGS.disabledPlugins
 
-    it('seeds the default-disabled plugins into a pre-existing config that lacks the marker', () => {
-      // A config written before this release: has disabledPlugins but no pluginDefaultsSeeded.
+    it('seeds the default-disabled plugins into a pre-existing config that has none seeded', () => {
+      // A config written before this release: has disabledPlugins but no seeded record.
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue(JSON.stringify({ disabledPlugins: [] }))
 
       const store = new SettingsStore()
       const s = store.getSettings()
-      expect(s.disabledPlugins).toEqual(expect.arrayContaining(HELLO))
-      expect(s.pluginDefaultsSeeded).toBe(true)
+      expect(s.disabledPlugins).toEqual(expect.arrayContaining(DEFAULT_DISABLED))
+      expect(s.seededDisabledPlugins).toEqual(expect.arrayContaining(DEFAULT_DISABLED))
     })
 
     it('preserves user-disabled ids while adding the defaults (no duplicates)', () => {
       mockExistsSync.mockReturnValue(true)
-      mockReadFileSync.mockReturnValue(JSON.stringify({ disabledPlugins: ['acme.custom', 'manifold.hello'] }))
+      mockReadFileSync.mockReturnValue(JSON.stringify({ disabledPlugins: ['acme.custom', ...DEFAULT_DISABLED] }))
 
       const store = new SettingsStore()
       const ids = store.getSettings().disabledPlugins ?? []
-      expect(ids).toEqual(expect.arrayContaining([...HELLO, 'acme.custom']))
-      expect(ids.filter((i) => i === 'manifold.hello')).toHaveLength(1)
+      expect(ids).toEqual(expect.arrayContaining([...DEFAULT_DISABLED, 'acme.custom']))
+      for (const id of DEFAULT_DISABLED) expect(ids.filter((i) => i === id)).toHaveLength(1)
     })
 
-    it('does NOT re-disable a plugin the user already enabled (marker already set)', () => {
-      // User previously enabled manifold.hello; the marker was persisted with that choice.
+    it('does NOT re-disable a plugin the user already enabled (id already seeded)', () => {
+      // User previously enabled a default-disabled plugin; the id stays recorded as seeded.
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue(JSON.stringify({
-        pluginDefaultsSeeded: true,
-        disabledPlugins: ['manifold.hello-tree', 'manifold.hello-vscode'],
+        seededDisabledPlugins: DEFAULT_DISABLED,
+        disabledPlugins: ['acme.custom'],
       }))
 
       const store = new SettingsStore()
       const ids = store.getSettings().disabledPlugins ?? []
-      expect(ids).not.toContain('manifold.hello')
-      expect(ids).toEqual(['manifold.hello-tree', 'manifold.hello-vscode'])
+      expect(ids).toEqual(['acme.custom'])
+    })
+
+    it('seeds an id that became default-disabled after the config was written', () => {
+      // Ids seeded by an older release must not freeze the set: a new default still applies.
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({
+        seededDisabledPlugins: ['legacy.sample'],
+        disabledPlugins: ['legacy.sample'],
+      }))
+
+      const store = new SettingsStore()
+      const s = store.getSettings()
+      expect(s.disabledPlugins).toEqual(expect.arrayContaining(DEFAULT_DISABLED))
+      expect(s.seededDisabledPlugins).toEqual(['legacy.sample', ...DEFAULT_DISABLED])
+    })
+
+    it('drops the orphaned pluginDefaultsSeeded flag written by older builds', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ pluginDefaultsSeeded: true, disabledPlugins: [] }))
+
+      const store = new SettingsStore()
+      expect((store.getSettings() as Record<string, unknown>).pluginDefaultsSeeded).toBeUndefined()
     })
   })
 

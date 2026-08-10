@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { SectionCard, SectionHeader } from './SettingsSectionLayout'
+import { SETTINGS_HIDDEN_PLUGINS } from '../../../../shared/defaults'
 
 interface PluginConfigProperty {
   type: 'string' | 'number' | 'boolean'
@@ -43,6 +44,8 @@ export function PluginSettingsSection(): React.JSX.Element {
       const list = await invoke<any[]>('plugins:list')
       const entries: PluginEntry[] = []
       for (const plugin of list) {
+        // Plugins that ship but aren't user-manageable never get a card here.
+        if (SETTINGS_HIDDEN_PLUGINS.includes(plugin.id as string)) continue
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const props: Record<string, PluginConfigProperty> | undefined = plugin?.manifest?.contributes?.configuration?.properties as any
         const hasConfig = props != null && Object.keys(props).length > 0

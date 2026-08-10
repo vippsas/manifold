@@ -2,6 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, findByDisplayValue, findByRole, fireEvent, waitFor, screen } from '@testing-library/react'
 import { PluginSettingsSection } from './PluginSettingsSection'
+import { SETTINGS_HIDDEN_PLUGINS } from '../../../../shared/defaults'
 
 const MOCK_PLUGIN_A = {
   id: 'pub.a',
@@ -129,6 +130,20 @@ describe('PluginSettingsSection', () => {
     const { findByText } = render(<PluginSettingsSection />)
     const header = await findByText('Plugins')
     expect(header).toBeTruthy()
+  })
+
+  it('omits plugins that are hidden from Settings, even though main lists them', async () => {
+    const hidden = { id: SETTINGS_HIDDEN_PLUGINS[0], enabled: false, manifest: { displayName: 'Hidden One' } }
+    const invoke = vi.fn(async (channel: string) => {
+      if (channel === 'plugins:list') return [MOCK_PLUGIN_B, hidden]
+      return undefined
+    })
+    // @ts-expect-error test stub
+    global.window.electronAPI = { invoke, on: vi.fn(() => () => {}) }
+    const { container } = render(<PluginSettingsSection />)
+    await screen.findByText('B')
+    expect(screen.queryByText('Hidden One')).toBeNull()
+    expect(container.querySelector(`#${CSS.escape(hidden.id)}-enabled`)).toBeNull()
   })
 
   it('shows "No plugins installed" when list is empty', async () => {
