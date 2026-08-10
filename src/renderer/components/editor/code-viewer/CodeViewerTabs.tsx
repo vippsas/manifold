@@ -248,6 +248,9 @@ function FileTab({
         {label.description ? (
           <span style={viewerStyles.tabLabelDescription}>{label.description}</span>
         ) : null}
+        {file.transient ? (
+          <span style={viewerStyles.tabUnsaved} title="Unsaved temporary file" aria-label="Unsaved temporary file">●</span>
+        ) : null}
       </button>
       <button
         className="code-tab__close"

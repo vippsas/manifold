@@ -16,6 +16,8 @@ export interface OpenFile {
   path: string
   content: string
   refreshVersion: number
+  /** In-memory document that is never read from, written to, or restored from disk. */
+  transient?: boolean
 }
 
 export interface EditorPaneView {
@@ -39,6 +41,7 @@ export interface UseCodeViewResult {
   activeFileContent: string | null
   getEditorPane: (paneId: string) => EditorPaneView
   handleSelectFile: (filePath: string, preferredPaneId?: string | null) => string
+  handleOpenTransientFile: (name: string, content: string, preferredPaneId?: string | null) => string
   handleCloseFile: (filePath: string, paneId?: string | null) => void
   handleCloseOtherFiles: (filePath: string, paneId?: string | null) => void
   handleCloseAllFiles: (paneId?: string | null) => void
@@ -226,6 +229,7 @@ export function useCodeView(
     activeFileContent,
     getEditorPane,
     handleSelectFile: fileOps.handleSelectFile,
+    handleOpenTransientFile: fileOps.handleOpenTransientFile,
     handleCloseFile: fileOps.handleCloseFile,
     handleCloseOtherFiles: fileOps.handleCloseOtherFiles,
     handleCloseAllFiles: fileOps.handleCloseAllFiles,

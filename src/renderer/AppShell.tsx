@@ -2,6 +2,7 @@ import React from 'react'
 import { DockviewReact, type DockviewApi, type DockviewTheme } from 'dockview'
 import type { Project, AgentSession, ManifoldSettings, FileChange, CreateProjectOptions } from '../shared/types'
 import type { Workspace, WorkspaceCreateOptions } from '../shared/workspace-types'
+import type { GitSyncResult } from '../shared/workspace-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
 import type { UseAppOverlaysResult } from './hooks/app/useAppOverlays'
 import type { UseGitOperationsResult } from './hooks/editor/useGitOperations'
@@ -92,6 +93,7 @@ export interface AppShellProps {
   showCommitAndPrButtons: boolean
   // Top-level handlers/state
   handleSelectFile: (path: string) => void
+  handleOpenGitCommandOutput: (output: string) => void
   setPreviewThemeId: (id: string | null) => void
   addProject: (path?: string, options?: { activate?: boolean }) => Promise<Project | null>
   cloneProject: (url: string) => Promise<boolean>
@@ -149,6 +151,33 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
 
   const activeProjectName = p.projects.find((proj) => proj.id === p.activeProjectId)?.name
   const newAgentWorkspace = p.workspaces.find((workspace) => workspace.id === p.newAgentTarget?.workspaceId) ?? null
+  const statusBarRepos = p.dockState.workspaceRepoStatuses ?? []
+  const statusBarRepo = statusBarRepos.find((repo) => repo.projectId === p.activeProjectId)
+    ?? statusBarRepos[0]
+  const statusBarBranchTarget = p.dockState.activeWorkspaceId && statusBarRepo?.branch
+    ? {
+        workspaceId: p.dockState.activeWorkspaceId,
+        projectId: statusBarRepo.projectId,
+        repoName: statusBarRepo.projectName,
+        currentBranch: statusBarRepo.branch,
+        upstreamAheadBehind: statusBarRepo.upstreamAheadBehind,
+        onCheckedOut: () => {
+          p.dockState.refreshWorkspaceRepoStatuses()
+          void p.gitOps.refreshAheadBehind()
+        },
+        onSync: async (): Promise<GitSyncResult> => {
+          const result = await window.electronAPI.invoke(
+            'git:workspace-pull',
+            p.dockState.activeWorkspaceId,
+            statusBarRepo.projectId,
+          ) as GitSyncResult
+          p.dockState.refreshWorkspaceRepoStatuses()
+          await p.gitOps.refreshAheadBehind()
+          return result
+        },
+        onShowCommandOutput: p.handleOpenGitCommandOutput,
+      }
+    : undefined
 
   return (
     <div className={`layout-root ${p.themeClass}`}>
@@ -212,6 +241,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           onCreatePR={() => p.overlays.setActivePanel('pr')}
           onShowConflicts={() => p.overlays.setActivePanel('conflicts')}
           showCommitAndPrButtons={p.showCommitAndPrButtons}
+          branchTarget={statusBarBranchTarget}
         />
       </div>
       {p.overlays.activePanel === 'commit' && p.activeSessionId && p.activeProjectIsGit && (

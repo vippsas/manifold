@@ -42,14 +42,16 @@ describe('BranchSwitcher', () => {
     await waitFor(() => {
       expect(screen.getByText('feature/login')).toBeInTheDocument()
     })
-    expect(mockInvoke).toHaveBeenCalledWith('git:list-branches', 'p1')
+    expect(mockInvoke).toHaveBeenCalledWith('git:list-branches', 'p1', 'main')
     // A centered modal, not a popover cramped into the panel column.
     expect(screen.getByRole('dialog', { name: 'Switch branch' })).toBeInTheDocument()
     expect(screen.getByText(/storefront/)).toBeInTheDocument()
-    // Remote-only branches carry their source badge.
-    expect(screen.getByText('remote')).toBeInTheDocument()
+    // Local and remote refs are grouped like VS Code's picker.
+    expect(screen.getByText('branches')).toBeInTheDocument()
+    expect(screen.getByText('remote branches')).toBeInTheDocument()
+    expect(screen.getByText('origin/feature/signup')).toBeInTheDocument()
     // The checked-out branch is marked and inert.
-    expect(screen.getByRole('option', { name: /main/ })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getAllByRole('option', { name: /main/ }).find((option) => option.getAttribute('aria-current') === 'true')).toBeDefined()
   })
 
   it('moves the active row with the arrow keys and checks out on Enter', async () => {
@@ -61,11 +63,11 @@ describe('BranchSwitcher', () => {
     })
     mockInvoke.mockResolvedValue(undefined)
     const input = screen.getByRole('textbox')
-    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.change(input, { target: { value: 'feature/login' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-checkout', 'ws-1', 'p1', 'feature/login', false)
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-checkout', 'ws-1', 'p1', 'feature/login', 'switch')
     })
   })
 
@@ -93,7 +95,7 @@ describe('BranchSwitcher', () => {
     fireEvent.click(screen.getByText('feature/login'))
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-checkout', 'ws-1', 'p1', 'feature/login', false)
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-checkout', 'ws-1', 'p1', 'feature/login', 'switch')
     })
     expect(onCheckedOut).toHaveBeenCalled()
   })
@@ -110,7 +112,7 @@ describe('BranchSwitcher', () => {
     fireEvent.click(screen.getByText(/Create new branch/))
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-checkout', 'ws-1', 'p1', 'feature/brand-new', true)
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-checkout', 'ws-1', 'p1', 'feature/brand-new', 'create')
     })
     expect(onCheckedOut).toHaveBeenCalled()
   })
@@ -125,6 +127,41 @@ describe('BranchSwitcher', () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'feature/login' } })
 
     expect(screen.queryByText(/Create new branch/)).not.toBeInTheDocument()
+  })
+
+  it('creates a branch from a selected starting point', async () => {
+    mockInvoke.mockResolvedValue(branches)
+    renderSwitcher()
+
+    await waitFor(() => expect(screen.getByText('Create new branch from…')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Create new branch from…'))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'feature/from-develop' } })
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'feature/login' } })
+    mockInvoke.mockResolvedValue(undefined)
+    fireEvent.click(screen.getByText('feature/login'))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'git:workspace-checkout', 'ws-1', 'p1', 'feature/from-develop', 'create', 'feature/login',
+      )
+    })
+  })
+
+  it('checks out a selected remote ref detached', async () => {
+    mockInvoke.mockResolvedValue(branches)
+    renderSwitcher()
+
+    await waitFor(() => expect(screen.getByText('Checkout detached…')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Checkout detached…'))
+    mockInvoke.mockResolvedValue(undefined)
+    fireEvent.click(screen.getByText('origin/feature/signup'))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'git:workspace-checkout', 'ws-1', 'p1', 'origin/feature/signup', 'detach',
+      )
+    })
   })
 
   it('surfaces a failed checkout instead of closing', async () => {

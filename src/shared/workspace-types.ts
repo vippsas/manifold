@@ -1,4 +1,4 @@
-import type { FileChange } from './types'
+import type { AheadBehind, FileChange } from './types'
 
 /** A workspace is a place to work, not a folder group: it owns one checkout of
  *  every repo it spans, and every agent in it works there. Two features over the
@@ -44,6 +44,9 @@ export interface WorkspaceRepoStatus {
   checkoutPath: string
   /** The checked-out branch; empty when HEAD is unresolvable (no commits yet). */
   branch: string
+  /** Distance from the branch's configured upstream. Absent when the branch has
+   *  no upstream (or Git cannot resolve it), matching VS Code's sync indicator. */
+  upstreamAheadBehind?: AheadBehind
   /** What the index holds — the two groups mirror git's own model, so a file
    *  staged and then edited again legitimately appears in both. */
   staged: FileChange[]
@@ -51,6 +54,17 @@ export interface WorkspaceRepoStatus {
    *  anything conflicted. */
   unstaged: FileChange[]
 }
+
+/** Result of the status-bar sync operation. Git failures are returned rather
+ *  than thrown so the renderer can offer the complete command output. */
+export type GitSyncResult =
+  | { ok: true; output: string }
+  | {
+      ok: false
+      failedCommand: 'pull' | 'push'
+      message: string
+      output: string
+    }
 
 export interface WorkspaceCreateOptions {
   name: string

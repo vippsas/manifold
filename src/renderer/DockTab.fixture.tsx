@@ -1,13 +1,11 @@
-// Screenshot fixture for the dock tab's agent controls and chip styling.
+// Screenshot fixture for the dock tab's agent overflow menu and chip styling.
 // `npm run screenshot:component DockTab`.
 //
 // Tabs are wrapped in mock `.dv-tab` / `.dv-active-tab` elements under the
 // dockview theme class so the chip fills (active accent, inactive elevated,
-// hover) render exactly as in the real dock. Shown twice: at rest, and with the
-// hover reveal forced on (the per-tab ⚙/🔒/🗑 are hidden until the tab is
-// hovered). The third tab is a locked agent — its padlock must read at rest,
-// where the other actions are still hidden, and its 🗑 must read as disabled.
-import React from 'react'
+// hover) render exactly as in the real dock. The middle tab's one overflow
+// button is opened after mount; its worded menu includes every former glyph.
+import React, { useEffect, useRef } from 'react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockTab } from './DockTab'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
@@ -44,35 +42,32 @@ const strip: React.CSSProperties = {
   borderRadius: 'var(--radius-lg)', width: 520,
 }
 
-function Strip({ hover }: { hover?: boolean }): React.JSX.Element {
+function Fixture(): React.JSX.Element {
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    rootRef.current?.querySelector<HTMLButtonElement>('[aria-label="Actions for Review"]')?.click()
+  }, [])
+
   return (
-    <div className={hover ? 'force-hover' : undefined} style={strip}>
-      <div className="dv-tab dv-active-tab" style={tabWrap}>
-        <DockTab {...headerProps('agent', 'Claude')} />
-      </div>
-      <div className="dv-tab" style={tabWrap}>
-        <DockTab {...headerProps(siblingPanelId('child-1'), 'Review')} />
-      </div>
-      <div className="dv-tab" style={tabWrap}>
-        <DockTab {...headerProps(siblingPanelId('child-2'), 'Release')} />
-      </div>
+    <div ref={rootRef} className="dockview-theme-dark dockview-theme-manifold">
+      <DockStateContext.Provider value={state}>
+        <div style={{ padding: 24, background: 'var(--dock-canvas)', minHeight: 220 }}>
+          <div style={strip}>
+            <div className="dv-tab dv-active-tab" style={tabWrap}>
+              <DockTab {...headerProps('agent', 'Claude')} />
+            </div>
+            <div className="dv-tab force-hover" style={tabWrap}>
+              <DockTab {...headerProps(siblingPanelId('child-1'), 'Review')} />
+            </div>
+            <div className="dv-tab" style={tabWrap}>
+              <DockTab {...headerProps(siblingPanelId('child-2'), 'Release')} />
+            </div>
+          </div>
+          <style>{'.force-hover .dock-tab__action { opacity: 1 }'}</style>
+        </div>
+      </DockStateContext.Provider>
     </div>
   )
 }
 
-export default (
-  <div className="dockview-theme-dark dockview-theme-manifold">
-    <DockStateContext.Provider value={state}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: 24, background: 'var(--dock-canvas)' }}>
-        {/* Stands in for a real pointer, which a headless render never has: both
-            halves of theme.css's `.dock-tab:hover .dock-tab__action` pair, so a
-            locked agent's 🗑 shows the dimming it gets on hover instead of
-            staying at the hidden-at-rest opacity. Keep the disabled value in
-            step with theme.css. */}
-        <style>{'.force-hover .dock-tab__action { opacity: 1 } .force-hover .dock-tab__action:disabled { opacity: 0.45 }'}</style>
-        <Strip />
-        <Strip hover />
-      </div>
-    </DockStateContext.Provider>
-  </div>
-)
+export default <Fixture />

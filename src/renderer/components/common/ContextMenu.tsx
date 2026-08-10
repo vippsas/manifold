@@ -5,6 +5,7 @@ import { contextMenuStyles } from './ContextMenu.styles'
 export interface ContextMenuAction {
   label: string
   action: () => void
+  disabled?: boolean
 }
 
 export type MenuItem = ContextMenuAction | 'separator'
@@ -69,9 +70,14 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.J
           ) : (
             <div
               key={item.label}
-              className="context-menu-item"
-              style={contextMenuStyles.item}
-              onClick={() => { item.action(); onClose() }}
+              className={`context-menu-item${item.disabled ? ' context-menu-item--disabled' : ''}`}
+              style={{ ...contextMenuStyles.item, ...(item.disabled ? contextMenuStyles.itemDisabled : undefined) }}
+              aria-disabled={item.disabled || undefined}
+              onClick={() => {
+                if (item.disabled) return
+                item.action()
+                onClose()
+              }}
             >
               {item.label}
             </div>

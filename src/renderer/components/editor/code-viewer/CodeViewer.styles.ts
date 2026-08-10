@@ -112,6 +112,12 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     fontSize: 'var(--type-ui-caption)',
     color: 'var(--text-muted)',
   },
+  tabUnsaved: {
+    color: 'var(--text-secondary)',
+    fontSize: '8px',
+    lineHeight: 1,
+    flexShrink: 0,
+  },
   // VS Code gives the close action a 28px slot holding a 16px glyph; the slot is
   // what makes the label stop short of the tab's edge instead of running into it.
   tabClose: {

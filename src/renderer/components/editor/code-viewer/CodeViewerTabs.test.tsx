@@ -17,6 +17,15 @@ function renderTabBar(overrides: Partial<React.ComponentProps<typeof TabBar>> = 
 }
 
 describe('TabBar', () => {
+  it('marks transient tabs as unsaved', () => {
+    const { getByLabelText } = renderTabBar({
+      openFiles: [{ path: 'manifold-untitled:/Git Sync Output.txt', content: 'log', refreshVersion: 0, transient: true }],
+      activeFilePath: 'manifold-untitled:/Git Sync Output.txt',
+    })
+
+    expect(getByLabelText('Unsaved temporary file')).toBeInTheDocument()
+  })
+
   // This strip is the editor's only header now — the dock group's own header is
   // hidden for an editor pane — so it carries the double-click-to-maximize the
   // group's tab used to.

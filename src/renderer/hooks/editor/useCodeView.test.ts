@@ -12,6 +12,35 @@ beforeEach(() => {
 })
 
 describe('useCodeView', () => {
+  it('opens command output as an in-memory transient editor tab', () => {
+    const { result } = renderHook(() => useCodeView('session-1'))
+
+    let paneId = ''
+    act(() => {
+      paneId = result.current.handleOpenTransientFile('Git Sync Output.txt', '$ git push\nfatal: rejected')
+    })
+
+    expect(paneId).toBe('editor')
+    expect(result.current.activeFilePath).toBe('manifold-untitled:/Git Sync Output.txt')
+    expect(result.current.activeFileContent).toBe('$ git push\nfatal: rejected')
+    expect(result.current.openFiles[0]).toMatchObject({ transient: true })
+    expect(mockInvoke).not.toHaveBeenCalled()
+  })
+
+  it('keeps edits to transient tabs in memory instead of writing them', () => {
+    const { result } = renderHook(() => useCodeView('session-1'))
+
+    act(() => {
+      result.current.handleOpenTransientFile('Git Sync Output.txt', 'before')
+    })
+    act(() => {
+      result.current.handleSaveFile('manifold-untitled:/Git Sync Output.txt', 'after')
+    })
+
+    expect(result.current.activeFileContent).toBe('after')
+    expect(mockInvoke).not.toHaveBeenCalled()
+  })
+
   it('opens an existing file in the preferred split without stealing it from the original split', async () => {
     mockInvoke.mockResolvedValue('const value = 1')
 

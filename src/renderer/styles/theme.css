@@ -558,10 +558,9 @@ select:focus-visible {
   justify-content: center;
 }
 
-/* Per-tab agent actions (⚙ settings, 🗑 delete — see DockTab). Hidden until the
-   tab is hovered or holds the keyboard, so a strip of agent tabs reads as names
-   rather than a row of icons; killing/settings is a deliberate reveal. The
-   group header's × (hide) stays a separate always-visible control. */
+/* Each agent tab has one overflow action. It stays hidden until the tab is
+   hovered or holds the keyboard, so the strip reads as agent names rather than
+   a row of controls. The group header's × (hide) remains separate. */
 .dock-tab__action {
   display: inline-flex;
   align-items: center;
@@ -592,35 +591,6 @@ select:focus-visible {
   outline: none;
   opacity: 1;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
-}
-
-/* A locked agent is protected from deletion. The rest of a tab's actions are
-   hover-only, but the lock reports state rather than offering one, so it stays
-   visible — a padlock on the tab is how you see at a glance which agents are
-   safe from an accidental click on 🗑. */
-.dock-tab__action.is-locked {
-  opacity: 1;
-  color: var(--accent);
-}
-
-/* And that 🗑 is disabled until the agent is unlocked. Only the hover state is
-   dimmed: the reveal rule above would otherwise restore it to full opacity and
-   hide that it is disabled, while at rest it stays hidden like every other
-   action — a greyed-out 🗑 on an unhovered tab says nothing the padlock hasn't. */
-.dock-tab:hover .dock-tab__action:disabled,
-.dock-tab:focus-within .dock-tab__action:disabled {
-  /* Legible but plainly inert. Lower than this and the 🗑 reads as missing
-     rather than disabled, which is a different (and wrong) message. */
-  opacity: 0.45;
-}
-
-.dock-tab__action:disabled {
-  cursor: default;
-}
-
-.dock-tab__action:disabled:hover {
-  background: transparent;
-  color: var(--text-muted);
 }
 
 /* An editor pane's own actions sit at the right of its file tabs. They were a
@@ -854,6 +824,45 @@ select:focus-visible {
 .statusbar-button:hover {
   background: var(--statusbar-hover-bg);
   color: var(--text-primary);
+}
+
+.statusbar-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
+.statusbar-branch-button {
+  border-color: transparent;
+  background: transparent;
+}
+
+.statusbar-sync-button {
+  border-color: transparent;
+  padding: 0 var(--space-xs);
+  font-size: var(--type-ui-caption);
+  font-family: var(--font-mono);
+}
+
+.statusbar-sync-button:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.statusbar-sync-button--error {
+  color: var(--error);
+}
+
+.statusbar-sync-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  line-height: 1;
+}
+
+.statusbar-sync-icon,
+.statusbar-sync-arrow {
+  display: block;
+  flex-shrink: 0;
 }
 
 .statusbar-button--accent,
@@ -1927,6 +1936,10 @@ select:focus-visible {
 /* ─── Context Menu ─── */
 .context-menu-item:hover {
   background: var(--list-hover-bg);
+}
+
+.context-menu-item--disabled:hover {
+  background: transparent;
 }
 
 /* ─── Editor Git Gutter Bars ─── */

@@ -278,6 +278,37 @@ describe('SessionCreator', () => {
     expect(session.noWorktree).toBe(true)
   })
 
+  it('uses workspace-write for interactive Codex sessions with additional directories', async () => {
+    vi.mocked(gitExec).mockResolvedValueOnce('main\n')
+    const ptyPool = createPtyPool()
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      ptyPool,
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'codex',
+      prompt: 'hi',
+      noWorktree: true,
+      stayOnBranch: true,
+      additionalDirs: ['/repo/two', '/repo/three'],
+    })
+
+    expect(ptyPool.spawn).toHaveBeenCalledWith(
+      'codex',
+      [
+        '--sandbox', 'workspace-write',
+        '--add-dir', '/repo/two',
+        '--add-dir', '/repo/three',
+      ],
+      expect.anything(),
+    )
+  })
+
   function createInteractiveClaude(getThemeType?: () => 'light' | 'dark') {
     vi.mocked(getRuntimeById).mockReturnValueOnce({
       id: 'claude',

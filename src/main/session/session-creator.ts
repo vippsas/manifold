@@ -145,6 +145,11 @@ export class SessionCreator {
     }
 
     if (!options.nonInteractive && additionalDirs.length > 0) {
+      // Codex only honors --add-dir when its effective sandbox allows writable
+      // roots. Override a read-only user profile for this multi-root session.
+      if (options.runtimeId === 'codex') {
+        runtimeArgs.push('--sandbox', 'workspace-write')
+      }
       runtimeArgs.push(...buildWorkingSetArgs(options.runtimeId, additionalDirs))
     }
 

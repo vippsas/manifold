@@ -126,7 +126,7 @@ describe('DockTab', () => {
     worktreePath: '/wt', status: 'running', pid: 1, additionalDirs: [], workspaceId: 'ws-1',
   }
 
-  it('gives an agent tab settings + delete instead of a close, and deletes on 🗑', () => {
+  it('puts agent settings and delete in an overflow menu instead of showing separate icons', () => {
     const onRequestDeleteAgent = vi.fn()
     render(
       <DockStateContext.Provider value={makeDockState({
@@ -138,10 +138,13 @@ describe('DockTab', () => {
       </DockStateContext.Provider>,
     )
 
-    expect(screen.getByLabelText('Settings for k8s-app-conf')).toBeInTheDocument()
+    expect(screen.getByLabelText('Actions for k8s-app-conf')).toBeInTheDocument()
+    expect(screen.queryByText('Agent settings…')).toBeNull()
     expect(screen.queryByTitle('Close k8s-app-conf')).toBeNull()
 
-    fireEvent.click(screen.getByLabelText('Delete k8s-app-conf'))
+    fireEvent.click(screen.getByLabelText('Actions for k8s-app-conf'))
+    expect(screen.getByText('Agent settings…')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Delete agent'))
     expect(onRequestDeleteAgent).toHaveBeenCalledWith(agentSession, '/repos/alpha')
   })
 
@@ -156,10 +159,8 @@ describe('DockTab', () => {
       </DockStateContext.Provider>,
     )
 
-    const toggle = screen.getByLabelText('Lock k8s-app-conf to prevent deletion')
-    expect(toggle).toHaveAttribute('aria-pressed', 'false')
-
-    fireEvent.click(toggle)
+    fireEvent.click(screen.getByLabelText('Actions for k8s-app-conf'))
+    fireEvent.click(screen.getByText('Lock agent'))
     expect(onToggleLocked).toHaveBeenCalledWith('child-1', true)
   })
 
@@ -177,16 +178,14 @@ describe('DockTab', () => {
       </DockStateContext.Provider>,
     )
 
-    const deleteButton = screen.getByLabelText('Delete k8s-app-conf')
-    expect(deleteButton).toBeDisabled()
-    fireEvent.click(deleteButton)
+    fireEvent.click(screen.getByLabelText('Actions for k8s-app-conf'))
+
+    const deleteItem = screen.getByText('Delete agent')
+    expect(deleteItem).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(deleteItem)
     expect(onRequestDeleteAgent).not.toHaveBeenCalled()
 
-    const toggle = screen.getByLabelText('Unlock k8s-app-conf')
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    expect(toggle.className).toContain('is-locked')
-
-    fireEvent.click(toggle)
+    fireEvent.click(screen.getByText('Unlock agent'))
     expect(onToggleLocked).toHaveBeenCalledWith('child-1', false)
   })
 
@@ -201,8 +200,23 @@ describe('DockTab', () => {
       </DockStateContext.Provider>,
     )
 
-    fireEvent.doubleClick(screen.getByLabelText('Delete k8s-app-conf'))
+    fireEvent.doubleClick(screen.getByLabelText('Actions for k8s-app-conf'))
     expect(onToggleMaximize).not.toHaveBeenCalled()
+  })
+
+  it('opens agent settings from the overflow menu', () => {
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        allProjectSessions: { p1: [agentSession] },
+      })}>
+        <DockTab {...makeHeaderProps(siblingPanelId('child-1'), 'k8s-app-conf')} />
+      </DockStateContext.Provider>,
+    )
+
+    fireEvent.click(screen.getByLabelText('Actions for k8s-app-conf'))
+    fireEvent.click(screen.getByText('Agent settings…'))
+
+    expect(screen.getByRole('dialog', { name: 'Agent settings for test' })).toBeInTheDocument()
   })
 
   it('gives the empty primary agent tab a label but no actions or close', () => {
@@ -214,7 +228,7 @@ describe('DockTab', () => {
 
     expect(screen.getByText('Agent')).toBeInTheDocument()
     expect(screen.queryByTitle('Close Agent')).toBeNull()
-    expect(screen.queryByLabelText('Delete Agent')).toBeNull()
+    expect(screen.queryByLabelText('Actions for Agent')).toBeNull()
   })
 
   it('gives the sidebar group no tab of its own', () => {

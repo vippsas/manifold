@@ -1,7 +1,7 @@
 ---
 description: How Manifold groups repositories into a Workspace — a place to work that owns one checkout of every repo it spans, so agents join a workspace instead of cutting worktrees of their own.
 covers: [src/main/workspace]
-updated: 2026-08-08
+updated: 2026-08-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -128,6 +128,7 @@ pass promotes nothing.
 
 - `WorkspaceManager` — `workspace-manager.ts:29`. Public surface: `list`, `get`, `create`, `rename`, `remove`, `addProject`, `removeProject`, `removeProjectFromAllWorkspaces`, `adoptProject`, `adoptOrphanProjects`, `pruneMissingProjects`, `spawnAgent`. Everything that touches a checkout — `create`, `remove`, `addProject`, `removeProject`, `removeProjectFromAllWorkspaces`, `spawnAgent` — is async.
 - `Workspace` / `WorkspaceCreateOptions` / `WorkspaceSpawnAgentOptions` — `src/shared/workspace-types.ts:9`. `projectIds` is ordered; `branchName` + `worktreePaths` are present on a worktree workspace and absent on a home one; `projectIds[0]` is the primary repo. `WorkspaceSpawnAgentOptions` deliberately has neither a branch nor a home folder: the workspace owns both (`workspace-types.ts:32`).
+- `WorkspaceRepoStatus` — `src/shared/workspace-types.ts:39`: one repo checkout's branch, staged/unstaged groups, and optional `upstreamAheadBehind`; the last field is absent when no configured upstream resolves (`workspace-types.ts:47`).
 - `WorkspaceStore` — `workspace-store.ts:5`. `list/get/add/update/remove/addProject/removeProject`, all persisting to one JSON file.
 - `WorktreeSetManager` — `workspace-worktrees.ts:4`. The port the manager depends on (`createWorktree`, `removeWorktree`, `deleteBranch`, `branchExists`); satisfied by `src/main/git`'s `WorktreeManager`.
 - `findAvailableWorkspaceBranch` / `buildWorkspaceWorkingSet` / `removeWorkspaceWorktrees` — `workspace-worktrees.ts:27` / `:48` / `:81`.

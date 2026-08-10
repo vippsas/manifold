@@ -50,7 +50,7 @@ function ghExec(args: string[], cwd: string, timeoutMs?: number): Promise<string
 export class BranchCheckoutManager {
   constructor(private storagePath: string) {}
 
-  async listBranches(projectPath: string): Promise<BranchInfo[]> {
+  async listBranches(projectPath: string, currentBranch?: string): Promise<BranchInfo[]> {
     // Fetch latest from all remotes (best-effort). `fetch --prune` mutates
     // remote-tracking refs, so serialize it against concurrent checkouts /
     // worktree adds on the same repo to avoid git-lock errors mid-spawn.
@@ -66,9 +66,13 @@ export class BranchCheckoutManager {
 
     // Get branches currently checked out in worktrees
     const worktreeBranches = await this.getWorktreeBranches(projectPath)
+    // The checkout opening the picker is allowed to list its own branch; every
+    // other worktree-held branch remains unavailable.
+    if (currentBranch) worktreeBranches.delete(currentBranch)
 
     const localSet = new Set<string>()
     const remoteSet = new Set<string>()
+    const remoteByBranch = new Map<string, string>()
 
     for (const line of raw.split('\n')) {
       const ref = line.trim()
@@ -85,9 +89,11 @@ export class BranchCheckoutManager {
         const afterRemotes = ref.slice('refs/remotes/'.length)
         const slashIdx = afterRemotes.indexOf('/')
         if (slashIdx < 0) continue
+        const remote = afterRemotes.slice(0, slashIdx)
         const name = afterRemotes.slice(slashIdx + 1)
         if (worktreeBranches.has(name)) continue
         remoteSet.add(name)
+        remoteByBranch.set(name, remote)
       }
     }
 
@@ -99,6 +105,7 @@ export class BranchCheckoutManager {
       branches.push({
         name,
         source: isLocal && isRemote ? 'both' : isLocal ? 'local' : 'remote',
+        ...(isRemote ? { remote: remoteByBranch.get(name) } : {}),
       })
     }
 
