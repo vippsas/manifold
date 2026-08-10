@@ -1924,17 +1924,6 @@ select:focus-visible {
   color: var(--seti-icon-color-light);
 }
 
-/* ─── File Tree Delete Button (hover reveal) ─── */
-.file-tree-row .file-tree-delete-btn {
-  opacity: 0;
-}
-.file-tree-row:hover .file-tree-delete-btn {
-  opacity: 0.6;
-}
-.file-tree-row .file-tree-delete-btn:hover {
-  opacity: 1;
-}
-
 /* ─── Context Menu ─── */
 .context-menu-item:hover {
   background: var(--list-hover-bg);

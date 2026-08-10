@@ -632,7 +632,11 @@ a folder's files (`ProjectSidebar.styles.ts:69`, `:72`). The tree paints no
 background of its own so it reads as part of the sidebar rather than a card dropped into it
 (`file-tree/FileTree.styles.ts:16`). Rows use a single 16px glyph column like VS Code — a
 rotating chevron for directories, the file-type icon for files, no folder glyph — so every
-name lands in the same column at a given depth (`tree-node-row.tsx:124`). Change badges
+name lands in the same column at a given depth (`tree-node-row.tsx:132`). Rows do not expose
+a hover trash control: the pointer route to deletion is the deliberate right-click **Delete**
+action from the shared context menu, followed by the existing confirmation dialog
+(`file-tree-context-menu.ts:43`, `FileTreeDialogs.tsx:27`; regression test
+`FileTree.test.tsx:120`). Change badges
 separate direct working-tree changes from branch-only ones: `mergeFileChanges` unions the
 base-branch diff (`useDiff`) with the live `git status` watcher feed and tags each path
 `worktreeDirty` by source (`useFileDiff.ts:4`). A dirty path renders the vivid A/M/D letter

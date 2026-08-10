@@ -39,7 +39,6 @@ export function NodeRow({
   subtreeChange,
   onClick,
   onDoubleClick,
-  onDelete,
   isRenaming,
   renameValue,
   onRenameValueChange,
@@ -60,7 +59,6 @@ export function NodeRow({
   subtreeChange?: DirChangeEntry | null
   onClick: (e: React.MouseEvent) => void
   onDoubleClick: () => void
-  onDelete?: (e: React.MouseEvent) => void
   isRenaming: boolean
   renameValue: string
   onRenameValueChange: (value: string) => void
@@ -191,18 +189,6 @@ export function NodeRow({
           title={`${subtreeChange.count} changed file${subtreeChange.count === 1 ? '' : 's'} inside`}
         >
           {subtreeChange.worktreeDirty ? '●' : '○'}
-        </span>
-      )}
-      {!isRenaming && onDelete && (
-        <span
-          className="file-tree-delete-btn"
-          onClick={onDelete}
-          style={treeStyles.deleteButton}
-          title="Delete"
-          role="button"
-          tabIndex={-1}
-        >
-          {'\uD83D\uDDD1'}
         </span>
       )}
     </div>
