@@ -78,6 +78,7 @@ export interface AppShellProps {
   autoGenerateMessages: boolean
   diff: string
   mergedChanges: FileChange[]
+  sourceControlChangeCount: number
   sessionsByProject: Record<string, AgentSession[]>
   dockState: DockAppState
   onDockReady: (api: DockviewApi) => void
@@ -159,6 +160,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
             sidebarView={p.sidebarView}
             onSelectSidebarView={p.onSelectSidebarView}
             hasActiveSession={p.activeSessionId != null}
+            sourceControlChangeCount={p.sourceControlChangeCount}
             onOpenSettings={() => p.overlays.setShowSettings(true)}
             // The rail renders outside DockStateContext, so the plugin group's
             // dock wiring is handed down explicitly rather than read from it.

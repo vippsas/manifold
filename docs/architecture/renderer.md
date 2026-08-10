@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-08-09
+updated: 2026-08-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -211,7 +211,12 @@ one sidebar's view switcher**: a button per `SIDEBAR_VIEW_IDS` entry — Explore
 Control, Search (`sidebar/sidebar-views.ts:10`) — following VS Code exactly. Picking a
 different view swaps what the sidebar shows and focuses it; clicking the view already
 showing collapses the sidebar, so one icon both reveals and hides and the sidebar is never
-left on a view nobody asked for (`ActivityBar.tsx:130`). The **lower group toggles the
+left on a view nobody asked for (`ActivityBar.tsx:130`). The Source Control button carries
+an accent badge while the active workspace is dirty, counting distinct changed files
+across its repo checkouts; a path present in both Git's staged and unstaged halves counts
+once (`workspace-git-status.ts:5`, `ActivityBar.tsx:156`, `:170`). The app owns that live status
+feed above the sidebar, so the count continues refreshing while Source Control is closed
+and the view reuses the same result when opened (`App.tsx:65`, `dock-panels.tsx:100`). The **lower group toggles the
 main area's panels** — Agent, Editor, Shell (`PANEL_RAIL_ITEMS`, `ActivityBar.tsx:91`) —
 through `dockLayout.togglePanel(id)`; each renders accent-colored with an edge indicator
 bar while its panel is visible (`isPanelVisible`), and the session-dependent `editor` is

@@ -37,6 +37,7 @@ import type { DockAppState } from './components/editor/editor-shell/dock-panel-t
 import { buildRootLabels } from './components/editor/file-tree/file-tree-labels'
 import { useWorkspaces } from './hooks/project/useWorkspaces'
 import { usePersistedActiveWorkspace } from './hooks/project/usePersistedActiveWorkspace'
+import { useWorkspaceRepoStatuses } from './hooks/project/workspace-git-status'
 import { DEFAULT_SIDEBAR_VIEW, type SidebarViewId } from './components/sidebar/sidebar-views'
 import { useFavorites } from './hooks/project/useFavorites'
 import type { AgentSession, AgentSettingsUpdate, ResolvedFavorite } from '../shared/types'
@@ -61,6 +62,7 @@ export function App(): React.JSX.Element {
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const { activeWorkspaceId, setActiveWorkspaceId } = usePersistedActiveWorkspace(workspaces)
+  const workspaceGitStatus = useWorkspaceRepoStatuses(activeWorkspaceId)
   const [sidebarView, setSidebarView] = useState<SidebarViewId>(DEFAULT_SIDEBAR_VIEW)
   const [newAgentTarget, setNewAgentTarget] = useState<NewAgentTarget | null>(null)
   const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
@@ -361,6 +363,8 @@ export function App(): React.JSX.Element {
     },
     onNewProject: () => appEffects.setShowOnboarding(true),
     workspaces,
+    workspaceRepoStatuses: workspaceGitStatus.repos,
+    refreshWorkspaceRepoStatuses: workspaceGitStatus.refresh,
     activeWorkspaceId,
     sessionsByWorkspace,
     onNewWorkspace: () => setNewWorkspaceVisible(true),
@@ -489,6 +493,7 @@ export function App(): React.JSX.Element {
         autoGenerateMessages={settings.autoGenerateMessages}
         diff={diff}
         mergedChanges={mergedChanges}
+        sourceControlChangeCount={workspaceGitStatus.changeCount}
         sessionsByProject={sessionsByProject}
         dockState={dockState}
         onDockReady={dockLayout.onReady}

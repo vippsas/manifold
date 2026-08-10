@@ -31,6 +31,7 @@ export default (
       sidebarView="sourceControl"
       onSelectSidebarView={() => undefined}
       hasActiveSession
+      sourceControlChangeCount={4}
       onOpenSettings={() => undefined}
       pluginRail={{
         isOpen: (viewId) => visible.includes(viewId),

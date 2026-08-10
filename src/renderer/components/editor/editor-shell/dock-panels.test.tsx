@@ -81,6 +81,8 @@ function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
     activeSessionNoWorktree: false,
     onLaunchWorkspaceAgent: vi.fn(),
     workspaces: [{ id: 'ws-1', name: 'kong-gateway', projectIds: ['p1'], createdAt: '2024-01-01' }],
+    workspaceRepoStatuses: [],
+    refreshWorkspaceRepoStatuses: vi.fn(),
     activeWorkspaceId: 'ws-1',
     projects: [{ id: 'p1', name: 'kong-gateway', path: '/repos/kong-gateway', baseBranch: 'main', addedAt: '2024-01-01' }],
     activeProjectId: null,

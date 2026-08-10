@@ -23,6 +23,7 @@ function renderRail(
       onSelectSidebarView={onSelectSidebarView}
       hasActiveSession={overrides.hasActiveSession ?? true}
       onOpenSettings={overrides.onOpenSettings}
+      sourceControlChangeCount={overrides.sourceControlChangeCount}
     />,
   )
   return { onSelectSidebarView }
@@ -128,6 +129,21 @@ describe('ActivityBar', () => {
 
     const tooltip = screen.getByRole('button', { name: 'Source Control' }).querySelector('.activity-bar-tooltip')
     expect(tooltip).toHaveTextContent('Source Control')
+  })
+
+  it('badges Source Control with the number of changed files', () => {
+    renderRail(makeDockLayout(), { sourceControlChangeCount: 4 })
+
+    const sourceControl = screen.getByRole('button', { name: 'Source Control (4 changes)' })
+    expect(sourceControl.querySelector('.activity-bar-change-badge')).toHaveTextContent('4')
+    expect(sourceControl.querySelector('.activity-bar-tooltip')).toHaveTextContent('Source Control (4 changes)')
+  })
+
+  it('omits the Source Control badge when the workspace is clean', () => {
+    renderRail(makeDockLayout(), { sourceControlChangeCount: 0 })
+
+    expect(screen.getByRole('button', { name: 'Source Control' })).toBeInTheDocument()
+    expect(document.querySelector('.activity-bar-change-badge')).toBeNull()
   })
 
   it('renders a settings button at the bottom that opens settings', () => {
