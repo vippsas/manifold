@@ -128,14 +128,6 @@ export const treeStyles: Record<string, React.CSSProperties> = {
     fontSize: '9px',
     opacity: 0.85,
   },
-  deleteButton: {
-    flexShrink: 0,
-    fontSize: '12px',
-    marginLeft: '4px',
-    cursor: 'pointer',
-    padding: '0 2px',
-    borderRadius: '3px',
-  },
   renameInput: {
     flex: 1,
     minWidth: 0,

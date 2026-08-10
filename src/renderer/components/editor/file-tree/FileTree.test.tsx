@@ -54,7 +54,7 @@ function renderTwoWorktrees(onMovePath = vi.fn(async () => null)) {
 
 /** The sidebar's shape: the root row is flattened away, so its children are the
  *  tree's top level. */
-function renderFlattenedRoot() {
+function renderFlattenedRoot(onDeleteFile?: (path: string) => void) {
   const tree = dir('repo', '/repo', [
     dir('.claude', '/repo/.claude', [file('settings.json', '/repo/.claude/settings.json')]),
     file('README.md', '/repo/README.md'),
@@ -72,6 +72,7 @@ function renderFlattenedRoot() {
       onSelectFile={vi.fn()}
       onCreateFile={vi.fn(async () => true)}
       onCreateDir={vi.fn(async () => true)}
+      onDeleteFile={onDeleteFile}
       worktreeRootPath="/repo"
     />
   )
@@ -113,6 +114,22 @@ describe('FileTree create under a flattened root', () => {
     fireEvent.click(screen.getByText('New File'))
 
     expect(screen.getByPlaceholderText('filename')).toBeTruthy()
+  })
+})
+
+describe('FileTree delete affordance', () => {
+  it('offers delete in the context menu without rendering a row-level trash button', () => {
+    const onDeleteFile = vi.fn()
+    const { rightClick } = renderFlattenedRoot(onDeleteFile)
+
+    expect(screen.queryByTitle('Delete')).toBeNull()
+
+    rightClick('/repo/README.md')
+    fireEvent.click(screen.getByText('Delete'))
+
+    expect(screen.getByText('Delete file')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(onDeleteFile).toHaveBeenCalledWith('/repo/README.md')
   })
 })
 

@@ -100,7 +100,6 @@ export function TreeNode({ node, depth, ...rest }: TreeNodeProps): React.JSX.Ele
     expandedPaths,
     onRowClick,
     filterQuery,
-    onRequestDelete,
     renamingPath,
     renameValue,
     onRenameValueChange,
@@ -119,11 +118,6 @@ export function TreeNode({ node, depth, ...rest }: TreeNodeProps): React.JSX.Ele
   const handleDoubleClick = useCallback((): void => {
     onStartRename?.(node.path, node.name)
   }, [node.path, node.name, onStartRename])
-
-  const handleDelete = useCallback((e: React.MouseEvent): void => {
-    e.stopPropagation()
-    onRequestDelete?.(node.path, node.name, node.isDirectory)
-  }, [node.path, node.name, node.isDirectory, onRequestDelete])
 
   const handleContextMenu = useCallback((e: React.MouseEvent): void => {
     e.preventDefault()
@@ -148,7 +142,6 @@ export function TreeNode({ node, depth, ...rest }: TreeNodeProps): React.JSX.Ele
         subtreeChange={subtreeChange}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
-        onDelete={onRequestDelete && depth > 0 ? handleDelete : undefined}
         isRenaming={renamingPath === node.path}
         renameValue={renameValue}
         onRenameValueChange={onRenameValueChange}
