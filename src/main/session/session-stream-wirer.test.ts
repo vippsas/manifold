@@ -59,6 +59,70 @@ describe('SessionStreamWirer', () => {
     vi.clearAllMocks()
   })
 
+  it('keeps an interactive agent terminal repaint out of the chat history', () => {
+    vi.useFakeTimers()
+    try {
+      const ptyPool = new FakePtyPool()
+      const chatAdapter = new ChatAdapter()
+
+      const wirer = new SessionStreamWirer(
+        ptyPool as never,
+        () => chatAdapter,
+        vi.fn(),
+        undefined,
+        vi.fn(),
+        vi.fn(),
+      )
+
+      const session = createSession()
+      session.runtimeId = 'claude'
+      session.nonInteractive = false
+      session.nonInteractiveOutputMode = undefined
+      wirer.wireOutputStreaming(session.ptyId, session)
+
+      ptyPool.emitData(
+        session.ptyId,
+        '\x1b[2J\x1b[H⏺ Crunched for 4m 39s · 1 shell still running\n',
+      )
+      vi.advanceTimersByTime(500)
+
+      expect(chatAdapter.getMessages(session.id)).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('still records a chat-mode agent plain-text output in the chat history', () => {
+    vi.useFakeTimers()
+    try {
+      const ptyPool = new FakePtyPool()
+      const chatAdapter = new ChatAdapter()
+
+      const wirer = new SessionStreamWirer(
+        ptyPool as never,
+        () => chatAdapter,
+        vi.fn(),
+        undefined,
+        vi.fn(),
+        vi.fn(),
+      )
+
+      const session = createSession()
+      session.nonInteractive = true
+      session.nonInteractiveOutputMode = 'plain-text'
+      wirer.wireOutputStreaming(session.ptyId, session)
+
+      ptyPool.emitData(session.ptyId, 'Created the file.\n')
+      vi.advanceTimersByTime(500)
+
+      expect(chatAdapter.getMessages(session.id).map((m) => m.text)).toEqual([
+        'Created the file.',
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('does not promote preview URLs mentioned only in assistant text', () => {
     const ptyPool = new FakePtyPool()
     const chatAdapter = new ChatAdapter()

@@ -44,6 +44,7 @@ vi.mock('../git/managed-worktree', () => ({
 }))
 
 import { SessionManager } from './session-manager'
+import { chatStorageKey } from '../agent/chat-adapter'
 import { WorktreeManager } from '../git/worktree-manager'
 import { PtyPool } from '../agent/pty-pool'
 import { ProjectRegistry } from '../store/project-registry'
@@ -428,7 +429,13 @@ describe('SessionManager — create / input / queries', () => {
       })
       expect(sessionManager.getSession(session.id)).toBeUndefined()
       expect(worktreeManager.removeWorktree).not.toHaveBeenCalled()
-      expect(chatAdapter.clearSession).toHaveBeenCalledWith(session.id, true, session.worktreePath)
+      // Scoped to the replaced agent, not the folder: other agents in the same
+      // checkout keep their own chat history.
+      expect(chatAdapter.clearSession).toHaveBeenCalledWith(
+        session.id,
+        true,
+        chatStorageKey(session.worktreePath, session.id),
+      )
     })
 
     it('starts an interactive runtime when switching from chat to terminal', async () => {

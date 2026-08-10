@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain } from 'electron'
+import { chatStorageKey } from '../agent/chat-adapter'
 import type { IpcDependencies } from './types'
 
 export function registerSimpleHandlers(deps: IpcDependencies): void {
@@ -15,7 +16,11 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     // Hydrate from persisted store for dormant/restarted sessions
     const session = sessionManager.getSession(sessionId)
     if (session?.projectId && session.worktreePath) {
-      return chatAdapter.loadMessages(sessionId, session.worktreePath, session.projectId)
+      return chatAdapter.loadMessages(
+        sessionId,
+        chatStorageKey(session.worktreePath, sessionId),
+        session.projectId,
+      )
     }
     if (session && (!session.projectId || !session.worktreePath)) {
       console.warn(
@@ -49,10 +54,11 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     // Ensure session→storage mapping is set for new messages to be persisted
     const session = sessionManager.getSession(sessionId)
     if (session?.projectId && session.worktreePath) {
-      chatAdapter.setSessionStorage(sessionId, session.worktreePath, session.projectId)
+      const storageKey = chatStorageKey(session.worktreePath, sessionId)
+      chatAdapter.setSessionStorage(sessionId, storageKey, session.projectId)
       // Hydrate from store if not yet loaded
       if (chatAdapter.getMessages(sessionId).length === 0) {
-        chatAdapter.loadMessages(sessionId, session.worktreePath, session.projectId)
+        chatAdapter.loadMessages(sessionId, storageKey, session.projectId)
       }
     } else if (session) {
       console.warn(

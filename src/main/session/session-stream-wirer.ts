@@ -141,7 +141,13 @@ export class SessionStreamWirer {
         }
       }
 
-      this.getChatAdapter()?.processPtyOutput(session.id, data)
+      // Only a chat-mode agent's output belongs in the chat. An interactive
+      // agent paints a TUI, and its redraw frames stripped of ANSI are
+      // unreadable half-sentences — which then persist as that folder's chat
+      // history and feed the memory compressor as fake "interactions".
+      if (session.nonInteractive) {
+        this.getChatAdapter()?.processPtyOutput(session.id, data)
+      }
       this.sendToRenderer('agent:activity', { sessionId: session.id })
       this.sendToRenderer('agent:output', { sessionId: session.id, data })
     })

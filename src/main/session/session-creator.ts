@@ -10,7 +10,7 @@ import { SessionStreamWirer } from './session-stream-wirer'
 import { readWorktreeMeta, writeWorktreeMeta } from '../git/worktree-meta'
 import { gitExec } from '../git/git-exec'
 import { generateBranchName } from '../git/branch-namer'
-import type { ChatAdapter } from '../agent/chat-adapter'
+import { chatStorageKey, type ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryInjector } from '../memory/memory-injector'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
@@ -196,10 +196,14 @@ export class SessionCreator {
       session.displayName = chosenName || existingMeta!.displayName
     }
 
-    // Map session→storage so chat messages are persisted scoped to the worktree
-    // (not the project) — multiple chat-mode sessions in the same project each
-    // get their own chat history.
-    this.getChatAdapter()?.setSessionStorage(session.id, worktree.path, options.projectId)
+    // Map session→storage so chat messages are persisted scoped to this agent —
+    // multiple chat-mode sessions in the same worktree each get their own chat
+    // history (agents on a shared checkout would otherwise inherit each other's).
+    this.getChatAdapter()?.setSessionStorage(
+      session.id,
+      chatStorageKey(worktree.path, session.id),
+      options.projectId,
+    )
 
     if (options.nonInteractive) {
       if (!deferRuntime) {

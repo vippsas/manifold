@@ -8,7 +8,7 @@ import { SessionCreator } from './session-creator'
 import { SessionTeardown } from './session-teardown'
 import { persistSessionMeta } from './session-meta-persister'
 import { FileWatcher } from '../fs/file-watcher'
-import type { ChatAdapter } from '../agent/chat-adapter'
+import { chatStorageKey, type ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryCapture } from '../memory/memory-capture'
 import type { MemoryCompressor } from '../memory/memory-compressor'
 import type { MemoryInjector } from '../memory/memory-injector'
@@ -268,7 +268,7 @@ export class SessionManager {
     }
 
     const previous = { ...session }
-    this.chatAdapter?.clearSession(sessionId, true, previous.worktreePath)
+    this.chatAdapter?.clearSession(sessionId, true, chatStorageKey(previous.worktreePath, sessionId))
     this.killer.retireSession(sessionId)
 
     const replacement = await this.lifecycle.createSession({
