@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { Workspace, WorkspaceRepoStatus } from '../../../shared/workspace-types'
 import type { FileChange } from '../../../shared/types'
 import type { ScmFileTarget } from '../editor/file-open-request'
-import { useIpcListener } from '../../hooks/app/useIpc'
+import { useWorkspaceRepoStatuses } from '../../hooks/project/workspace-git-status'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { BranchSwitcher } from './BranchSwitcher'
 import { ScmChangeGroup } from './ScmChangeGroup'
@@ -24,42 +24,6 @@ interface PendingDiscard {
   paths: string[]
 }
 
-/** Live git status of the workspace's checkouts. Refreshes when the workspace
- *  changes, when the file watcher reports changes, and on window focus (the
- *  watcher only covers the active session's dirs, so focus catches edits made
- *  outside the app — the same trigger VS Code's SCM view uses). */
-function useWorkspaceRepoStatuses(workspaceId: string | null): { repos: WorkspaceRepoStatus[]; refresh: () => void } {
-  const [repos, setRepos] = useState<WorkspaceRepoStatus[]>([])
-  const requestIdRef = useRef(0)
-
-  const refresh = useCallback((): void => {
-    const requestId = ++requestIdRef.current
-    if (!workspaceId) {
-      setRepos([])
-      return
-    }
-    void window.electronAPI.invoke('git:workspace-status', workspaceId)
-      .then((result) => {
-        // Drop responses that arrive after the workspace selection moved on.
-        if (requestId === requestIdRef.current) setRepos(result as WorkspaceRepoStatus[])
-      })
-      .catch((err: unknown) => {
-        console.error('[SourceControl] failed to load workspace git status', err)
-      })
-  }, [workspaceId])
-
-  useEffect(() => { refresh() }, [refresh])
-  useIpcListener('files:changed', () => { refresh() })
-  useIpcListener('workspace:list-changed', () => { refresh() })
-  useEffect(() => {
-    const onFocus = (): void => { refresh() }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [refresh])
-
-  return { repos, refresh }
-}
-
 /** VS Code-style Source Control view for the selected workspace: one section
  *  per member repo checkout — a clickable branch (switch/create, see
  *  `BranchSwitcher`), a commit message input, and the uncommitted changes split
@@ -67,6 +31,20 @@ function useWorkspaceRepoStatuses(workspaceId: string | null): { repos: Workspac
  *  multi-root workspace's repositories. */
 export function SourceControl({ workspace, onSelectFile }: SourceControlProps): React.JSX.Element {
   const { repos, refresh } = useWorkspaceRepoStatuses(workspace?.id ?? null)
+  return <SourceControlContent workspace={workspace} repos={repos} refresh={refresh} onSelectFile={onSelectFile} />
+}
+
+/** Presentational half used by the real sidebar, which receives the app-level
+ *  status feed shared with the activity-bar badge. */
+export function SourceControlContent({
+  workspace,
+  repos,
+  refresh,
+  onSelectFile,
+}: SourceControlProps & {
+  repos: WorkspaceRepoStatus[]
+  refresh: () => void
+}): React.JSX.Element {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard | null>(null)
   const workspaceId = workspace?.id ?? null

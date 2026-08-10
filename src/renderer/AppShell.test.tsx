@@ -89,6 +89,7 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     autoGenerateMessages: false,
     diff: '',
     mergedChanges: [],
+    sourceControlChangeCount: 0,
     sessionsByProject: { p1: [] },
     dockState: { activeProjectId: 'p1', sessionId: null, allProjectSessions: { p1: [] } } as unknown as AppShellProps['dockState'],
     onDockReady: vi.fn(),

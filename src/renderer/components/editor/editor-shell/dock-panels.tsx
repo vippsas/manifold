@@ -2,7 +2,7 @@ import React, { useMemo } from 'react'
 import { useFileDiff } from '../../../hooks/editor/useFileDiff'
 import { useWorkspaceFileDiff } from '../../../hooks/editor/useWorkspaceFileDiff'
 import { CodeViewer } from '../code-viewer/CodeViewer'
-import { SourceControl } from '../../git/SourceControl'
+import { SourceControlContent } from '../../git/SourceControl'
 import { SearchView } from '../../search/SearchView'
 import { ShellTabs } from '../../terminal/ShellTabs'
 import { resolveShellCwd } from '../../terminal/shell-cwd'
@@ -100,7 +100,14 @@ function SidebarPanel(): React.JSX.Element {
 function SourceControlView(): React.JSX.Element {
   const s = useDockState()
   const workspace = s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? null
-  return <SourceControl workspace={workspace} onSelectFile={s.onSelectScmFile} />
+  return (
+    <SourceControlContent
+      workspace={workspace}
+      repos={s.workspaceRepoStatuses}
+      refresh={s.refreshWorkspaceRepoStatuses}
+      onSelectFile={s.onSelectScmFile}
+    />
+  )
 }
 
 function SearchSidebarView(): React.JSX.Element {

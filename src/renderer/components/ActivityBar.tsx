@@ -112,6 +112,8 @@ export interface ActivityBarProps {
   sidebarView: SidebarViewId
   onSelectSidebarView: (id: SidebarViewId) => void
   hasActiveSession: boolean
+  /** Distinct changed files in the selected workspace's current checkouts. */
+  sourceControlChangeCount?: number
   onOpenSettings?: () => void
   /** Wiring for the plugin group. Omitted only by fixtures and tests that are
    *  not exercising it; the app always supplies it. */
@@ -123,6 +125,7 @@ export function ActivityBar({
   sidebarView,
   onSelectSidebarView,
   hasActiveSession,
+  sourceControlChangeCount = 0,
   onOpenSettings,
   pluginRail,
 }: ActivityBarProps): React.JSX.Element {
@@ -150,18 +153,31 @@ export function ActivityBar({
     <nav className="activity-bar" aria-label="Views" style={activityBarStyles.root}>
       {SIDEBAR_VIEW_IDS.map((id) => {
         const active = sidebarOpen && sidebarView === id
+        const changeCount = id === 'sourceControl' ? sourceControlChangeCount : 0
+        const label = changeCount > 0
+          ? `${SIDEBAR_VIEW_TITLES[id]} (${changeCount} ${changeCount === 1 ? 'change' : 'changes'})`
+          : SIDEBAR_VIEW_TITLES[id]
         return (
           <button
             key={id}
             type="button"
             className={`activity-bar-item${active ? ' activity-bar-item--active' : ''}`}
             onClick={() => selectSidebarView(id)}
-            aria-label={SIDEBAR_VIEW_TITLES[id]}
+            aria-label={label}
             aria-pressed={active}
           >
             <PanelGlyph id={id} />
+            {changeCount > 0 && (
+              <span
+                className="activity-bar-change-badge"
+                style={activityBarStyles.changeBadge}
+                aria-hidden="true"
+              >
+                {changeCount}
+              </span>
+            )}
             <span className="activity-bar-tooltip" role="presentation">
-              {SIDEBAR_VIEW_TITLES[id]}
+              {label}
             </span>
           </button>
         )

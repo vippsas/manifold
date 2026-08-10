@@ -7,6 +7,7 @@ import type { FileOpenRequest, ScmFileTarget } from '../file-open-request'
 import type { DraftChat } from '../../../../shared/draft-chat'
 import type { DockPanelId } from '../../../hooks/dock-layout/dock-layout-helpers'
 import type { SidebarViewId } from '../../sidebar/sidebar-views'
+import type { WorkspaceRepoStatus } from '../../../../shared/workspace-types'
 
 export interface DockAppState {
   sessionId: string | null
@@ -90,6 +91,8 @@ export interface DockAppState {
   onNewProject: () => void
   onNewWorkspace?: () => void
   workspaces: import('../../../../shared/workspace-types').Workspace[]
+  workspaceRepoStatuses: WorkspaceRepoStatus[]
+  refreshWorkspaceRepoStatuses: () => void
   activeWorkspaceId?: string | null
   sessionsByWorkspace?: Record<string, AgentSession[]>
   onSelectWorkspace: (id: string) => void
