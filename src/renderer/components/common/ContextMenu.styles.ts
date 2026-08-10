@@ -27,6 +27,11 @@ export const contextMenuStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     whiteSpace: 'nowrap',
   },
+  itemDisabled: {
+    color: 'var(--text-muted)',
+    cursor: 'default',
+    opacity: 0.6,
+  },
   separator: {
     height: '1px',
     margin: '4px 8px',

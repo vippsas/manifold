@@ -75,6 +75,7 @@ describe('BranchCheckoutManager branch and PR flows', () => {
       expect(names(branches)).toContain('feature/login')
       expect(names(branches)).toContain('feature/signup')
       expect(findBranch(branches, 'main')?.source).toBe('both')
+      expect(findBranch(branches, 'main')?.remote).toBe('origin')
       expect(findBranch(branches, 'feature/login')?.source).toBe('both')
       expect(findBranch(branches, 'feature/signup')?.source).toBe('remote')
     })
@@ -105,6 +106,23 @@ describe('BranchCheckoutManager branch and PR flows', () => {
       expect(names(branches)).toContain('main')
       expect(names(branches)).not.toContain('manifold/oslo')
       expect(names(branches)).toContain('manifold/bergen')
+    })
+
+    it('keeps the picker checkout branch while filtering branches held by other worktrees', async () => {
+      mockSpawnSequence([
+        { stdout: '' },
+        { stdout: ['refs/heads/main', 'refs/heads/manifold/oslo', 'refs/heads/manifold/bergen', 'refs/remotes/origin/manifold/oslo'].join('\n') },
+        { stdout: [
+          'worktree /repo', 'branch refs/heads/main', '',
+          'worktree /worktrees/oslo', 'branch refs/heads/manifold/oslo', '',
+          'worktree /worktrees/bergen', 'branch refs/heads/manifold/bergen', '',
+        ].join('\n') },
+      ])
+
+      const branches = await manager.listBranches('/repo', 'manifold/oslo')
+
+      expect(findBranch(branches, 'manifold/oslo')).toMatchObject({ source: 'both', remote: 'origin' })
+      expect(names(branches)).not.toContain('manifold/bergen')
     })
 
     it('filters out remote HEAD pointers', async () => {

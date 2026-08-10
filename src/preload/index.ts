@@ -80,6 +80,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'git:workspace-discard',
   'git:workspace-commit',
   'git:workspace-checkout',
+  'git:workspace-pull',
   'git:workspace-file-diff',
   'dock-layout:get',
   'dock-layout:set',

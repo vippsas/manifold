@@ -13,6 +13,7 @@ import type { OpenFile } from './useCodeView'
 
 export interface CodeViewFileOps {
   handleSelectFile: (filePath: string, preferredPaneId?: string | null) => string
+  handleOpenTransientFile: (name: string, content: string, preferredPaneId?: string | null) => string
   handleCloseFile: (filePath: string, paneId?: string | null) => void
   handleCloseOtherFiles: (filePath: string, paneId?: string | null) => void
   handleCloseAllFiles: (paneId?: string | null) => void
@@ -63,6 +64,7 @@ export function useCodeViewFileOps(
   }, [])
 
   const refreshOpenFile = useCallback(async (filePath: string): Promise<void> => {
+    if (refs.openFilesRef.current.some((file) => file.path === filePath && file.transient)) return
     try {
       const content = await readFileContent(filePath)
       setters.setOpenFiles((prev) =>
@@ -164,6 +166,34 @@ export function useCodeViewFileOps(
     [readFileContent, refreshOpenFile],
   )
 
+  const handleOpenTransientFile = useCallback(
+    (name: string, content: string, preferredPaneId?: string | null): string => {
+      const targetPaneId = preferredPaneId ?? refs.activeEditorPaneIdRef.current ?? DEFAULT_EDITOR_PANE_ID
+      const safeName = name.replace(/[\\/]/g, '-')
+      const filePath = `manifold-untitled:/${safeName}`
+
+      setters.setOpenFiles((prev) => upsertOpenFile(prev, {
+        path: filePath,
+        content,
+        refreshVersion: 0,
+        transient: true,
+      }))
+      setters.setEditorPanes((prev) => ensureEditorPane(prev, targetPaneId).map((pane) => {
+        if (pane.id !== targetPaneId) return pane
+        return {
+          ...pane,
+          openFilePaths: pane.openFilePaths.includes(filePath)
+            ? pane.openFilePaths
+            : [...pane.openFilePaths, filePath],
+          activeFilePath: filePath,
+        }
+      }))
+      setters.setActiveEditorPaneId(targetPaneId)
+      return targetPaneId
+    },
+    [],
+  )
+
   const handleCloseFile = useCallback((filePath: string, paneId?: string | null): void => {
     const next = refs.editorPanesRef.current.map((pane) => {
       if (paneId && pane.id !== paneId) return pane
@@ -206,6 +236,8 @@ export function useCodeViewFileOps(
       setters.setOpenFiles((prev) =>
         prev.map((file) => (file.path === filePath ? { ...file, content } : file)),
       )
+
+      if (refs.openFilesRef.current.some((file) => file.path === filePath && file.transient)) return
 
       void (async (): Promise<void> => {
         try {
@@ -259,7 +291,7 @@ export function useCodeViewFileOps(
 
     const updates = await Promise.all(
       currentFiles
-        .filter((file) => openFilePaths.has(file.path))
+        .filter((file) => openFilePaths.has(file.path) && !file.transient)
         .map(async (file) => {
           try {
             const content = await readFileContent(file.path)
@@ -281,6 +313,7 @@ export function useCodeViewFileOps(
 
   return {
     handleSelectFile,
+    handleOpenTransientFile,
     handleCloseFile,
     handleCloseOtherFiles,
     handleCloseAllFiles,

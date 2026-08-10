@@ -204,6 +204,13 @@ export function App(): React.JSX.Element {
     onRequestDeleteAgent: overlays.requestDeleteAgent,
   })
 
+  const handleOpenGitCommandOutput = useCallback((output: string): void => {
+    const paneId = ensureEditorVisible(codeView.activeEditorPaneId)
+    codeView.handleOpenTransientFile('Git Sync Output.txt', output, paneId)
+    codeView.setActivePane(paneId)
+    dockLayout.focusPanel(paneId)
+  }, [codeView, dockLayout, ensureEditorVisible])
+
   // Adding a repo from onboarding while a workspace is focused must clear that
   // workspace. ProjectList nulls out the active project whenever a workspace is
   // active (a workspace and a standalone repo must not look selected at once), so a
@@ -506,6 +513,7 @@ export function App(): React.JSX.Element {
         appEffects={appEffects}
         showCommitAndPrButtons={settings.showCommitAndPrButtons && activeProjectIsGit}
         handleSelectFile={handleSelectFile}
+        handleOpenGitCommandOutput={handleOpenGitCommandOutput}
         setPreviewThemeId={setPreviewThemeId}
         addProject={addProject}
         cloneProject={cloneProject}

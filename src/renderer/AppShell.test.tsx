@@ -126,6 +126,7 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     appEffects: { showOnboarding: false, setShowOnboarding: vi.fn(), creatingProject: false, cloningProject: false },
     showCommitAndPrButtons: false,
     handleSelectFile: vi.fn(),
+    handleOpenGitCommandOutput: vi.fn(),
     setPreviewThemeId: vi.fn(),
     addProject: vi.fn().mockResolvedValue(null),
     cloneProject: vi.fn().mockResolvedValue(false),

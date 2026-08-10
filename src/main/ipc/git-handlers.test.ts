@@ -173,7 +173,7 @@ describe('registerGitHandlers git:workspace-status', () => {
   }
 
   it('reports each git repo checkout with its branch and parsed changes', async () => {
-    mocks.gitExec.mockResolvedValue('manifold/feature\n')
+    mocks.gitExec.mockImplementation(async (args: string[]) => args[0] === 'rev-list' ? '2 3\n' : 'manifold/feature\n')
     mocks.gitStatus.mockResolvedValue(' M src/a.ts\n?? b.ts\n')
     const handler = await registerWithWorkspace(
       {
@@ -196,6 +196,7 @@ describe('registerGitHandlers git:workspace-status', () => {
         projectName: 'repo-one',
         checkoutPath: '/worktrees/repo-one',
         branch: 'manifold/feature',
+        upstreamAheadBehind: { behind: 2, ahead: 3 },
         staged: [],
         unstaged: [
           { path: 'src/a.ts', type: 'modified' },
@@ -204,6 +205,7 @@ describe('registerGitHandlers git:workspace-status', () => {
       },
     ])
     expect(mocks.gitExec).toHaveBeenCalledWith(['rev-parse', '--abbrev-ref', 'HEAD'], '/worktrees/repo-one')
+    expect(mocks.gitExec).toHaveBeenCalledWith(['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], '/worktrees/repo-one')
     expect(mocks.gitStatus).toHaveBeenCalledWith('/worktrees/repo-one')
   })
 
@@ -310,7 +312,7 @@ describe('registerGitHandlers workspace commit and checkout', () => {
     const { send } = await registerHandlers()
     const handler = mocks.handlers.get('git:workspace-checkout')!
 
-    await handler({}, 'ws-1', 'p1', 'feature/login', false)
+    await handler({}, 'ws-1', 'p1', 'feature/login', 'switch')
 
     expect(mocks.gitExec).toHaveBeenCalledWith(['checkout', 'feature/login'], '/worktrees/repo-one')
     expect(send).toHaveBeenCalledWith('workspace:list-changed')
@@ -321,9 +323,32 @@ describe('registerGitHandlers workspace commit and checkout', () => {
     await registerHandlers()
     const handler = mocks.handlers.get('git:workspace-checkout')!
 
-    await handler({}, 'ws-1', 'p1', 'feature/new-thing', true)
+    await handler({}, 'ws-1', 'p1', 'feature/new-thing', 'create')
 
     expect(mocks.gitExec).toHaveBeenCalledWith(['checkout', '-b', 'feature/new-thing'], '/worktrees/repo-one')
+  })
+
+  it('git:workspace-checkout creates from a selected ref', async () => {
+    mocks.gitExec.mockResolvedValue('')
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-checkout')!
+
+    await handler({}, 'ws-1', 'p1', 'feature/new-thing', 'create', 'origin/develop')
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(
+      ['checkout', '-b', 'feature/new-thing', 'origin/develop'],
+      '/worktrees/repo-one',
+    )
+  })
+
+  it('git:workspace-checkout can checkout a ref detached', async () => {
+    mocks.gitExec.mockResolvedValue('')
+    await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-checkout')!
+
+    await handler({}, 'ws-1', 'p1', 'origin/release', 'detach')
+
+    expect(mocks.gitExec).toHaveBeenCalledWith(['checkout', '--detach', 'origin/release'], '/worktrees/repo-one')
   })
 
   it('git:workspace-checkout surfaces git failures and does not poke the sidebar', async () => {
@@ -331,8 +356,57 @@ describe('registerGitHandlers workspace commit and checkout', () => {
     const { send } = await registerHandlers()
     const handler = mocks.handlers.get('git:workspace-checkout')!
 
-    await expect(handler({}, 'ws-1', 'p1', 'main', false)).rejects.toThrow('local changes would be overwritten')
+    await expect(handler({}, 'ws-1', 'p1', 'main', 'switch')).rejects.toThrow('local changes would be overwritten')
     expect(send).not.toHaveBeenCalled()
+  })
+
+  it('git:workspace-pull fast-forwards, pushes, and refreshes the renderer', async () => {
+    mocks.gitExec
+      .mockResolvedValueOnce('Already up to date.')
+      .mockResolvedValueOnce('Everything up-to-date')
+    const { send } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-pull')!
+
+    const result = await handler({}, 'ws-1', 'p1')
+
+    expect(mocks.gitExec).toHaveBeenNthCalledWith(1, ['pull', '--ff-only'], '/worktrees/repo-one')
+    expect(mocks.gitExec).toHaveBeenNthCalledWith(2, ['push'], '/worktrees/repo-one')
+    expect(result).toEqual({
+      ok: true,
+      output: 'Repository: /worktrees/repo-one\n\n$ git pull --ff-only\nAlready up to date.\n\n$ git push\nEverything up-to-date',
+    })
+    expect(send).toHaveBeenCalledWith('workspace:list-changed')
+  })
+
+  it('git:workspace-pull returns pull failures with command output and skips push', async () => {
+    mocks.gitExec.mockRejectedValue(new Error('Not possible to fast-forward'))
+    const { send } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-pull')!
+
+    await expect(handler({}, 'ws-1', 'p1')).resolves.toEqual({
+      ok: false,
+      failedCommand: 'pull',
+      message: 'Not possible to fast-forward',
+      output: 'Repository: /worktrees/repo-one\n\n$ git pull --ff-only\nNot possible to fast-forward',
+    })
+    expect(mocks.gitExec).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledWith('workspace:list-changed')
+  })
+
+  it('git:workspace-pull returns push failures after a successful pull', async () => {
+    mocks.gitExec
+      .mockResolvedValueOnce('Already up to date.')
+      .mockRejectedValueOnce(new Error('remote rejected the push'))
+    const { send } = await registerHandlers()
+    const handler = mocks.handlers.get('git:workspace-pull')!
+
+    await expect(handler({}, 'ws-1', 'p1')).resolves.toEqual({
+      ok: false,
+      failedCommand: 'push',
+      message: 'remote rejected the push',
+      output: 'Repository: /worktrees/repo-one\n\n$ git pull --ff-only\nAlready up to date.\n\n$ git push\nremote rejected the push',
+    })
+    expect(send).toHaveBeenCalledWith('workspace:list-changed')
   })
 
   it('rejects plain-folder projects', async () => {

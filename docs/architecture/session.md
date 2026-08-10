@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-08-08
+updated: 2026-08-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -208,6 +208,7 @@ resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:2
 - **A locked agent cannot be deleted.** `locked` is persisted in the worktree meta (`worktree-meta.ts:25`), written by `session-meta-persister.ts:18`, read back at all three discovery construction sites, and surfaced by `toPublicSession` — so the protection survives a restart. Deletion is refused at both ends: the renderer's single `requestDeleteAgent` chokepoint never opens the confirm dialog (`hooks/app/useAppOverlays.ts:79`), and `agent:kill` throws before any teardown. Locking only blocks deletion — it never stops or interrupts the running agent.
 
 - **Deferred chat sessions have `ptyId: ''` and status `waiting`.** Treat empty `ptyId` as "no live process"; `resumeSession` and many helpers short-circuit on it. Each chat turn is a fresh print-mode process, not a persistent PTY.
+- **Interactive Codex working sets require a writable sandbox.** When a session has additional directories, `SessionCreator` adds `--sandbox workspace-write` before Codex's repeated `--add-dir` flags (`session-creator.ts:147`). This overrides a read-only user profile for that multi-root launch; otherwise Codex ignores every extra writable root.
 - **Closing an agent removes nothing.** No teardown path in this folder removes a worktree or deletes a branch — not `killSession`, not `retireSession`, not the mode-switch teardowns (`session-killer.ts:28`, `session-teardown.ts`). Checkouts come and go with their workspace (`workspace-manager.ts:69`). The shared-path guard survives only for *unwatching*, since several sessions can poll one checkout (`session-killer.ts:66`).
 - **Teardown skips base checkout for `noWorktree`.** Checking out base in the live repo dir would drop `.gitignore` and surface `node_modules` as untracked, breaking the next spawn (`session-teardown.ts:53`).
 - **Meta is the source of truth on disk.** If `writeWorktreeMeta` fails, `nonInteractive` and friends are lost on next launch (both `session-creator.ts:187` and `session-meta-persister.ts:16` log this loudly). Discovery reconstructs sessions purely from worktree meta + branch state.

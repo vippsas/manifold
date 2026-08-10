@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { CreatePROptions, AheadBehind, FetchResult } from '../../shared/types'
-import type { WorkspaceRepoStatus } from '../../shared/workspace-types'
+import type { GitSyncResult, WorkspaceRepoStatus } from '../../shared/workspace-types'
 import { isGitProject } from '../../shared/project-kind'
 import { gitExec } from '../git/git-exec'
 import { gitStatus, parseStatusWithConflicts } from '../fs/file-watcher-utils'
@@ -20,6 +20,10 @@ import { resolveSession } from './types'
  *  (e.g. a no-worktree agent based off a selected branch) or the project's. */
 function baseBranchFor(session: { baseBranch?: string }, project: { baseBranch: string }): string {
   return session.baseBranch || project.baseBranch
+}
+
+function gitFailureMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 export function registerDiffHandler(deps: IpcDependencies): void {
@@ -157,11 +161,25 @@ export function registerGitHandlers(deps: IpcDependencies): void {
       const project = projectRegistry.getProject(projectId)
       if (!project || !isGitProject(project)) return null
       const checkoutPath = workspace.worktreePaths?.[projectId] ?? project.path
-      const [branch, groups] = await Promise.all([
+      const [branch, groups, upstreamAheadBehind] = await Promise.all([
         gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], checkoutPath).then((out) => out.trim()).catch(() => ''),
         gitStatus(checkoutPath).then(parseWorkspaceStatus).catch(() => ({ staged: [], unstaged: [] })),
+        gitExec(['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], checkoutPath)
+          .then((out) => {
+            const [behind, ahead] = out.trim().split(/\s+/).map(Number)
+            if (!Number.isFinite(behind) || !Number.isFinite(ahead)) return undefined
+            return { behind, ahead }
+          })
+          .catch(() => undefined),
       ])
-      return { projectId, projectName: project.name, checkoutPath, branch, ...groups }
+      return {
+        projectId,
+        projectName: project.name,
+        checkoutPath,
+        branch,
+        ...(upstreamAheadBehind ? { upstreamAheadBehind } : {}),
+        ...groups,
+      }
     }))
     return statuses.filter((status): status is WorkspaceRepoStatus => status !== null)
   })
@@ -211,19 +229,65 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     else await commitManagedWorktreeIndex(checkoutPath, message)
   })
 
-  // Switch (or create) the branch of one workspace checkout — VS Code's
-  // click-the-branch-name flow. A plain `git checkout` in the checkout path:
-  // remote-only branches get git's DWIM local tracking branch, and branches
-  // held by another worktree are already filtered out of `git:list-branches`.
+  // Switch, create (optionally from another ref), or detach one workspace
+  // checkout — VS Code's click-the-branch-name flow. A plain switch of a
+  // remote-only branch gets git's DWIM local tracking branch; create-from and
+  // detached selection retain the exact local/remote ref chosen in the picker.
+  // Branches held by another worktree are filtered out of `git:list-branches`.
   // Serialized against other mutating git ops on the repo, like every checkout
   // in branch-checkout-manager. Emits `workspace:list-changed` so Source Control
   // and the workspace list refresh.
-  ipcMain.handle('git:workspace-checkout', async (_event, workspaceId: string, projectId: string, branchName: string, createNew: boolean) => {
+  ipcMain.handle('git:workspace-checkout', async (
+    _event,
+    workspaceId: string,
+    projectId: string,
+    target: string,
+    mode: 'switch' | 'create' | 'detach',
+    startPoint?: string,
+  ) => {
     const { projectPath, checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
+    const args = mode === 'create'
+      ? ['checkout', '-b', target, ...(startPoint ? [startPoint] : [])]
+      : mode === 'detach'
+        ? ['checkout', '--detach', target]
+        : ['checkout', target]
     await withRepoLock(projectPath, () =>
-      gitExec(createNew ? ['checkout', '-b', branchName] : ['checkout', branchName], checkoutPath),
+      gitExec(args, checkoutPath),
     )
     deps.send?.('workspace:list-changed')
+  })
+
+  // Sync the active checkout like VS Code's status-bar control: pull its
+  // configured upstream without creating a merge commit, then push local
+  // commits. Git failures are data rather than rejected IPC so the renderer can
+  // show both a useful reason and the complete command output.
+  ipcMain.handle('git:workspace-pull', async (_event, workspaceId: string, projectId: string): Promise<GitSyncResult> => {
+    const { projectPath, checkoutPath } = resolveWorkspaceCheckout(workspaceId, projectId)
+    const result = await withRepoLock(projectPath, async (): Promise<GitSyncResult> => {
+      const output: string[] = [`Repository: ${checkoutPath}`, '', '$ git pull --ff-only']
+      try {
+        const pullOutput = await gitExec(['pull', '--ff-only'], checkoutPath)
+        if (pullOutput.trim()) output.push(pullOutput.trimEnd())
+      } catch (error: unknown) {
+        const message = gitFailureMessage(error)
+        output.push(message)
+        return { ok: false, failedCommand: 'pull', message, output: output.join('\n') }
+      }
+
+      output.push('', '$ git push')
+      try {
+        const pushOutput = await gitExec(['push'], checkoutPath)
+        if (pushOutput.trim()) output.push(pushOutput.trimEnd())
+      } catch (error: unknown) {
+        const message = gitFailureMessage(error)
+        output.push(message)
+        return { ok: false, failedCommand: 'push', message, output: output.join('\n') }
+      }
+
+      return { ok: true, output: output.join('\n') }
+    })
+    deps.send?.('workspace:list-changed')
+    return result
   })
 
   // The uncommitted diff of one file in a workspace checkout — what the editor

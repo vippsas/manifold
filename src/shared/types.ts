@@ -298,6 +298,8 @@ export interface CreatePROptions {
 export interface BranchInfo {
   name: string
   source: 'local' | 'remote' | 'both'
+  /** Remote owning the tracking ref when one exists. Older callers may omit it. */
+  remote?: string
 }
 
 export interface PRInfo {

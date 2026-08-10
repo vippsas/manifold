@@ -280,11 +280,11 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     dismissSuggestion(session, deps.sessionManager.getPtyPool())
   })
 
-  ipcMain.handle('git:list-branches', async (_event, projectId: string) => {
+  ipcMain.handle('git:list-branches', async (_event, projectId: string, currentBranch?: string) => {
     const project = deps.projectRegistry.getProject(projectId)
     if (!project) throw new Error(`Project not found: ${projectId}`)
     if (!isGitProject(project)) throw new Error('This project is a plain folder, not a git repository')
-    return deps.branchCheckout.listBranches(project.path)
+    return deps.branchCheckout.listBranches(project.path, currentBranch)
   })
 
   ipcMain.handle('git:list-prs', async (_event, projectId: string) => {

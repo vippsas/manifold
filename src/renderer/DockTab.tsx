@@ -6,34 +6,15 @@ import { isEditorPanelId } from './hooks/dock-layout/dock-layout-helpers'
 import { formatBranchLabel } from './components/sidebar/agent-labels'
 import { AgentSettingsModal } from './components/modals/AgentSettingsModal'
 import { PanelGlyph, type GlyphId } from './components/ActivityBar'
+import { ContextMenu, type MenuItem } from './components/common/ContextMenu'
+import { useContextMenu } from './hooks/useContextMenu'
 
-function GearIcon(): React.JSX.Element {
+function EllipsisIcon(): React.JSX.Element {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  )
-}
-
-/** Padlock marking a locked (deletion-protected) agent. `locked` swaps the closed
- *  shackle for an open one, so the button shows the state it is in rather than the
- *  action it performs — matching the ⚙/🗑 sizing beside it. */
-function LockIcon({ locked }: { locked: boolean }): React.JSX.Element {
-  return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-      {locked ? <path d="M7 11V7a5 5 0 0 1 10 0v4" /> : <path d="M7 11V7a5 5 0 0 1 9.9-1" />}
-    </svg>
-  )
-}
-
-function TrashIcon(): React.JSX.Element {
-  return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <path d="M2.25 3.25H9.75" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-      <path d="M4.75 3.25V2.25H7.25V3.25" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M3.25 3.25L3.75 9.5H8.25L8.75 3.25" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+      <circle cx="2" cy="6" r="1" />
+      <circle cx="6" cy="6" r="1" />
+      <circle cx="10" cy="6" r="1" />
     </svg>
   )
 }
@@ -59,6 +40,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   // that currently mask this).
   const [title, setTitle] = React.useState(api.title ?? '')
   const [settingsOpen, setSettingsOpen] = React.useState(false)
+  const menu = useContextMenu()
   React.useEffect(() => {
     setTitle(api.title ?? '')
     const disposable = api.onDidTitleChange(() => setTitle(api.title ?? ''))
@@ -85,12 +67,11 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
       </div>
     )
   }
-  // An agent tab *is* its agent. Its per-tab controls act on that agent — ⚙
-  // opens settings, 🔒 protects it from deletion, 🗑 deletes it (behind the
-  // confirm) — rather than the generic × that hides a panel. Hiding the tab
-  // (keeping the agent) is the group header's × (see AgentHeaderActions). The
-  // primary `agent` tab resolves to the workspace's primary session; siblings
-  // carry their own session id.
+  // An agent tab *is* its agent. Its worded overflow menu opens settings,
+  // protects it from deletion, or deletes it (behind the confirm) rather than
+  // showing a row of ambiguous glyphs. Hiding the tab (keeping the agent) is the
+  // group header's × (see AgentHeaderActions). The primary `agent` tab resolves
+  // to the workspace's primary session; siblings carry their own session id.
   if (api.id === 'agent' || isSiblingPanelId(api.id)) {
     const sessionId = api.id === 'agent' ? state?.primarySessionId ?? null : parseSiblingSessionId(api.id)
     const session = sessionId && state
@@ -102,6 +83,19 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     const fallbackName = session
       ? (session.displayName?.trim() || formatBranchLabel(session.branchName, projectPath))
       : ''
+    const menuItems: MenuItem[] = session && state ? [
+      { label: 'Agent settings…', action: () => setSettingsOpen(true) },
+      {
+        label: session.locked ? 'Unlock agent' : 'Lock agent',
+        action: () => state.onToggleLocked(session.id, !session.locked),
+      },
+      'separator',
+      {
+        label: 'Delete agent',
+        action: () => state.onRequestDeleteAgent(session, projectPath),
+        disabled: !!session.locked,
+      },
+    ] : []
     return (
       <div className="dock-tab" onDoubleClick={() => state?.onToggleMaximize(api.id)}>
         <span className="dock-tab__label truncate">{title}</span>
@@ -109,39 +103,28 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
           <>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setSettingsOpen(true) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                const rect = e.currentTarget.getBoundingClientRect()
+                menu.openAt({ x: rect.left, y: rect.bottom + 4 })
+              }}
               onDoubleClick={(e) => e.stopPropagation()}
               className="dock-tab__action"
-              title={`Settings for ${title}`}
-              aria-label={`Settings for ${title}`}
+              title={`Actions for ${title}`}
+              aria-label={`Actions for ${title}`}
+              aria-haspopup="menu"
+              aria-expanded={menu.position !== null}
             >
-              <GearIcon />
+              <EllipsisIcon />
             </button>
-            {/* Sits immediately left of the 🗑 it guards, and stays visible while
-                locked — the other actions are hover-only, but a lock is state,
-                not an action, and has to read without hovering the tab. */}
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); state.onToggleLocked(session.id, !session.locked) }}
-              onDoubleClick={(e) => e.stopPropagation()}
-              className={`dock-tab__action${session.locked ? ' is-locked' : ''}`}
-              aria-pressed={!!session.locked}
-              title={session.locked ? 'Unlock agent' : 'Lock agent to prevent deletion'}
-              aria-label={session.locked ? `Unlock ${title}` : `Lock ${title} to prevent deletion`}
-            >
-              <LockIcon locked={!!session.locked} />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); state.onRequestDeleteAgent(session, projectPath) }}
-              onDoubleClick={(e) => e.stopPropagation()}
-              disabled={!!session.locked}
-              className="dock-tab__action"
-              title={session.locked ? `${title} is locked — unlock it to delete` : `Delete ${title}`}
-              aria-label={`Delete ${title}`}
-            >
-              <TrashIcon />
-            </button>
+            {menu.position && (
+              <ContextMenu
+                x={menu.position.x}
+                y={menu.position.y}
+                items={menuItems}
+                onClose={menu.close}
+              />
+            )}
             <AgentSettingsModal
               visible={settingsOpen}
               session={session}

@@ -450,7 +450,7 @@ describe('SessionManager — create / input / queries', () => {
       expect(configured).toMatchObject({ id: 'session-uuid-2', runtimeId: 'codex', nonInteractive: false, status: 'running' })
       expect(ptyPool.spawn).toHaveBeenCalledWith(
         'codex',
-        ['--add-dir', '/repo/two'],
+        ['--sandbox', 'workspace-write', '--add-dir', '/repo/two'],
         { cwd: session.worktreePath, env: undefined },
       )
     })

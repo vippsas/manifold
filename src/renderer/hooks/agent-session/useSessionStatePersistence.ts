@@ -30,7 +30,18 @@ export function useSessionStatePersistence(
     const prev = prevSessionRef.current
     if (prev && prev !== activeSessionId) {
       const cv = codeViewRef.current
-      viewState.saveCurrentState(prev, cv.editorPanes, cv.activeEditorPaneId)
+      const transientPaths = new Set(cv.openFiles.filter((file) => file.transient).map((file) => file.path))
+      const persistedPanes = cv.editorPanes.map((pane) => {
+        const openFilePaths = pane.openFilePaths.filter((path) => !transientPaths.has(path))
+        return {
+          ...pane,
+          openFilePaths,
+          activeFilePath: pane.activeFilePath && !transientPaths.has(pane.activeFilePath)
+            ? pane.activeFilePath
+            : openFilePaths[0] ?? null,
+        }
+      })
+      viewState.saveCurrentState(prev, persistedPanes, cv.activeEditorPaneId)
     }
     prevSessionRef.current = activeSessionId
   }, [activeSessionId, viewState.saveCurrentState])
