@@ -14,6 +14,13 @@ export function clampUiScale(scale: number | undefined): number {
   return Number.isFinite(scale) ? Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, scale as number)) : 1
 }
 
+/**
+ * Plugin ids kept out of the Settings → Plugins list: they ship with the app but
+ * are not user-manageable. Pair with `DEFAULT_SETTINGS.disabledPlugins` to ship a
+ * plugin dark — the only way back on is editing `config.json` by hand.
+ */
+export const SETTINGS_HIDDEN_PLUGINS = ['manifold.statistics']
+
 export const DEFAULT_SETTINGS = {
   storagePath: '',
   setupCompleted: false,
@@ -71,9 +78,8 @@ export const DEFAULT_SETTINGS = {
     scope: 'non-active',
   },
   pluginConfig: {},
-  // The hello-world sample plugins (the 3 bundled demos + the mark-wiemer.helloworld-2022
-  // VS Code sample) ship disabled by default; users can enable them in Settings → Plugins.
-  // (disabledPlugins is new in this release; settings-store seeds this set into existing
-  // configs once — see resolveDefaults — so the default applies to current installs too.)
-  disabledPlugins: ['manifold.hello', 'manifold.hello-tree', 'manifold.hello-vscode', 'mark-wiemer.helloworld-2022'],
+  // Statistics ships disabled and is hidden from Settings → Plugins (see
+  // SETTINGS_HIDDEN_PLUGINS). settings-store seeds each id here into existing configs
+  // once — see resolveDefaults — so the default applies to current installs too.
+  disabledPlugins: ['manifold.statistics'],
 } satisfies ManifoldSettings

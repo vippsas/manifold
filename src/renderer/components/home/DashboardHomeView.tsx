@@ -4,6 +4,7 @@ import { StarfieldBackdrop } from '../StarfieldBackdrop'
 import { ManifoldWordmark } from '../ManifoldWordmark'
 import { CARDS } from './dashboard-cards'
 import { DashboardCard } from './DashboardCard'
+import { usePluginContributions } from '../../plugins/use-contributions'
 
 /**
  * The global "home layer" Dashboard surface. The landing presents the host-owned
@@ -60,7 +61,12 @@ const styles: Record<string, React.CSSProperties> = {
 
 export function DashboardHomeView({ onClose, initialCard }: { onClose: () => void; initialCard?: string | null }): React.JSX.Element {
   const [view, setView] = useState<string>(initialCard ?? 'grid')
-  const activeCard = CARDS.find((c) => c.id === view) ?? null
+  // A card is only offered while some enabled plugin still provides the view it drills
+  // into — a disabled plugin (Statistics ships that way) never reaches the contribution
+  // registry, and its card would otherwise open an empty panel.
+  const pluginViews = usePluginContributions()
+  const cards = CARDS.filter((c) => pluginViews.some((v) => v.id === c.fullViewId))
+  const activeCard = cards.find((c) => c.id === view) ?? null
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -127,7 +133,7 @@ export function DashboardHomeView({ onClose, initialCard }: { onClose: () => voi
             </div>
           </header>
           <div style={styles.stageGrid}>
-            {CARDS.map((card) => (
+            {cards.map((card) => (
               <DashboardCard key={card.id} card={card} onOpen={() => setView(card.id)} />
             ))}
           </div>

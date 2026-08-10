@@ -1,0 +1,13 @@
+{
+  "name": "vscode-extension-fixture",
+  "publisher": "fixture",
+  "version": "0.0.1",
+  "displayName": "VS Code extension fixture",
+  "description": "Test-only stand-in for an unmodified VS Code extension, used by vscode-shim-integration.test.ts. Not a bundled plugin: it lives outside resources/plugins so it never ships or gets discovered.",
+  "engines": { "vscode": "^1.104.0" },
+  "main": "./extension.js",
+  "activationEvents": ["onCommand:fixture.greet"],
+  "contributes": {
+    "commands": [{ "command": "fixture.greet", "title": "Fixture: Greet" }]
+  }
+}
