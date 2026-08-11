@@ -171,6 +171,27 @@ describe('AppShell', () => {
     expect(addProject).toHaveBeenCalledWith()
   })
 
+  it('absorbs one-folder homes when creating from the workspace modal', async () => {
+    const createWorkspace = vi.fn().mockResolvedValue({
+      id: 'w1', name: 'Combined', projectIds: ['p1'], createdAt: '2024-01-01',
+    })
+
+    render(<AppShell {...makeProps({ createWorkspace })} />)
+
+    fireEvent.change(screen.getByPlaceholderText('e.g. cross-repo auth rename'), {
+      target: { value: 'Combined' },
+    })
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    expect(createWorkspace).toHaveBeenCalledWith({
+      name: 'Combined',
+      projectIds: ['p1'],
+      runtimeId: 'claude',
+      absorbHomeWorkspaces: true,
+    })
+  })
+
   it('keeps the workspace modal closed until it is asked for', () => {
     render(<AppShell {...makeProps({ newWorkspaceVisible: false })} />)
 

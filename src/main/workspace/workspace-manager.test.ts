@@ -31,7 +31,7 @@ function makeDeps(tmpDir: string) {
       getProject: (id: string) => projects[id],
       listProjects: () => Object.values(projects),
     },
-    sessionManager: { createSession, getSession: vi.fn(), killSession: vi.fn(async () => undefined) },
+    sessionManager: { createSession, getSession: vi.fn(), listSessions: vi.fn(() => []), killSession: vi.fn(async () => undefined) },
     emitListChanged: vi.fn(),
     _createSession: createSession,
   }
@@ -59,6 +59,53 @@ describe('WorkspaceManager', () => {
   it('stores the chosen runtime on the workspace', async () => {
     const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'], runtimeId: 'codex' })
     expect(manager.get(w.id)?.runtimeId).toBe('codex')
+  })
+
+  it('initial creation absorbs the selected one-folder home workspaces', async () => {
+    const apiHome = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+    const webHome = manager.adoptProject(deps.projectRegistry.getProject('web')!)
+
+    const combined = await manager.create({
+      name: 'auth',
+      projectIds: ['api', 'web'],
+      absorbHomeWorkspaces: true,
+    })
+
+    expect(manager.get(apiHome.id)).toBeUndefined()
+    expect(manager.get(webHome.id)).toBeUndefined()
+    expect(manager.list()).toEqual([combined])
+  })
+
+  it('initial creation preserves other worktree and multi-folder home workspaces', async () => {
+    const multiFolderHome = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+    await manager.addProject(multiFolderHome.id, 'shared')
+    const parallel = await manager.create({ name: 'parallel', projectIds: ['web'] })
+
+    await manager.create({
+      name: 'auth',
+      projectIds: ['api', 'web'],
+      absorbHomeWorkspaces: true,
+    })
+
+    expect(manager.get(multiFolderHome.id)).toBeDefined()
+    expect(manager.get(parallel.id)).toBeDefined()
+  })
+
+  it('initial creation preserves a home workspace that still owns an agent', async () => {
+    const occupiedHome = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+    deps.sessionManager.listSessions.mockReturnValue([{ workspaceId: occupiedHome.id }] as never)
+
+    await manager.create({ name: 'auth', projectIds: ['api'], absorbHomeWorkspaces: true })
+
+    expect(manager.get(occupiedHome.id)).toBeDefined()
+  })
+
+  it('copy creation preserves one-folder home workspaces', async () => {
+    const home = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+
+    await manager.create({ name: 'parallel', projectIds: ['api'] })
+
+    expect(manager.get(home.id)).toBeDefined()
   })
 
   it('create rejects an empty project list', async () => {

@@ -20,19 +20,24 @@ export function useWorkspaceRepoStatuses(workspaceId: string | null): {
   changeCount: number
   refresh: () => void
 } {
-  const [repos, setRepos] = useState<WorkspaceRepoStatus[]>([])
-  const requestIdRef = useRef(0)
+  const [reposByWorkspace, setReposByWorkspace] = useState<Map<string, WorkspaceRepoStatus[]>>(new Map())
+  const requestIdsRef = useRef<Map<string, number>>(new Map())
 
   const refresh = useCallback((): void => {
-    const requestId = ++requestIdRef.current
-    if (!workspaceId) {
-      setRepos([])
-      return
-    }
+    if (!workspaceId) return
+    const requestId = (requestIdsRef.current.get(workspaceId) ?? 0) + 1
+    requestIdsRef.current.set(workspaceId, requestId)
     void window.electronAPI.invoke('git:workspace-status', workspaceId)
       .then((result) => {
-        // Drop responses that arrive after the workspace selection moved on.
-        if (requestId === requestIdRef.current) setRepos(result as WorkspaceRepoStatus[])
+        // Keep each workspace's last model alive while it is out of view, and
+        // drop only an older request for that same workspace. Switching back
+        // can then paint immediately while this refresh runs in the background.
+        if (requestIdsRef.current.get(workspaceId) !== requestId) return
+        setReposByWorkspace((current) => {
+          const next = new Map(current)
+          next.set(workspaceId, result as WorkspaceRepoStatus[])
+          return next
+        })
       })
       .catch((err: unknown) => {
         console.error('[SourceControl] failed to load workspace git status', err)
@@ -48,5 +53,8 @@ export function useWorkspaceRepoStatuses(workspaceId: string | null): {
     return () => window.removeEventListener('focus', onFocus)
   }, [refresh])
 
+  // Index by the requested workspace during render so a selection change can
+  // never briefly pair the new workspace header with the previous one's rows.
+  const repos = workspaceId ? reposByWorkspace.get(workspaceId) ?? [] : []
   return { repos, changeCount: countWorkspaceChangedFiles(repos), refresh }
 }
