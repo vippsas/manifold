@@ -18,6 +18,8 @@ import { AboutOverlay } from './components/modals/AboutOverlay'
 import { UpdateLogOverlay } from './components/modals/UpdateLogOverlay'
 import { UpdateToast } from '../shared/UpdateToast'
 import { ThemeChangeToast } from '../shared/ThemeChangeToast'
+import { WorkingSetToast } from '../shared/WorkingSetToast'
+import type { WorkingSetNoticeState } from './hooks/workspace/useWorkingSetNotices'
 import { StatusBar } from './components/git/StatusBar'
 import { CommitPanel } from './components/git/CommitPanel'
 import { PRPanel } from './components/git/PRPanel'
@@ -89,6 +91,7 @@ export interface AppShellProps {
   updateLog: UseUpdateLogResult
   updateNotification: { updateReady: boolean; version: string | null; install: () => void; dismiss: () => void }
   themeChangeNotice: { show: boolean; mode: 'light' | 'dark'; dismiss: () => void }
+  workingSetNotices: WorkingSetNoticeState
   appEffects: { showOnboarding: boolean; setShowOnboarding: (v: boolean) => void; creatingProject: boolean; cloningProject: boolean }
   showCommitAndPrButtons: boolean
   // Top-level handlers/state
@@ -325,6 +328,7 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       {p.themeChangeNotice.show && (
         <ThemeChangeToast mode={p.themeChangeNotice.mode} onDismiss={p.themeChangeNotice.dismiss} />
       )}
+      <WorkingSetToast notices={p.workingSetNotices.notices} onDismiss={p.workingSetNotices.dismiss} />
       <AddRepositoryModal
         visible={p.appEffects.showOnboarding || p.appEffects.creatingProject}
         onAddProject={() => void p.handleAddProjectFromOnboarding()}

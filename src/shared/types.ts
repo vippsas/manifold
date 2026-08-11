@@ -57,6 +57,24 @@ export interface AgentSession {
   locked?: boolean
 }
 
+/** How a folder added to a workspace reached one of its already-running agents.
+ *  'live' — typed into the running agent, which confirmed it.
+ *  'next-turn' — a chat agent rebuilds its working set on its next message.
+ *  'restart-required' — the runtime takes folders only at launch (e.g. Codex).
+ *  'manual' — the attempt failed; the user has to type the command themselves. */
+export type WorkingSetDelivery = 'live' | 'next-turn' | 'restart-required' | 'manual'
+
+export interface WorkingSetNotice {
+  sessionId: string
+  agentName: string
+  dir: string
+  delivery: WorkingSetDelivery
+  /** Command to type into the agent, when the user has to do it themselves. */
+  command?: string
+  /** Why the automatic attempt failed, for 'manual'. */
+  error?: string
+}
+
 export type ProjectKind = 'git' | 'folder'
 
 export interface Project {

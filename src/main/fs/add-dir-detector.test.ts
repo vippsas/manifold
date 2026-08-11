@@ -54,4 +54,19 @@ describe('detectAddDir', () => {
       'Added\x1b[1C\x1b[1m/Users/sven/git/landingpage/\x1b[1C\x1b[22mas\x1b[1Ca\x1b[1Cworking\x1b[1Cdirectory\x1b[1Cfor\x1b[1Cthis\x1b[1Csession'
     expect(detectAddDir(output)).toBe('/Users/sven/git/landingpage')
   })
+
+  it('handles cursor-column escape codes used as spaces (Claude Code 2.1.x PTY output)', () => {
+    // Captured from claude 2.1.224: words are placed with \x1b[<col>G (cursor
+    // horizontal absolute) rather than spaces or \x1b[<n>C.
+    const output =
+      '  ⎢  \x1b[39mAdded\x1b[12G\x1b[1m/tmp/probe/extra\x1b[80G\x1b[22mas\x1b[83Ga\x1b[85Gworking'
+      + '\x1b[93Gdirectory\x1b[103Gfor\x1b[107Gthis\x1b[112Gsession\x1b[120G\x1b[2m·'
+    expect(detectAddDir(output)).toBe('/tmp/probe/extra')
+  })
+
+  it('detects the Copilot CLI success line', () => {
+    // Captured from GitHub Copilot CLI 0.0.402.
+    const output = '\x1b[G\x1b[34m●\x1b[39m Added directory to allowed list: /tmp/probe/extra/\r\n'
+    expect(detectAddDir(output)).toBe('/tmp/probe/extra')
+  })
 })
