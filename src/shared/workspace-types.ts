@@ -70,6 +70,9 @@ export interface WorkspaceCreateOptions {
   name: string
   projectIds: string[]
   runtimeId?: string
+  /** Initial creation groups otherwise-standalone repositories into the new
+   *  workspace. Occupied homes and copied workspaces remain intact. */
+  absorbHomeWorkspaces?: boolean
 }
 
 /** Options for WorkspaceManager.spawnAgent(workspaceId, options) — the workspace id is passed separately, not in this bag.

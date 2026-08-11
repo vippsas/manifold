@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AgentSession, Project, SpawnAgentOptions } from '../../shared/types'
-import type { Workspace, WorkspaceCreateOptions, WorkspaceSpawnAgentOptions } from '../../shared/workspace-types'
+import { isWorktreeWorkspace, type Workspace, type WorkspaceCreateOptions, type WorkspaceSpawnAgentOptions } from '../../shared/workspace-types'
 import type { WorkspaceStore } from './workspace-store'
 import {
   buildWorkspaceWorkingSet,
@@ -17,6 +17,7 @@ export interface WorkspaceManagerDeps {
   sessionManager: {
     createSession: (opts: SpawnAgentOptions) => Promise<AgentSession>
     getSession: (id: string) => AgentSession | undefined
+    listSessions: () => AgentSession[]
     killSession: (id: string) => Promise<void>
   }
   emitListChanged: () => void
@@ -52,6 +53,23 @@ export class WorkspaceManager {
       worktreePaths,
     }
     this.deps.store.add(workspace)
+    if (options.absorbHomeWorkspaces) {
+      const selectedProjectIds = new Set(options.projectIds)
+      const occupiedWorkspaceIds = new Set(
+        this.deps.sessionManager.listSessions().map((session) => session.workspaceId),
+      )
+      for (const candidate of this.deps.store.list()) {
+        if (
+          candidate.id !== workspace.id
+          && candidate.projectIds.length === 1
+          && selectedProjectIds.has(candidate.projectIds[0])
+          && !isWorktreeWorkspace(candidate)
+          && !occupiedWorkspaceIds.has(candidate.id)
+        ) {
+          this.deps.store.remove(candidate.id)
+        }
+      }
+    }
     this.deps.emitListChanged()
     return workspace
   }
