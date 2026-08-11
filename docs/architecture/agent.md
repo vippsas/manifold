@@ -1,7 +1,7 @@
 ---
 description: The AI runtimes layer and PTY pool — the runtime registry, command building (interactive vs print-mode), theme/ANSI sync, and the process boundary the session subsystem spawns into.
 covers: [src/main/agent]
-updated: 2026-08-10
+updated: 2026-08-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -24,6 +24,7 @@ calls into here; this layer holds no session state of its own and is pure given 
 - `src/main/agent/ai-runtime-output-parsers.ts` — per-format extractors (`extractClaudeText`, `extractCodexText`, `extractSlashCommands`, failure extractors, `dedupeTexts`).
 - `src/main/agent/claude-theme-args.ts` — `claudeAnsiThemeArgs()`: maps Manifold's light/dark theme to Claude Code's `--settings` ANSI theme.
 - `src/main/agent/working-set-args.ts` — `buildWorkingSetArgs()`: per-runtime `--add-dir`/`--include-directories` flags for workspace agents.
+- `src/main/agent/add-dir-command.ts` — `runtimeAddDirCommand()`: the same folder, but for a runtime that is *already running* — the slash command its TUI accepts, or `null` where there is none. Claude Code and Copilot take `/add-dir <path>` (Claude then raises a confirm dialog); Codex has no such command and must never be typed into. Used by `SessionWorkingSet` (`src/main/session/session-working-set.ts`).
 - `src/main/agent/status-detector.ts` — `detectStatus()`: maps recent PTY output to an `AgentStatus` using per-runtime regex patterns.
 - `src/main/agent/ollama-models.ts` — `listOllamaModels()`: parses `ollama list`.
 - `src/main/agent/ai-prompt.ts` — `runAiPrompt()`: stdin-fed one-shot child process (used by memory compression).

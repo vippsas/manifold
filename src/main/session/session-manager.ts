@@ -24,6 +24,7 @@ import { SessionKiller } from './session-killer'
 import { SessionLifecycle } from './session-lifecycle'
 import { toPublicSession } from './session-public'
 import { SessionIoController } from './session-io-controller'
+import { SessionWorkingSet } from './session-working-set'
 import type { VerdictRecorder } from './verdict-recorder'
 import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { sendSessionManagerRendererEvent } from './session-manager-renderer'
@@ -44,6 +45,7 @@ export class SessionManager {
   private shellController: ShellSessionController
   private killer: SessionKiller
   private ioController: SessionIoController
+  private workingSet: SessionWorkingSet
   private lifecycle: SessionLifecycle
   private verdictRecorder: VerdictRecorder | null = null
   private dismissedAgents: Pick<DismissedAgentsStore, 'has' | 'delete'> | null = null
@@ -121,6 +123,13 @@ export class SessionManager {
       getMemoryCapture: () => this.memoryCapture,
       spawnPrintModeFollowUp: (session, input) => this.devServer.spawnPrintModeFollowUp(session, input),
       trackActivity: (session) => this.streamWirer.trackActivity(session),
+    })
+    this.workingSet = new SessionWorkingSet({
+      sessions: this.sessions,
+      ptyPool: this.ptyPool,
+      getFileWatcher: () => this.fileWatcher,
+      persist: persistSessionMeta,
+      sendToRenderer: (channel, payload) => this.sendToRenderer(channel, payload),
     })
     this.lifecycle = new SessionLifecycle({
       sessions: this.sessions,
@@ -223,6 +232,12 @@ export class SessionManager {
   }
 
   hasSession(sessionId: string): boolean { return this.sessions.has(sessionId) }
+
+  /** Push a folder added to a workspace into the agents already running in it —
+   *  their `--add-dir` flags were fixed when their processes started. */
+  async addWorkingDir(workspaceId: string, projectId: string, dir: string): Promise<void> {
+    await this.workingSet.addDirToWorkspace(workspaceId, projectId, dir)
+  }
 
   interruptSession(sessionId: string): void { this.ioController.interruptSession(sessionId) }
 

@@ -19,6 +19,7 @@ export interface WorkspaceManagerDeps {
     getSession: (id: string) => AgentSession | undefined
     listSessions: () => AgentSession[]
     killSession: (id: string) => Promise<void>
+    addWorkingDir: (workspaceId: string, projectId: string, dir: string) => Promise<void>
   }
   emitListChanged: () => void
 }
@@ -95,17 +96,27 @@ export class WorkspaceManager {
   async addProject(id: string, projectId: string): Promise<void> {
     const workspace = this.deps.store.get(id)
     if (!workspace || workspace.projectIds.includes(projectId)) return
+    const [project] = this.resolveProjects([projectId])
+    let addedDir = project.path
     // A folder joining a worktree workspace needs its own checkout on that
     // workspace's branch, or the agent would see the repo's clone instead.
     if (workspace.worktreePaths && workspace.branchName) {
-      const [project] = this.resolveProjects([projectId])
       const { worktreePaths } = await buildWorkspaceWorkingSet(
         this.deps.worktreeManager, [project], workspace.branchName,
       )
       this.deps.store.update(id, { worktreePaths: { ...workspace.worktreePaths, ...worktreePaths } })
+      addedDir = worktreePaths[projectId] ?? project.path
     }
     this.deps.store.addProject(id, projectId)
     this.deps.emitListChanged()
+    // Agents already running in this workspace were spawned with a fixed set of
+    // --add-dir flags, so the new folder is invisible to them until it is pushed
+    // in. Not awaited: reaching an agent means waiting for it to be idle, which
+    // can take tens of seconds, and the folder is added either way — each agent
+    // reports its own outcome to the renderer when it gets there.
+    void this.deps.sessionManager.addWorkingDir(id, projectId, addedDir).catch((err) => {
+      console.error(`[workspace] could not hand ${addedDir} to the agents in ${id}:`, err)
+    })
   }
 
   async removeProject(id: string, projectId: string): Promise<void> {

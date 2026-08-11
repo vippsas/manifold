@@ -92,6 +92,12 @@ async for that reason. `pruneMissingProjects()` heals records persisted before t
 existed; the repo is already gone from the registry, so its worktree can only be forgotten —
 `git worktree remove` needs the clone it was cut from (`:163`).
 
+**A late folder still has to reach the agents already running.** A session's `--add-dir` flags
+are fixed when its process is spawned, so `addProject()` finishes by handing the new checkout to
+`SessionManager.addWorkingDir()` (`workspace-manager.ts:117`) — the workspace's own checkout of
+the repo, not the clone. What that does per agent is
+[session's working-set propagation](session.md#pushing-a-folder-into-a-running-agent).
+
 **Spawn — join, don't cut.** `spawnAgent(workspaceId, options)` (`workspace-manager.ts:218`)
 resolves the members in their stored order and **reuses `workspace.worktreePaths`** rather than
 creating anything (`:231`). Two agents in one workspace get the same paths, with the same first

@@ -12,6 +12,7 @@ import { useBranchStaleness } from './hooks/project/useBranchStaleness'
 import { useAllProjectSessions } from './hooks/agent-session/useAllProjectSessions'
 import { useTheme } from './hooks/theme/useTheme'
 import { useThemeChangeNotification } from './hooks/theme/useThemeChangeNotification'
+import { useWorkingSetNotices } from './hooks/workspace/useWorkingSetNotices'
 import { useSessionStatePersistence } from './hooks/agent-session/useSessionStatePersistence'
 import { useStatusNotification } from './hooks/app/useStatusNotification'
 import { useUpdateLog } from '../shared/useUpdateLog'
@@ -197,6 +198,7 @@ export function App(): React.JSX.Element {
     themeClass === 'theme-light' ? 'light' : 'dark',
     interactiveAgentActive,
   )
+  const workingSetNotices = useWorkingSetNotices()
   const editorHandlers = useEditorPaneHandlers({
     activeSessionId, activeProjectId, primarySessionId, sessionsByProject, projects,
     restoredSessionId: viewState.restoredSessionId,
@@ -510,6 +512,7 @@ export function App(): React.JSX.Element {
         updateLog={updateLog}
         updateNotification={updateNotification}
         themeChangeNotice={themeChangeNotice}
+        workingSetNotices={workingSetNotices}
         appEffects={appEffects}
         showCommitAndPrButtons={settings.showCommitAndPrButtons && activeProjectIsGit}
         handleSelectFile={handleSelectFile}

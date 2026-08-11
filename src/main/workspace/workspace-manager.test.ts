@@ -31,7 +31,13 @@ function makeDeps(tmpDir: string) {
       getProject: (id: string) => projects[id],
       listProjects: () => Object.values(projects),
     },
-    sessionManager: { createSession, getSession: vi.fn(), listSessions: vi.fn(() => []), killSession: vi.fn(async () => undefined) },
+    sessionManager: {
+      createSession,
+      getSession: vi.fn(),
+      listSessions: vi.fn(() => []),
+      killSession: vi.fn(async () => undefined),
+      addWorkingDir: vi.fn(async () => undefined),
+    },
     emitListChanged: vi.fn(),
     _createSession: createSession,
   }
@@ -227,6 +233,24 @@ describe('WorkspaceManager', () => {
       api: '/repo/api/.wt/manifold/auth',
       web: '/repo/web/.wt/manifold/auth',
     })
+  })
+
+  // Agents in the workspace are already running with a fixed set of --add-dir
+  // flags; the new folder has to be pushed into them or they never see it.
+  it('addProject hands the running agents the workspace’s checkout of the new repo', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+
+    await manager.addProject(w.id, 'web')
+
+    expect(deps.sessionManager.addWorkingDir).toHaveBeenCalledWith(w.id, 'web', '/repo/web/.wt/manifold/auth')
+  })
+
+  it('addProject hands a home workspace’s agents the clone itself', async () => {
+    const home = manager.adoptProject(deps.projectRegistry.getProject('api')!)
+
+    await manager.addProject(home.id, 'web')
+
+    expect(deps.sessionManager.addWorkingDir).toHaveBeenCalledWith(home.id, 'web', '/repo/web')
   })
 
   it('addProject leaves a home workspace on the clones', async () => {

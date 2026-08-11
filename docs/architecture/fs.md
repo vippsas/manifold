@@ -1,7 +1,7 @@
 ---
 description: How Manifold watches worktrees for git/tree changes and reads, writes, lists, and imports files for the renderer's editor and file tree.
 covers: [src/main/fs]
-updated: 2026-08-08
+updated: 2026-08-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -23,7 +23,7 @@ renderer's editor and file tree. Path validation and the IPC surface live one la
 - `src/main/fs/list-files.ts` — `listWorktreeFiles()`: `git ls-files --cached --others --exclude-standard` for the Quick-Open set, capped at 10000.
 - `src/main/fs/verdict-poll-forwarder.ts` — `VerdictPollForwarder`: derives commit/files-changed/PR-URL signals from each git poll and forwards them to the verdict recorder.
 
-Not detailed here: `add-dir-detector.ts` (`detectAddDir`) and `url-detector.ts` (`detectUrl`) are PTY-output text scanners consumed by session streaming, and `verdict-poll-forwarder` only borrows the poll loop — none are file I/O.
+Not detailed here: `add-dir-detector.ts` (`detectAddDir`) and `url-detector.ts` (`detectUrl`) are PTY-output text scanners consumed by session streaming, and `verdict-poll-forwarder` only borrows the poll loop — none are file I/O. One trap worth knowing in `detectAddDir`: a TUI places each word at a column (`\x1b[<n>G`, `\x1b[<r>;<c>H`) instead of emitting the spaces between them, so cursor-movement codes must be replaced with a space rather than stripped — strip them and the words fuse ("Addedas a working directory") and no pattern can ever match.
 
 ## How it works
 

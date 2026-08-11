@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-08-10
+updated: 2026-08-11
 owner: see .github/CODEOWNERS
 ---
 
@@ -30,6 +30,7 @@ calls into it at all.
 - `src/main/session/session-teardown.ts` — `SessionTeardown`: simple/developer-mode kill paths that auto-commit then checkout base.
 - `src/main/session/session-stream-wirer.ts` — `SessionStreamWirer`: attaches PTY `onData`/`onExit` handlers, status/url/dir detection, NDJSON parsing.
 - `src/main/session/session-io-controller.ts` — `SessionIoController`: input/interrupt/resize routing, post-SIGINT drain.
+- `src/main/session/session-working-set.ts` — `SessionWorkingSet`: pushes a folder added to a workspace into the agents already running in it, and reports how far it got.
 - `src/main/session/session-types.ts` — `InternalSession` (superset of the public `AgentSession`).
 - `src/main/session/session-public.ts` — `toPublicSession()`: strips internal fields before returning over IPC.
 - `src/main/session/session-meta-persister.ts` — `persistSessionMeta()`: writes worktree meta after a mutation.
@@ -181,6 +182,36 @@ the repo is parked on base (`session-discovery.ts:215`). Both branch-state fallb
 branches the user explicitly deleted: they consult the persisted `DismissedAgentsStore`
 (wired via `setDismissedAgents`, `session-discovery.ts:31`) so a deleted dormant agent is not
 resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:222`; #679).
+
+### Pushing a folder into a running agent
+
+A session's working set is decided when its process is spawned — the `--add-dir` flags are argv,
+and argv is immutable. So a folder added to a workspace after its agents started is invisible to
+them, and `WorkspaceManager.addProject()` hands it to `SessionManager.addWorkingDir()`, which
+delegates to `SessionWorkingSet.addDirToWorkspace()` (`session-working-set.ts:55`).
+
+**State first, delivery second.** Every matching live session gets the folder recorded — pushed
+onto `additionalDirs`, mapped into `workspaceWorktreePaths`, persisted, watched, and broadcast as
+`agent:dirs-changed` (`session-working-set.ts:90`). That alone is enough for two of the three
+cases, because both re-derive their flags from that array rather than remembering argv:
+a print-mode/chat follow-up rebuilds its command per turn (`app/dev-server-manager.ts:190`) and
+`resumeAgentSession()` rebuilds it on the next launch (`session-resume.ts:57`).
+
+**Interactive agents get typed into**, but only where the runtime actually supports it.
+`runtimeAddDirCommand()` (`src/main/agent/add-dir-command.ts:22`) holds what was probed against
+the real CLIs: Claude Code takes `/add-dir <path>` and then raises a confirmation dialog whose
+default answer accepts; Copilot takes it outright; **Codex has no such command**, and typing one
+would submit it to the model as an ordinary prompt — so it is never injected there. The injection
+waits for the agent to be at an idle composer, which is stricter than `status === 'waiting'`: that
+status also covers a permission dialog, where a stray Enter would answer the question
+(`PENDING_QUESTION`, `session-working-set.ts:32`). Success is not assumed — it is read back from
+the runtime's own output via `detectAddDir()`.
+
+**Every outcome is reported.** Each session emits one `agent:working-set-notice`
+(`WorkingSetDelivery` in `src/shared/types.ts`): `live`, `next-turn`, `restart-required`, or
+`manual` when the automatic attempt failed, carrying the command for the user to type. The
+renderer shows everything but `live` as a toast (`src/shared/WorkingSetToast.tsx`) — a silent
+failure would leave the user believing an agent can see a folder it cannot.
 
 ## Key types and entry points
 
