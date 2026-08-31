@@ -26,6 +26,7 @@ function makeDeps(tmpDir: string) {
       removeWorktree: vi.fn(async () => undefined),
       deleteBranch: vi.fn(async () => undefined),
       branchExists: vi.fn(async () => false),
+      createWorktreeFromBranch: vi.fn(async (p: string, _n: string, branch: string) => ({ branch, path: `${p}/.wt/${branch}` })),
     },
     projectRegistry: {
       getProject: (id: string) => projects[id],
@@ -260,6 +261,42 @@ describe('WorkspaceManager', () => {
 
     expect(deps.worktreeManager.createWorktree).not.toHaveBeenCalled()
     expect(manager.get(home.id)?.worktreePaths).toBeUndefined()
+  })
+
+  // Unlike creation, which picks a free branch name, a repo joining a workspace
+  // has to land on the branch the workspace already spans. A repo that already
+  // carries that branch — a leftover from a workspace since removed — is checked
+  // out on it; `worktree add -b` would fail and the add would do nothing at all.
+  it('addProject checks the new repo out on the workspace’s branch when it already has one', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+    deps.worktreeManager.branchExists.mockResolvedValue(true)
+
+    await manager.addProject(w.id, 'web')
+
+    expect(deps.worktreeManager.createWorktreeFromBranch).toHaveBeenCalledWith('/repo/web', 'web', 'manifold/auth', 'main')
+    expect(manager.get(w.id)?.worktreePaths?.web).toBe('/repo/web/.wt/manifold/auth')
+  })
+
+  // Same rule as grouping at creation: without it the folder shows twice in the
+  // sidebar — once in the workspace it joined, once in the card it came from.
+  it('addProject absorbs the joining repo’s empty one-folder home workspace', async () => {
+    const home = manager.adoptProject(deps.projectRegistry.getProject('web')!)
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+
+    await manager.addProject(w.id, 'web')
+
+    expect(manager.get(home.id)).toBeUndefined()
+    expect(manager.get(w.id)?.projectIds).toEqual(['api', 'web'])
+  })
+
+  it('addProject preserves a home workspace that still owns an agent', async () => {
+    const home = manager.adoptProject(deps.projectRegistry.getProject('web')!)
+    deps.sessionManager.listSessions.mockReturnValue([{ workspaceId: home.id }] as never)
+    const w = await manager.create({ name: 'auth', projectIds: ['api'] })
+
+    await manager.addProject(w.id, 'web')
+
+    expect(manager.get(home.id)).toBeDefined()
   })
 
   it('removeProject refuses to empty a workspace (keeps the last repo)', async () => {

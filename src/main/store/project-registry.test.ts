@@ -9,6 +9,7 @@ vi.mock('node:fs', () => ({
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
   renameSync: vi.fn(),
+  realpathSync: vi.fn((p: string) => p),
 }))
 
 vi.mock('node:path', () => ({
@@ -142,7 +143,7 @@ describe('ProjectRegistry', () => {
     it('adds a new project and persists to disk', async () => {
       mockExistsSync.mockReturnValue(false)
       setupGitMock([
-        { stdout: 'true\n' },
+        { stdout: '/my-project\n' },
         { stdout: 'main\n' },
       ])
 
@@ -165,7 +166,7 @@ describe('ProjectRegistry', () => {
       mockExistsSync.mockReturnValue(true)
       mockReadFileSync.mockReturnValue(JSON.stringify(projects))
       setupGitMock([
-        { stdout: 'true\n' },
+        { stdout: '/alpha\n' },
         { stdout: 'main\n' },
       ])
 
@@ -178,7 +179,7 @@ describe('ProjectRegistry', () => {
     it('detects master as base branch when main is absent', async () => {
       mockExistsSync.mockReturnValue(false)
       setupGitMock([
-        { stdout: 'true\n' },
+        { stdout: '/my-project\n' },
         { stdout: 'master\n' },
       ])
 
@@ -190,7 +191,7 @@ describe('ProjectRegistry', () => {
     it('falls back to current branch when neither main nor master exist', async () => {
       mockExistsSync.mockReturnValue(false)
       setupGitMock([
-        { stdout: 'true\n' },
+        { stdout: '/my-project\n' },
         { stdout: 'develop\n' },
         { stdout: 'develop\n' },
       ])
@@ -203,7 +204,7 @@ describe('ProjectRegistry', () => {
     it('falls back to main when branch detection throws inside a git repository', async () => {
       mockExistsSync.mockReturnValue(false)
       setupGitMock([
-        { stdout: 'true\n' },
+        { stdout: '/my-project\n' },
         { stdout: '', exitCode: 128 },
       ])
 
@@ -211,6 +212,21 @@ describe('ProjectRegistry', () => {
       const project = await registry.addProject('/my-project')
       expect(project.baseBranch).toBe('main')
       expect(project.kind).toBe('git')
+    })
+
+    // A subfolder of a clone answers every `git rev-parse` the top of one does.
+    // Registered as a repo it would carry the enclosing repo's base branch and
+    // cut a worktree of that whole repo under the subfolder's name.
+    it('stores a folder inside a git repository as a plain folder', async () => {
+      mockExistsSync.mockReturnValue(false)
+      setupGitMock([{ stdout: '/my-project\n' }])
+
+      const registry = new ProjectRegistry()
+      const project = await registry.addProject('/my-project/src/components/widget')
+
+      expect(project.kind).toBe('folder')
+      expect(project.baseBranch).toBe('')
+      expect(project.name).toBe('widget')
     })
 
     it('stores a plain folder when the git probe fails', async () => {
@@ -254,7 +270,7 @@ describe('ProjectRegistry', () => {
     it('returns existing project when path already registered (deduplication)', async () => {
       mockExistsSync.mockReturnValue(false)
       setupGitMock([
-        { stdout: 'true\n' },
+        { stdout: '/my-project\n' },
         { stdout: 'main\n' },
       ])
       mockUuidv4.mockReturnValueOnce('id-1' as unknown as ReturnType<typeof uuidv4>)

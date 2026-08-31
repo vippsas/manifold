@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-08-10
+updated: 2026-08-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -62,7 +62,7 @@ also carries a bare-number `uiScale` (`src/shared/types.ts:178`), defaulting to 
 `1` for non-finite input before it reaches font-size math (`defaults.ts:13`, min/max at `:4`–`:5`).
 **`<configHome>/projects.json`** — a flat `Project[]` array (id, name, path, baseBranch,
 addedAt, kind). `ProjectRegistry` loads, sorts by name, and rewrites the file on every
-add/remove/update (`project-registry.ts:40`). Note these are *registered* project paths
+add/remove/update (`project-registry.ts:52`). Note these are *registered* project paths
 (pointers to repos anywhere on disk), distinct from generated projects under
 `<storageRoot>/projects/`.
 

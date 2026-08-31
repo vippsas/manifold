@@ -11,6 +11,17 @@ import { writeFileAtomicSync } from './atomic-write'
 const CONFIG_DIR = path.join(os.homedir(), '.manifold')
 const PROJECTS_FILE = path.join(CONFIG_DIR, 'projects.json')
 
+/** Compare two paths as the filesystem sees them: git reports the physical path,
+ *  so a picked path reached through a symlink would otherwise never match its
+ *  own repository root. An unresolvable path compares as itself. */
+function isSamePath(a: string, b: string): boolean {
+  if (!a || !b) return false
+  const real = (p: string): string => {
+    try { return fs.realpathSync(p) } catch { return p }
+  }
+  return real(a) === real(b)
+}
+
 export class ProjectRegistry {
   private projects: Project[]
 
@@ -47,10 +58,17 @@ export class ProjectRegistry {
     this.projects = sortProjectsByName(this.projects)
   }
 
+  /** A repo is the *top* of a working tree, not anywhere inside one. Git answers
+   *  from any subdirectory, so probing `--is-inside-work-tree` registered a
+   *  folder within a clone as a repo of its own: named after the subfolder,
+   *  carrying the enclosing repo's base branch, and — since `git worktree add`
+   *  acts on the enclosing repo — cutting a checkout of that whole repo under
+   *  the subfolder's name. Such a folder is a plain folder instead, which the
+   *  workspace passes through to its agents as the folder the user picked. */
   private async detectProjectKind(projectPath: string): Promise<Project['kind']> {
     try {
-      const stdout = await gitExec(['rev-parse', '--is-inside-work-tree'], projectPath)
-      return stdout.trim() === 'true' ? 'git' : 'folder'
+      const topLevel = await gitExec(['rev-parse', '--show-toplevel'], projectPath)
+      return isSamePath(topLevel.trim(), projectPath) ? 'git' : 'folder'
     } catch {
       return 'folder'
     }

@@ -5,6 +5,7 @@ import type { WorkspaceStore } from './workspace-store'
 import {
   buildWorkspaceWorkingSet,
   findAvailableWorkspaceBranch,
+  joinWorkspaceWorkingSet,
   removeWorkspaceWorktrees,
   type WorkspaceProject,
   type WorktreeSetManager,
@@ -54,25 +55,31 @@ export class WorkspaceManager {
       worktreePaths,
     }
     this.deps.store.add(workspace)
-    if (options.absorbHomeWorkspaces) {
-      const selectedProjectIds = new Set(options.projectIds)
-      const occupiedWorkspaceIds = new Set(
-        this.deps.sessionManager.listSessions().map((session) => session.workspaceId),
-      )
-      for (const candidate of this.deps.store.list()) {
-        if (
-          candidate.id !== workspace.id
-          && candidate.projectIds.length === 1
-          && selectedProjectIds.has(candidate.projectIds[0])
-          && !isWorktreeWorkspace(candidate)
-          && !occupiedWorkspaceIds.has(candidate.id)
-        ) {
-          this.deps.store.remove(candidate.id)
-        }
-      }
-    }
+    if (options.absorbHomeWorkspaces) this.absorbHomeWorkspaces(workspace.id, options.projectIds)
     this.deps.emitListChanged()
     return workspace
+  }
+
+  /** Drop the home workspace each of these repos came from, now that they live
+   *  in `keptWorkspaceId` — grouping otherwise leaves the folder in two cards.
+   *  A home is kept when it spans several folders, owns its own checkout, or
+   *  still holds an agent: each is a place of its own, not a leftover. */
+  private absorbHomeWorkspaces(keptWorkspaceId: string, projectIds: readonly string[]): void {
+    const absorbed = new Set(projectIds)
+    const occupiedWorkspaceIds = new Set(
+      this.deps.sessionManager.listSessions().map((session) => session.workspaceId),
+    )
+    for (const candidate of this.deps.store.list()) {
+      if (
+        candidate.id !== keptWorkspaceId
+        && candidate.projectIds.length === 1
+        && absorbed.has(candidate.projectIds[0])
+        && !isWorktreeWorkspace(candidate)
+        && !occupiedWorkspaceIds.has(candidate.id)
+      ) {
+        this.deps.store.remove(candidate.id)
+      }
+    }
   }
 
   rename(id: string, name: string): Workspace | undefined {
@@ -101,13 +108,13 @@ export class WorkspaceManager {
     // A folder joining a worktree workspace needs its own checkout on that
     // workspace's branch, or the agent would see the repo's clone instead.
     if (workspace.worktreePaths && workspace.branchName) {
-      const { worktreePaths } = await buildWorkspaceWorkingSet(
-        this.deps.worktreeManager, [project], workspace.branchName,
-      )
-      this.deps.store.update(id, { worktreePaths: { ...workspace.worktreePaths, ...worktreePaths } })
-      addedDir = worktreePaths[projectId] ?? project.path
+      addedDir = await joinWorkspaceWorkingSet(this.deps.worktreeManager, project, workspace.branchName)
+      this.deps.store.update(id, { worktreePaths: { ...workspace.worktreePaths, [projectId]: addedDir } })
     }
     this.deps.store.addProject(id, projectId)
+    // The repo's own card would otherwise stay behind, showing the same folder
+    // twice — the workspace it just joined, and the one it came from.
+    this.absorbHomeWorkspaces(id, [projectId])
     this.deps.emitListChanged()
     // Agents already running in this workspace were spawned with a fixed set of
     // --add-dir flags, so the new folder is invisible to them until it is pushed

@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-08-11
+updated: 2026-08-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -532,8 +532,8 @@ saved layout before it is restored).
   `defaultRuntime` — or the first *installed* provider when it names one that isn't, so the plate
   never advertises a dead default — is passed down as `leadRuntimeId` and wears the gold
   `.btn-metal` plate; every other row is a dark console plate
-  (`AgentLaunchList.styles.ts:rowPlate`). Both wear the same `--chamfer` silhouette, so the list
-  reads as one cut of material with an obvious default rather than a wall of equals. The lead
+  (`AgentLaunchList.styles.ts:rowPlate`). Both wear the same `--radius-md` corners, so the list
+  reads as one family with an obvious default rather than a wall of equals. The lead
   row's surface comes entirely from the class: an inline `background`/`color` would outrank it,
   which is why `row` holds geometry only. Both the provider and the Terminal/Chat
   mode are **remembered as the next view's defaults**, written as one `settings:update`

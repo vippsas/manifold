@@ -128,9 +128,8 @@ export const input: CSSProperties = {
   overflowY: 'hidden',
 }
 
-// Layout only — the metallic machined-plate surface (gradient, chamfered
-// silhouette, border, text color) comes from the shared `.btn-metal` class,
-// matching the Start Agent button.
+// Layout only — the metallic plate surface (gradient, border, text color) comes
+// from the shared `.btn-metal` class, matching the Start Agent button.
 export const sendButton: CSSProperties = {
   alignSelf: 'flex-end',
   flexShrink: 0,

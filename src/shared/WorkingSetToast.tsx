@@ -66,11 +66,15 @@ function folderName(dir: string): string {
 }
 
 function title(notice: WorkingSetNotice): string {
-  return notice.delivery === 'manual' ? `Couldn’t add ${folderName(notice.dir)}` : `${folderName(notice.dir)} added`
+  return notice.delivery === 'manual' || notice.delivery === 'not-added'
+    ? `Couldn’t add ${folderName(notice.dir)}`
+    : `${folderName(notice.dir)} added`
 }
 
 function body(notice: WorkingSetNotice): React.ReactNode {
   switch (notice.delivery) {
+    case 'not-added':
+      return notice.error
     case 'next-turn':
       return `${notice.agentName} picks it up on your next message.`
     case 'restart-required':
@@ -90,8 +94,10 @@ interface WorkingSetToastProps {
   onDismiss: (sessionId: string, dir: string) => void
 }
 
-/** Reports folders that a workspace's running agents could not be given
- *  automatically. An agent that took the folder cleanly says nothing. */
+/** Reports folders that did not arrive where the user asked for them: one a
+ *  workspace's running agents could not be given automatically, or one that
+ *  never joined the workspace at all. An agent that took the folder cleanly
+ *  says nothing. */
 export function WorkingSetToast({ notices, onDismiss }: WorkingSetToastProps): React.JSX.Element | null {
   if (notices.length === 0) return null
   return (

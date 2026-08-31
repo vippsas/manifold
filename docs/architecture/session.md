@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-08-11
+updated: 2026-08-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -211,7 +211,12 @@ the runtime's own output via `detectAddDir()`.
 (`WorkingSetDelivery` in `src/shared/types.ts`): `live`, `next-turn`, `restart-required`, or
 `manual` when the automatic attempt failed, carrying the command for the user to type. The
 renderer shows everything but `live` as a toast (`src/shared/WorkingSetToast.tsx`) — a silent
-failure would leave the user believing an agent can see a folder it cannot.
+failure would leave the user believing an agent can see a folder it cannot. The renderer raises
+one variant itself rather than receiving it: `not-added`, for a folder that never joined the
+workspace at all, so there was no agent to reach and no session to name it
+(`useWorkingSetNotices.report()`, `App.tsx:285`). Same reason, one step earlier — the sidebar's
+"Add Folder…" has no error surface of its own, so without it a failed add is a click that does
+nothing.
 
 ## Key types and entry points
 

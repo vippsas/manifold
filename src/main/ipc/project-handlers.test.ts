@@ -82,6 +82,59 @@ describe('registerProjectHandlers', () => {
     runtimeMocks.getRuntimeById.mockReturnValue(undefined)
   })
 
+  // Joining the workspace is what makes the folder visible: a repo the registry
+  // holds but no workspace does has no row to appear in, so a failed join that
+  // left the registration behind read as "the click did nothing".
+  it('projects:add unregisters a newly added folder when joining the workspace fails', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const project = { id: 'project-1', name: 'api', path: '/repo/api', baseBranch: 'main', addedAt: '2026-04-01T00:00:00.000Z' }
+    const deps = {
+      settingsStore: { getSettings: vi.fn(() => ({ storagePath: '/workspace', defaultRuntime: 'claude' })) },
+      projectRegistry: {
+        listProjects: vi.fn(() => []),
+        addProject: vi.fn(async () => project),
+        removeProject: vi.fn(),
+      },
+      workspaceManager: {
+        get: vi.fn(() => ({ id: 'ws-1' })),
+        addProject: vi.fn(async () => { throw new Error("fatal: a branch named 'manifold/auth' already exists") }),
+        adoptProject: vi.fn(),
+      },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:add')
+    if (!handler) throw new Error('projects:add handler was not registered')
+
+    await expect(handler({}, '/repo/api', 'ws-1')).rejects.toThrow('already exists')
+    expect(deps.projectRegistry.removeProject).toHaveBeenCalledWith('project-1')
+  })
+
+  it('projects:add keeps a folder that was already registered when joining fails', async () => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    const project = { id: 'project-1', name: 'api', path: '/repo/api', baseBranch: 'main', addedAt: '2026-04-01T00:00:00.000Z' }
+    const deps = {
+      settingsStore: { getSettings: vi.fn(() => ({ storagePath: '/workspace', defaultRuntime: 'claude' })) },
+      projectRegistry: {
+        listProjects: vi.fn(() => [project]),
+        addProject: vi.fn(async () => project),
+        removeProject: vi.fn(),
+      },
+      workspaceManager: {
+        get: vi.fn(() => ({ id: 'ws-1' })),
+        addProject: vi.fn(async () => { throw new Error('worktree add failed') }),
+        adoptProject: vi.fn(),
+      },
+    }
+
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get('projects:add')
+    if (!handler) throw new Error('projects:add handler was not registered')
+
+    await expect(handler({}, '/repo/api', 'ws-1')).rejects.toThrow('worktree add failed')
+    expect(deps.projectRegistry.removeProject).not.toHaveBeenCalled()
+  })
+
   it('creates a repository with the chosen name and initializes main as the default branch', async () => {
     const { registerProjectHandlers } = await import('./project-handlers')
     const project = {

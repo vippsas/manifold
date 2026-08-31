@@ -6,7 +6,6 @@ import {
   headingEmphasisStyle,
   chooserRowStyle,
   cardStyle,
-  cardHoverStyle,
   cardIconStyle,
   cardTitleStyle,
   cardSubtitleStyle,
@@ -113,14 +112,12 @@ function PathCard({
   subtitle: string
   onClick: () => void
 }): React.JSX.Element {
-  const [hover, setHover] = useState(false)
   return (
     <button
       type="button"
+      className="path-card"
       onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{ ...cardStyle, ...(hover ? cardHoverStyle : {}) }}
+      style={cardStyle}
     >
       <span style={cardIconStyle}>{glyph}</span>
       <span style={cardTitleStyle}>{title}</span>
