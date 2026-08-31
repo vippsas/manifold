@@ -3,6 +3,7 @@ import { removeWorktreeMeta } from '../git/worktree-meta'
 
 export interface WorktreeSetManager {
   createWorktree: (projectPath: string, baseBranch: string, projectName: string, branchName?: string) => Promise<{ branch: string; path: string }>
+  createWorktreeFromBranch: (projectPath: string, projectName: string, branch: string, baseBranch: string) => Promise<{ branch: string; path: string }>
   removeWorktree: (projectPath: string, worktreePath: string) => Promise<void>
   deleteBranch: (projectPath: string, branch: string) => Promise<void>
   branchExists: (projectPath: string, branch: string) => Promise<boolean>
@@ -75,6 +76,27 @@ export async function buildWorkspaceWorkingSet(
   const ordered = projects.map((p) => worktreePaths[p.id])
   const [primary, ...additionalDirs] = ordered
   return { primary, additionalDirs, worktreePaths }
+}
+
+/** This workspace's checkout of one repo joining it, created if it isn't there.
+ *
+ *  Creation gets to pick a branch name no repo is using; a repo joining later
+ *  does not — every repo in the workspace shares the one branch it already
+ *  spans. So a repo that already carries that branch (a leftover from a
+ *  workspace since removed, or one whose folder was removed and re-added) is
+ *  checked out on it. `worktree add -b` would fail there, and the caller's only
+ *  report of that was a folder that never appeared. */
+export async function joinWorkspaceWorkingSet(
+  worktreeManager: WorktreeSetManager,
+  project: WorkspaceProject,
+  branchName: string,
+): Promise<string> {
+  if (!isGitProject(project)) return project.path
+  const alreadyOnBranch = await worktreeManager.branchExists(project.path, branchName)
+  const info = alreadyOnBranch
+    ? await worktreeManager.createWorktreeFromBranch(project.path, project.name, branchName, project.baseBranch)
+    : await worktreeManager.createWorktree(project.path, project.baseBranch, project.name, branchName)
+  return info.path
 }
 
 /** Remove every git worktree in the set; never touch non-git passthrough paths. */

@@ -18,14 +18,12 @@ export const launchListStyles: Record<string, React.CSSProperties> = {
     width: '100%',
     padding: 'var(--space-md)',
     textAlign: 'left',
-    clipPath: 'var(--chamfer)',
+    borderRadius: 'var(--radius-md)',
     cursor: 'pointer',
     transition: 'background 150ms ease, color 150ms ease, border-color 150ms ease',
   },
-  // A console plate: the same chamfered silhouette the metal CTA wears, so the
-  // lead row and the rows under it read as one cut of material. No radius — the
-  // chamfer is the corner treatment, and a radius would round the two corners
-  // it doesn't cut into a mismatched pair.
+  // A console plate: the same rounded silhouette the metal CTA wears, so the
+  // lead row and the rows under it read as one family.
   rowPlate: {
     background: 'var(--bg-elevated)',
     border: '1px solid color-mix(in srgb, var(--accent), transparent 78%)',

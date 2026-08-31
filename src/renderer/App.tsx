@@ -278,9 +278,23 @@ export function App(): React.JSX.Element {
   // One main-side step: registering the folder and joining it to the workspace in
   // two calls let the first mint a home workspace, leaving the folder in two.
   // The sidebar picks the new member up from workspace:list-changed.
+  //
+  // A failure here has no surface of its own — the sidebar has no error row —
+  // so it is reported as a toast. Nothing was added, and a click that silently
+  // does nothing is the one outcome the user cannot act on.
   const addLocalFolderToWorkspace = useCallback(async (workspaceId: string): Promise<void> => {
-    await addProject(undefined, { activate: false, workspaceId })
-  }, [addProject])
+    await addProject(undefined, {
+      activate: false,
+      workspaceId,
+      onError: (message, projectPath) => workingSetNotices.report({
+        sessionId: '',
+        agentName: '',
+        dir: projectPath,
+        delivery: 'not-added',
+        error: message,
+      }),
+    })
+  }, [addProject, workingSetNotices])
 
   // Removing a workspace also unregisters the repos it was the last holder of.
   // A repo outside every workspace has nowhere to appear and would simply be

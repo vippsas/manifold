@@ -61,11 +61,16 @@ export interface AgentSession {
  *  'live' — typed into the running agent, which confirmed it.
  *  'next-turn' — a chat agent rebuilds its working set on its next message.
  *  'restart-required' — the runtime takes folders only at launch (e.g. Codex).
- *  'manual' — the attempt failed; the user has to type the command themselves. */
-export type WorkingSetDelivery = 'live' | 'next-turn' | 'restart-required' | 'manual'
+ *  'manual' — the attempt failed; the user has to type the command themselves.
+ *  'not-added' — the folder never joined the workspace at all, so there was no
+ *  agent to reach; the add itself failed and would otherwise look like a click
+ *  that did nothing. */
+export type WorkingSetDelivery = 'live' | 'next-turn' | 'restart-required' | 'manual' | 'not-added'
 
 export interface WorkingSetNotice {
+  /** Empty on 'not-added': nothing reached an agent because nothing was added. */
   sessionId: string
+  /** Empty on 'not-added', for the same reason. */
   agentName: string
   dir: string
   delivery: WorkingSetDelivery

@@ -25,11 +25,20 @@ const notices: WorkingSetNotice[] = [
     dir: '/worktrees/manifold/auth/design-system',
     delivery: 'next-turn',
   },
+  // No agent of its own: the folder never joined the workspace, so there was
+  // nobody to hand it to.
+  {
+    sessionId: '',
+    agentName: '',
+    dir: '/Users/you/projects/design-system',
+    delivery: 'not-added',
+    error: "fatal: a branch named 'manifold/auth' already exists",
+  },
 ]
 
 export default function WorkingSetToastFixture(): React.JSX.Element {
   return (
-    <div style={{ width: 420, height: 380, position: 'relative' }}>
+    <div style={{ width: 420, height: 480, position: 'relative' }}>
       <WorkingSetToast notices={notices} onDismiss={() => {}} />
     </div>
   )

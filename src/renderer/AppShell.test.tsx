@@ -123,7 +123,7 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     },
     updateNotification: { updateReady: false, version: null, install: vi.fn(), dismiss: vi.fn() },
     themeChangeNotice: { show: false, mode: 'dark', dismiss: vi.fn() },
-    workingSetNotices: { notices: [], dismiss: vi.fn() },
+    workingSetNotices: { notices: [], report: vi.fn(), dismiss: vi.fn() },
     appEffects: { showOnboarding: false, setShowOnboarding: vi.fn(), creatingProject: false, cloningProject: false },
     showCommitAndPrButtons: false,
     handleSelectFile: vi.fn(),

@@ -7,12 +7,22 @@ interface UseProjectsResult {
   activeProjectId: string | null
   loading: boolean
   error: string | null
-  addProject: (path?: string, options?: { activate?: boolean; workspaceId?: string }) => Promise<Project | null>
+  addProject: (path?: string, options?: { activate?: boolean; workspaceId?: string; onError?: (message: string, projectPath: string) => void }) => Promise<Project | null>
   cloneProject: (url: string) => Promise<boolean>
   createNewProject: (options: CreateProjectOptions) => Promise<Project | null>
   removeProject: (id: string) => Promise<void>
   updateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => Promise<void>
   setActiveProject: (id: string) => void
+}
+
+/** What went wrong, without the IPC plumbing an `ipcMain.handle` rejection wraps
+ *  it in — this reaches the user as toast copy. */
+function formatAddError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  return raw
+    .replace(/^Error invoking remote method '.*?':\s*/i, '')
+    .replace(/^(Error:\s*)+/i, '')
+    .trim() || 'The folder could not be added.'
 }
 
 export function useProjects(): UseProjectsResult {
@@ -45,13 +55,17 @@ export function useProjects(): UseProjectsResult {
 
   // `workspaceId` places the folder in that workspace rather than in a home
   // workspace of its own, in the same main-side step that registers it.
+  //
+  // `onError` is how a caller with no error surface of its own hears about a
+  // failure: `error` here is only rendered by the New Workspace modal, so the
+  // sidebar's "Add Folder…" would otherwise show nothing at all.
   const addProject = useCallback(async (
     path?: string,
-    options?: { activate?: boolean; workspaceId?: string },
+    options?: { activate?: boolean; workspaceId?: string; onError?: (message: string, projectPath: string) => void },
   ): Promise<Project | null> => {
     setError(null)
+    let projectPath = path
     try {
-      let projectPath = path
       if (!projectPath) {
         projectPath = (await window.electronAPI.invoke('projects:open-dialog')) as string | undefined
         if (!projectPath) return null
@@ -63,8 +77,9 @@ export function useProjects(): UseProjectsResult {
       }
       return project
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
+      const message = formatAddError(err)
       setError(message)
+      options?.onError?.(message, projectPath ?? '')
       return null
     }
   }, [])

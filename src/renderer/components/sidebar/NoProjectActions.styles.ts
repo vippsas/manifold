@@ -22,8 +22,10 @@ export const chooserRowStyle: React.CSSProperties = {
   justifyContent: 'center',
 }
 
-// Card pattern (design skill): elevated surface, subtle lift on hover. The icon
-// sits in an accent-tinted disc so the three paths read as one family.
+// Geometry only — the surface (plate, border, radius, shadow) and its hover
+// come from the `.path-card` class in theme.css, so an inline `background` /
+// `border` / `boxShadow` here would outrank the hover rule. The icon sits in an
+// accent-tinted disc so the three paths read as one family.
 export const cardStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -31,20 +33,9 @@ export const cardStyle: React.CSSProperties = {
   gap: 'var(--space-sm)',
   width: 168,
   padding: 'var(--space-lg) var(--space-md)',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-md)',
-  boxShadow: 'var(--shadow-elevated)',
   cursor: 'pointer',
   textAlign: 'center',
   color: 'inherit',
-  transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-}
-
-export const cardHoverStyle: React.CSSProperties = {
-  transform: 'translateY(-2px)',
-  boxShadow: 'var(--shadow-popover)',
-  borderColor: 'var(--control-border)',
 }
 
 export const cardIconStyle: React.CSSProperties = {

@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-08-10
+updated: 2026-08-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -68,12 +68,18 @@ workspace, so the New Agent form always spawns in the repository itself
 merge simply ignores it.
 
 **Project registry.** `addProject()` resolves the absolute path, returns any existing
-entry with the same path, otherwise detects `kind` (`git` when
-`git rev-parse --is-inside-work-tree` is true, else `folder`) and, for git projects, a
+entry with the same path, otherwise detects `kind` (`git` only when
+`git rev-parse --show-toplevel` names the path itself, else `folder`) and, for git projects, a
 `baseBranch` — preferring `main`, then `master`, then the current/unborn branch
-(`project-registry.ts:49`, `:58`). New projects get a `uuidv4()` id, the basename as `name`,
-and an ISO `addedAt`; the list is sorted by name and written (`project-registry.ts:97`). The
-same-path check is repeated right before the push (`project-registry.ts:92`) because the kind/
+(`project-registry.ts:68`, `:77`). The top-level check is the whole point of the probe: git
+answers from *anywhere* inside a clone, so probing `--is-inside-work-tree` registered a folder
+within a repo as a repo of its own — named after the subfolder, carrying the enclosing repo's
+base branch, and (since `git worktree add` acts on the enclosing repo) cutting a checkout of
+that whole repo under the subfolder's name. Paths are compared through `realpathSync`, since
+git reports the physical path and a path reached through a symlink would never match its own
+root (`project-registry.ts:14`). New projects get a `uuidv4()` id, the basename as `name`,
+and an ISO `addedAt`; the list is sorted by name and written (`project-registry.ts:115`). The
+same-path check is repeated right before the push (`project-registry.ts:110`) because the kind/
 base-branch detection awaits git, during which a second concurrent `addProject` for the same
 path could otherwise slip in and create a duplicate entry.
 `updateProject()` mutates in place via `Object.assign`, re-sorts, and writes; this is how

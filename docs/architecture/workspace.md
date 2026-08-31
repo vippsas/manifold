@@ -1,7 +1,7 @@
 ---
 description: How Manifold groups repositories into a Workspace — a place to work that owns one checkout of every repo it spans, so agents join a workspace instead of cutting worktrees of their own.
 covers: [src/main/workspace]
-updated: 2026-08-11
+updated: 2026-08-27
 owner: see .github/CODEOWNERS
 ---
 
@@ -31,7 +31,7 @@ session lifecycle live in `src/main/git` and `src/main/session` — this code on
 
 - `src/main/workspace/workspace-manager.ts` — `WorkspaceManager`, the façade: CRUD over workspaces (each mutation keeping the checkouts in step) plus `spawnAgent()`, which joins an agent to the workspace's checkouts and delegates to `SessionManager.createSession()`.
 - `src/main/workspace/workspace-store.ts` — `WorkspaceStore`: the JSON-file-backed list of `Workspace` records (`~/.manifold/workspaces.json`).
-- `src/main/workspace/workspace-worktrees.ts` — pure helpers: `findAvailableWorkspaceBranch()`, `buildWorkspaceWorkingSet()`, `removeWorkspaceWorktrees()`, and the `WorktreeSetManager` port.
+- `src/main/workspace/workspace-worktrees.ts` — pure helpers: `findAvailableWorkspaceBranch()`, `buildWorkspaceWorkingSet()`, `joinWorkspaceWorkingSet()`, `removeWorkspaceWorktrees()`, and the `WorktreeSetManager` port.
 - `src/main/workspace/workspace-promotion.ts` — `promoteAgentWorktreesToWorkspaces()`, the one-way startup migration from the old per-agent worktrees to this model.
 
 Tests live alongside each file (`*.test.ts`). The runtime-flag translation itself is in `src/main/agent/working-set-args.ts` (`buildWorkingSetArgs`), not in this folder.
@@ -58,13 +58,13 @@ before it makes the record (`workspace-manager.ts:39`): it resolves the projects
 branch free in all of them, calls `buildWorkspaceWorkingSet()`, and only then stores the
 workspace with its `branchName` and `worktreePaths`. Doing it eagerly is what lets the sidebar
 disclose a workspace's folders before any agent has run in it. It requires at least one project
-(`:40`). Initial creation sets `absorbHomeWorkspaces`, so after the combined checkout exists it
-removes each selected repo's empty, standalone one-folder home record (`AppShell.tsx:314`,
-`workspace-manager.ts:55`). Homes with agents, multi-folder homes, and worktree workspaces are preserved;
+(`:42`). Initial creation sets `absorbHomeWorkspaces`, so after the combined checkout exists it
+removes each selected repo's empty, standalone one-folder home record (`AppShell.tsx:318`,
+`workspace-manager.ts:58`, `:67`). Homes with agents, multi-folder homes, and worktree workspaces are preserved;
 "New Workspace, Same Folders" omits the flag and therefore remains a deliberate parallel
 checkout (`App.tsx:312`). `adoptProject()` / `adoptOrphanProjects()` are the exception: they
 build a *home* workspace, which is the clone and so has nothing to cut
-(`workspace-manager.ts:124`, `:136`, `:180`).
+(`workspace-manager.ts:142`, `:154`, `:198`).
 
 **Pick a shared branch.** The candidate is `manifold/<slug(name)>` (`workspace-manager.ts:42`).
 `findAvailableWorkspaceBranch()` (`workspace-worktrees.ts:27`) probes `branchExists` across
@@ -85,7 +85,16 @@ partial failure would leak `manifold/<name>` branches and push the next create t
 **Keep the set in step.** Membership changes move checkouts with them. `addProject()` cuts the
 new repo's worktree on the workspace's existing branch and merges it into `worktreePaths`, so a
 folder joining late is checked out like the rest instead of showing the clone
-(`workspace-manager.ts:95`); on a home workspace there is nothing to cut. `removeProject()` and
+(`workspace-manager.ts:103`); on a home workspace there is nothing to cut. It joins through
+`joinWorkspaceWorkingSet()` (`workspace-worktrees.ts:89`) rather than `buildWorkspaceWorkingSet()`,
+because a repo joining late cannot pick its branch the way creation can — it has to land on the
+one the workspace already spans. A repo that *already carries* that branch (a leftover from a
+workspace since removed, or a folder removed and re-added) is therefore checked out on it via
+`createWorktreeFromBranch` instead of `worktree add -b`, which would fail there and surface as a
+folder that simply never appeared. It then absorbs the joining repo's home workspace under the
+same rule as initial grouping (`workspace-manager.ts:117`, `:67`): otherwise the folder shows
+twice in the sidebar, once in the workspace it joined and once in the card it came from.
+`removeProject()` and
 the project-deletion cascade `removeProjectFromAllWorkspaces()` both go through `dropWorktree()`,
 which removes that repo's checkout and drops its entry (`:111`, `:149`, `:200`). All three are
 async for that reason. `pruneMissingProjects()` heals records persisted before the cascade
@@ -94,7 +103,7 @@ existed; the repo is already gone from the registry, so its worktree can only be
 
 **A late folder still has to reach the agents already running.** A session's `--add-dir` flags
 are fixed when its process is spawned, so `addProject()` finishes by handing the new checkout to
-`SessionManager.addWorkingDir()` (`workspace-manager.ts:117`) — the workspace's own checkout of
+`SessionManager.addWorkingDir()` (`workspace-manager.ts:124`) — the workspace's own checkout of
 the repo, not the clone. What that does per agent is
 [session's working-set propagation](session.md#pushing-a-folder-into-a-running-agent).
 
@@ -142,13 +151,13 @@ pass promotes nothing.
 - `WorkspaceRepoStatus` — `src/shared/workspace-types.ts:39`: one repo checkout's branch, staged/unstaged groups, and optional `upstreamAheadBehind`; the last field is absent when no configured upstream resolves (`workspace-types.ts:47`).
 - `WorkspaceStore` — `workspace-store.ts:5`. `list/get/add/update/remove/addProject/removeProject`, all persisting to one JSON file.
 - `WorktreeSetManager` — `workspace-worktrees.ts:4`. The port the manager depends on (`createWorktree`, `removeWorktree`, `deleteBranch`, `branchExists`); satisfied by `src/main/git`'s `WorktreeManager`.
-- `findAvailableWorkspaceBranch` / `buildWorkspaceWorkingSet` / `removeWorkspaceWorktrees` — `workspace-worktrees.ts:27` / `:48` / `:81`.
+- `findAvailableWorkspaceBranch` / `buildWorkspaceWorkingSet` / `joinWorkspaceWorkingSet` / `removeWorkspaceWorktrees` — `workspace-worktrees.ts:28` / `:49` / `:89` / `:103`.
 - `promoteAgentWorktreesToWorkspaces` — `workspace-promotion.ts:32`. Startup migration; idempotent.
 
 ## Interactions
 
 - **Session** (`src/main/session`): `spawnAgent` calls `SessionManager.createSession()`; the resulting session carries `workspaceId`, `additionalDirs`, and `workspaceWorktreePaths` (`src/shared/types.ts:27`). `SessionCreator` persists those to worktree meta (`session-creator.ts:184`) so a discovered session re-surfaces the whole set. Teardown runs the other way now: `SessionKiller` removes **no** worktrees, because the workspace owns them (`session-killer.ts:28`).
-- **Git / worktrees** (`src/main/git`): the injected `WorktreeManager` provides `createWorktree` / `removeWorktree` / `deleteBranch` / `branchExists` behind the `WorktreeSetManager` port.
+- **Git / worktrees** (`src/main/git`): the injected `WorktreeManager` provides `createWorktree` / `createWorktreeFromBranch` / `removeWorktree` / `deleteBranch` / `branchExists` behind the `WorktreeSetManager` port.
 - **Agent runtime** (`src/main/agent`): `buildWorkingSetArgs()` translates `additionalDirs` into the per-runtime multi-directory launch flags.
 - **Store / projects** (`src/main/store`): `ProjectRegistry.getProject()` resolves each member's path/baseBranch/kind; `isGitProject` (`src/shared/project-kind.ts`) decides worktree vs. passthrough.
 - **App wiring** (`src/main/app/index.ts:69`): constructs `WorkspaceStore` at `~/.manifold/workspaces.json` and `WorkspaceManager`, wiring `emitListChanged` to send `workspace:list-changed` to the renderer, then runs `pruneMissingProjects()`. `promoteAgentWorktreesToWorkspaces()` runs from the `beforeFirstWindow` hook (`app/app-lifecycle.ts`), because the sidebar's first paint must already show the promoted workspaces.
@@ -156,9 +165,9 @@ pass promotes nothing.
 
 ## Invariants & gotchas
 
-- **Every registered repo is held by a workspace from the moment it is registered.** `registerProject` places each newly added repo in the same step that registers it (`ipc/project-handlers.ts:64`): a home workspace of its own by default (`workspace-manager.ts:124`), or the workspace the caller named, when the folder is being added *to* one ("Add folder" on a workspace row). Startup wraps any repo the store doesn't hold (`:136`), and a named workspace that vanished before the click falls back to adoption — a repo no workspace holds has no row to appear in. Initial multi-folder creation replaces selected empty, standalone home rows only after its combined checkout is stored (`workspace-manager.ts:55`); it never removes multi-folder homes or other worktree workspaces. Adopting *and then* joining is the bug this replaced: it left the folder in two workspaces, so it showed twice in the sidebar, once as its own row on the clone and once inside the workspace on that workspace's branch. The same repo appearing in several workspaces is still the supported way to work on several branches of it at once — it just isn't something a single grouping action should produce.
+- **Every registered repo is held by a workspace from the moment it is registered.** `registerProject` places each newly added repo in the same step that registers it (`ipc/project-handlers.ts:64`): a home workspace of its own by default (`workspace-manager.ts:142`), or the workspace the caller named, when the folder is being added *to* one ("Add folder" on a workspace row). Startup wraps any repo the store doesn't hold (`:154`), and a named workspace that vanished before the click falls back to adoption — a repo no workspace holds has no row to appear in. A join that *throws* unregisters the repo again when this call is what registered it (`ipc/project-handlers.ts:73`), for the same reason: a registered repo in no workspace is invisible until the next launch adopts it as a stray card, so a failed add would leave half a folder behind. Grouping — at creation and on a later join alike — replaces each absorbed repo's empty, standalone one-folder home row only after the checkout is in place (`workspace-manager.ts:67`); it never removes multi-folder homes or other worktree workspaces. Adopting *and then* joining is the bug this replaced: it left the folder in two workspaces, so it showed twice in the sidebar, once as its own row on the clone and once inside the workspace on that workspace's branch. The same repo appearing in several workspaces is still the supported way to work on several branches of it at once — it just isn't something a single grouping action should produce.
   A one-folder home that still owns an agent is likewise preserved, so grouping repositories
-  cannot orphan a running or restorable session (`workspace-manager.ts:58`).
+  cannot orphan a running or restorable session (`workspace-manager.ts:69`).
 - **An agent never owns a checkout.** `spawnAgent` only reuses `worktreePaths` (`workspace-manager.ts:231`) and `SessionKiller` removes nothing (`session-killer.ts:28`), so the only thing that removes a checkout is removing the workspace. This is what rules out a worktree nested inside a worktree.
 - **A workspace is never empty.** `create()` rejects zero projects (`workspace-manager.ts:40`) and `removeProject()` no-ops on the last repo (`:115`). Deleting the *project* drops the workspace with it (`:157`, `:208`): with no folders it can neither spawn an agent nor disclose anything, so it would sit in the sidebar as an unusable card.
 - **`projectIds[0]` is the agent cwd, always.** Nothing overrides it — the caller can't name a home folder — so every agent in a workspace runs in the same place with the same repos alongside (`workspace-manager.ts:226`).

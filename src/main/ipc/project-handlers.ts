@@ -66,10 +66,21 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
     options: { kind?: ProjectKind } = {},
     workspaceId?: string,
   ) => {
+    const resolvedPath = path.resolve(projectPath)
+    const alreadyRegistered = projectRegistry.listProjects().some((p) => p.path === resolvedPath)
     const project = await projectRegistry.addProject(projectPath, options)
     const target = workspaceId ? workspaceManager.get(workspaceId) : undefined
-    if (target) await workspaceManager.addProject(target.id, project.id)
-    else workspaceManager.adoptProject(project)
+    try {
+      if (target) await workspaceManager.addProject(target.id, project.id)
+      else workspaceManager.adoptProject(project)
+    } catch (err) {
+      // Joining is what makes the folder visible, so a join that failed has to
+      // undo the registration: a repo the registry holds but no workspace does
+      // has no row to appear in, and comes back as a stray card on the next
+      // launch (adoptOrphanProjects). Half a folder is worse than none.
+      if (!alreadyRegistered) projectRegistry.removeProject(project.id)
+      throw err
+    }
     return project
   }
 
