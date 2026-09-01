@@ -30,7 +30,7 @@ boundaries. Individual panels and hooks are catalogued only enough to locate the
 - `src/renderer/plugins/` — the renderer-side panel contribution registry (`contribution-registry.ts`, `internal-contributions.ts`, `use-contributions.ts`). Two selectors read it: `getLauncherContributions()` for the agent's Apps list (`launcher: true` only) and `getPluginContributions()` for the activity rail (every plugin view, whatever `launcher` says).
 - `src/renderer-shared/chat/` — chat UI/logic (`ChatPane`, `useChat`, `useAgentStatus`, `useSlashCommands`) factored into its own top-level dir so chat surfaces can share it.
 
-Not detailed here: the per-component internals (each `components/*` subtree), `styles/` CSS, `assets/`, and the leaf helpers `session-selection.ts` / `terminal-input-filter.ts`.
+Not detailed here: the per-component internals (each `components/*` subtree), `styles/` CSS, `assets/`, and the leaf helpers `session-selection.ts` / `terminal-input-filter.ts` / `hooks/terminal/terminal-replay.ts` (the last two are indexed as trap #5 in [Gotchas](gotchas.md)).
 
 ## How it works
 

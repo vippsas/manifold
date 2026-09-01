@@ -2,7 +2,9 @@
 // (e.g. OSC color queries and focus events) so they don't leak into the
 // shell PTY as garbled input. Do not strip Cursor Position Reports (CPR):
 // TUIs such as GitHub CLI prompts actively request them via ESC[6n and can
-// appear hung if the response never reaches the PTY.
+// appear hung if the response never reaches the PTY. The stale CPRs a session
+// switch used to inject are cut off at the source instead — the replayed buffer
+// is stripped of its queries (`hooks/terminal/terminal-replay.ts`).
 
 // OSC 10/11 color responses: \x1b]1[01];rgb:RRRR/GGGG/BBBB followed by ST (\x1b\\ or \x07)
 const oscColorResponse = /\x1b\]1[01];rgb:[0-9a-fA-F]{4}\/[0-9a-fA-F]{4}\/[0-9a-fA-F]{4}(?:\x1b\\|\x07)/g
