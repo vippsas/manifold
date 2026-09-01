@@ -1,10 +1,14 @@
 import React from 'react'
+import type { ShellFolder } from './shell-cwd'
 import type { ShellTerminal } from './shell-terminal-store'
 import { PanelGlyph } from '../ActivityBar'
 import { shellTabStyles as styles } from './ShellTabs.styles'
 
 interface ShellTabControlsProps {
   terminals: ShellTerminal[]
+  /** The workspace's folders. Two or more and each row says which one it runs
+   *  in; one and there is nothing to disambiguate, so nothing is shown. */
+  folders: ShellFolder[]
   activeSessionId: string | null
   onSetActiveTerminal: (sessionId: string) => void
   onCloseTerminal: (sessionId: string) => void
@@ -25,11 +29,20 @@ function KillIcon(): React.JSX.Element {
  *  the +/chevron pills. Killing a terminal is a per-row trash that appears on
  *  hover, rather than a header button aimed at whichever row is active. */
 export function ShellTabControls({
-  terminals, activeSessionId,
+  terminals, folders, activeSessionId,
   onSetActiveTerminal, onCloseTerminal,
 }: ShellTabControlsProps): React.JSX.Element {
+  // Not `basename(cwd)` the way VS Code can: a worktree's own basename is the
+  // branch directory (`…/vce-infra/manifold-playground`), so the repo's name
+  // has to come from the folder it matches.
+  const folderName = (cwd: string): string | undefined =>
+    folders.find((f) => f.path === cwd)?.name ?? cwd.split('/').filter(Boolean).pop()
+  const showFolder = folders.length > 1
   return (
-    <div style={styles.tabList} aria-label="Terminals">
+    <div
+      style={{ ...styles.tabList, ...(showFolder ? styles.tabListWithFolders : {}) }}
+      aria-label="Terminals"
+    >
       {terminals.map((terminal) => {
         const isActive = activeSessionId === terminal.sessionId
         return (
@@ -41,10 +54,14 @@ export function ShellTabControls({
             <button
               type="button"
               style={styles.tabSelect}
+              title={`${terminal.label} — ${terminal.cwd}`}
               onClick={() => onSetActiveTerminal(terminal.sessionId)}
             >
               <span style={styles.tabGlyph}><PanelGlyph id="shell" size={13} /></span>
               <span style={styles.tabLabel}>{terminal.label}</span>
+              {showFolder && (
+                <span style={styles.tabFolder}>{folderName(terminal.cwd)}</span>
+              )}
             </button>
             <button
               type="button"

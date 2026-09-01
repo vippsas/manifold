@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useSyncExternalStore } from 'react'
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import { useTerminal } from '../../hooks/terminal/useTerminal'
 import { ShellTabControls } from './ShellTabControls'
 import { shellTabStyles as styles } from './ShellTabs.styles'
 import { registerShellHeaderControls, unregisterShellHeaderControls } from './shell-header-controls'
+import { ShellFolderMenu } from './ShellFolderMenu'
+import type { ShellFolder } from './shell-cwd'
 import {
   addTerminal, closeTerminal, dismissScopeError, getScope, openScope,
   setActiveTerminal, subscribeShellTerminals, type ShellMode,
@@ -11,6 +13,9 @@ import {
 
 interface ShellTabsProps {
   cwd: string | null
+  /** Every folder of the workspace a new terminal may run in, primary first.
+   *  `cwd` is the first of these; the rest are what the folder picker offers. */
+  folders: ShellFolder[]
   scrollbackLines: number
   terminalFontFamily?: string
   xtermTheme?: ITheme
@@ -36,7 +41,7 @@ function ShellTerminalView({
 }
 
 export function ShellTabs({
-  cwd, scrollbackLines, terminalFontFamily, xtermTheme, onHide,
+  cwd, folders, scrollbackLines, terminalFontFamily, xtermTheme, onHide,
 }: ShellTabsProps): React.JSX.Element {
   // No local error state: the panel unmounts on close, so anything held here
   // would either vanish or come back from the dead on reopen. The store owns
@@ -48,9 +53,23 @@ export function ShellTabs({
     void openScope(cwd)
   }, [cwd])
 
-  const addShell = useCallback((mode: ShellMode) => {
-    if (cwd) void addTerminal(cwd, mode)
+  // Anchor for the empty state's folder picker; null while it is closed.
+  const [emptyPickerAnchor, setEmptyPickerAnchor] = useState<{ top: number; left: number } | null>(null)
+
+  const addShell = useCallback((mode: ShellMode, folderCwd?: string) => {
+    if (cwd) void addTerminal(cwd, mode, folderCwd)
   }, [cwd])
+
+  // The empty state's own button asks the same question the header's + does, so
+  // the two entry points cannot disagree about which folder a terminal opens in.
+  const requestAddShellFromEmptyState = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    if (folders.length > 1) {
+      const rect = event.currentTarget.getBoundingClientRect()
+      setEmptyPickerAnchor({ top: rect.bottom + 4, left: rect.left })
+      return
+    }
+    addShell('manifold', folders[0]?.path)
+  }, [addShell, folders])
 
   const closeShell = useCallback((sessionId: string) => {
     if (cwd) closeTerminal(cwd, sessionId)
@@ -64,9 +83,10 @@ export function ShellTabs({
 
   const headerControls = React.useMemo(() => ({
     canAddShell: Boolean(cwd),
+    folders,
     onAddShell: addShell,
     onHideTerminals: hideTerminals,
-  }), [cwd, addShell, hideTerminals])
+  }), [cwd, folders, addShell, hideTerminals])
 
   useEffect(() => {
     registerShellHeaderControls(headerControls)
@@ -86,7 +106,7 @@ export function ShellTabs({
           {scope.terminals.length === 0 && (
             <div style={styles.emptyState}>
               {cwd
-                ? <button type="button" onClick={() => addShell('manifold')}>New Terminal</button>
+                ? <button type="button" onClick={requestAddShellFromEmptyState}>New Terminal</button>
                 : 'Select a workspace to open a terminal'}
             </div>
           )}
@@ -104,12 +124,24 @@ export function ShellTabs({
         {scope.terminals.length > 0 && (
           <ShellTabControls
             terminals={scope.terminals}
+            folders={folders}
             activeSessionId={scope.activeSessionId}
             onSetActiveTerminal={selectShell}
             onCloseTerminal={closeShell}
           />
         )}
       </div>
+      {emptyPickerAnchor && (
+        <ShellFolderMenu
+          folders={folders}
+          anchor={emptyPickerAnchor}
+          onPick={(folder) => {
+            setEmptyPickerAnchor(null)
+            addShell('manifold', folder.path)
+          }}
+          onClose={() => setEmptyPickerAnchor(null)}
+        />
+      )}
     </div>
   )
 }

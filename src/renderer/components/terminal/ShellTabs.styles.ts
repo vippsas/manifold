@@ -113,6 +113,51 @@ export const shellTabStyles: Record<string, React.CSSProperties> = {
     border: 'none',
     cursor: 'pointer',
   },
+  // Sets the skip-the-picker item apart from the two shell-type items above it.
+  shellTypeMenuItemSeparated: {
+    marginTop: '4px',
+    paddingTop: '7px',
+    borderTop: '1px solid var(--border)',
+  },
+  folderMenu: {
+    minWidth: '224px',
+    maxWidth: '320px',
+  },
+  // Two lines per row: the folder's name, then its path. The path is what tells
+  // two worktrees of the same repo apart, so it is present but subordinate.
+  folderMenuItem: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '1px',
+    width: '100%',
+    padding: '5px 8px',
+    fontSize: 'inherit',
+    fontFamily: 'inherit',
+    color: 'var(--text-secondary)',
+    textAlign: 'left' as const,
+    background: 'transparent',
+    border: 'none',
+    borderRadius: 'var(--radius-xs)',
+    cursor: 'pointer',
+  },
+  folderMenuName: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+    color: 'var(--text-primary)',
+  },
+  // Plain end-ellipsis: the shared prefix is already gone by the time this
+  // renders (`describeShellFolder`), so what is left is the distinguishing part
+  // and reads left to right. `direction: rtl` would ellipsize from the start
+  // but reorders the leading slash to the far end, showing a slash that is not
+  // in the path.
+  folderMenuPath: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+    fontSize: 'var(--type-ui-micro)',
+    color: 'var(--text-muted)',
+  },
   // The panel body is a row: terminals on the left, the terminal list on the
   // right, the way VS Code lays its terminal view out.
   body: {
@@ -126,6 +171,12 @@ export const shellTabStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column' as const,
     flexShrink: 0,
     width: '148px',
+  },
+  // Room for the folder beside the shell's name. VS Code leaves this to the
+  // user — its strip is draggable — but ours is a fixed width, so it has to
+  // widen itself when there is a folder to show.
+  tabListWithFolders: {
+    width: '204px',
     paddingTop: '4px',
     overflowY: 'auto' as const,
     borderLeft: '1px solid var(--border)',
@@ -167,8 +218,21 @@ export const shellTabStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   tabLabel: {
+    flexShrink: 0,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+  },
+  // VS Code's terminal tab is a name plus a dimmer description, with the folder
+  // in the description (`tabs.description` defaults to `…${cwdFolder}`) rather
+  // than in the title. Same split here: the shell keeps its name, the folder
+  // rides alongside it and only when the workspace has more than one.
+  tabFolder: {
+    flexShrink: 1,
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    fontSize: 'var(--type-ui-micro)',
+    color: 'var(--text-muted)',
   },
   tabKillButton: {
     display: 'flex',

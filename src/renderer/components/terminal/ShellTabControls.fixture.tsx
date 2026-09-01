@@ -5,12 +5,18 @@
 // is shown twice: at rest, and with the hover reveal forced on.
 import React from 'react'
 import { ShellTabControls } from './ShellTabControls'
+import type { ShellFolder } from './shell-cwd'
 import type { ShellTerminal } from './shell-terminal-store'
 
+const folders: ShellFolder[] = [
+  { projectId: 'p1', name: 'storefront', path: '/worktrees/checkout/storefront' },
+  { projectId: 'p2', name: 'payments', path: '/worktrees/checkout/payments' },
+]
+
 const terminals: ShellTerminal[] = [
-  { sessionId: 's1', label: 'Manifold 1', mode: 'manifold' },
-  { sessionId: 's2', label: 'System 2', mode: 'system' },
-  { sessionId: 's3', label: 'Manifold 3', mode: 'manifold' },
+  { sessionId: 's1', label: 'Manifold 1', mode: 'manifold', cwd: '/worktrees/checkout/storefront' },
+  { sessionId: 's2', label: 'System 2', mode: 'system', cwd: '/worktrees/checkout/payments' },
+  { sessionId: 's3', label: 'Manifold 3', mode: 'manifold', cwd: '/worktrees/checkout/storefront' },
 ]
 
 const noop = (): void => {}
@@ -20,6 +26,7 @@ export default (
     <style>{'.force-hover .shell-tab__kill { opacity: 1 }'}</style>
     <ShellTabControls
       terminals={terminals}
+      folders={folders}
       activeSessionId="s2"
       onSetActiveTerminal={noop}
       onCloseTerminal={noop}
@@ -27,6 +34,7 @@ export default (
     <div className="force-hover" style={{ display: 'flex' }}>
       <ShellTabControls
         terminals={terminals}
+        folders={folders}
         activeSessionId="s2"
         onSetActiveTerminal={noop}
         onCloseTerminal={noop}

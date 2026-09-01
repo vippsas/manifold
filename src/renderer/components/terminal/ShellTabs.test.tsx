@@ -27,21 +27,27 @@ beforeEach(() => {
   }
 })
 
+const FOLDERS = [{ projectId: 'p1', name: 'storefront', path: '/worktrees/checkout' }]
+
+/** A one-folder workspace at `cwd` — the shape these cases exercise. Which
+ *  folder a terminal opens in is covered in ShellHeaderActions/store tests. */
+const foldersFor = (cwd: string) => [{ projectId: 'p1', name: cwd.slice(1), path: cwd }]
+
 describe('ShellTabs', () => {
   it('opens a terminal with no agent session', async () => {
-    render(<ShellTabs cwd="/worktrees/checkout" scrollbackLines={1000} />)
+    render(<ShellTabs cwd="/worktrees/checkout" folders={FOLDERS} scrollbackLines={1000} />)
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('shell:create', '/worktrees/checkout', { mode: 'manifold' }))
   })
 
   it('creates exactly one terminal under StrictMode', async () => {
-    renderWithStrictMode(<ShellTabs cwd="/worktrees/checkout" scrollbackLines={1000} />)
+    renderWithStrictMode(<ShellTabs cwd="/worktrees/checkout" folders={FOLDERS} scrollbackLines={1000} />)
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('shell:create', expect.anything(), expect.anything()))
     expect(mockInvoke.mock.calls.filter((c) => c[0] === 'shell:create')).toHaveLength(1)
     expect(mockInvoke).not.toHaveBeenCalledWith('shell:kill', expect.anything())
   })
 
   it('shows the empty state and no shell:create when no workspace resolves', () => {
-    render(<ShellTabs cwd={null} scrollbackLines={1000} />)
+    render(<ShellTabs cwd={null} folders={[]} scrollbackLines={1000} />)
     expect(screen.getByText(/select a workspace/i)).toBeInTheDocument()
     expect(mockInvoke).not.toHaveBeenCalledWith('shell:create', expect.anything(), expect.anything())
   })
@@ -59,7 +65,7 @@ describe('ShellTabs', () => {
       if (channel === 'shell:create') return Promise.resolve({ sessionId: `s${++n}` })
       return Promise.resolve(undefined)
     })
-    render(<ShellTabs cwd="/a" scrollbackLines={1000} />)
+    render(<ShellTabs cwd="/a" folders={foldersFor('/a')} scrollbackLines={1000} />)
 
     const list = await screen.findByLabelText('Terminals')
     expect(within(list).getByRole('button', { name: 'Manifold 1' })).toBeInTheDocument()
@@ -67,13 +73,13 @@ describe('ShellTabs', () => {
   })
 
   it('lists a single terminal too, so the list never appears from nowhere', async () => {
-    render(<ShellTabs cwd="/solo" scrollbackLines={1000} />)
+    render(<ShellTabs cwd="/solo" folders={foldersFor('/solo')} scrollbackLines={1000} />)
     const list = await screen.findByLabelText('Terminals')
     expect(within(list).getByRole('button', { name: 'Manifold 1' })).toBeInTheDocument()
   })
 
   it('kills a terminal from its row in the list', async () => {
-    render(<ShellTabs cwd="/solo" scrollbackLines={1000} />)
+    render(<ShellTabs cwd="/solo" folders={foldersFor('/solo')} scrollbackLines={1000} />)
     const list = await screen.findByLabelText('Terminals')
     fireEvent.click(within(list).getByRole('button', { name: 'Kill Manifold 1' }))
     expect(mockInvoke).toHaveBeenCalledWith('shell:kill', 'shell-1')
@@ -81,7 +87,7 @@ describe('ShellTabs', () => {
 
   it('hides the whole terminal view through the header control without killing', async () => {
     const onHide = vi.fn()
-    render(<ShellTabs cwd="/solo" scrollbackLines={1000} onHide={onHide} />)
+    render(<ShellTabs cwd="/solo" folders={foldersFor('/solo')} scrollbackLines={1000} onHide={onHide} />)
     await screen.findByLabelText('Terminals')
     getShellHeaderControls()?.onHideTerminals()
     expect(onHide).toHaveBeenCalledTimes(1)
@@ -94,7 +100,7 @@ describe('ShellTabs', () => {
       if (channel === 'shell:create') return Promise.reject(new Error('spawn failed'))
       return Promise.resolve(undefined)
     })
-    render(<ShellTabs cwd="/gone" scrollbackLines={1000} />)
+    render(<ShellTabs cwd="/gone" folders={foldersFor('/gone')} scrollbackLines={1000} />)
     expect(await screen.findByRole('alert')).toHaveTextContent('spawn failed')
   })
 })

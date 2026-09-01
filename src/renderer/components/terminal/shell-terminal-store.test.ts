@@ -30,8 +30,36 @@ describe('shell terminal store', () => {
   it('adds a terminal, labels it, and makes it active', async () => {
     await addTerminal('/a', 'manifold')
     const scope = getScope('/a')
-    expect(scope.terminals).toEqual([{ sessionId: 's1', label: 'Manifold 1', mode: 'manifold' }])
+    expect(scope.terminals).toEqual([{ sessionId: 's1', label: 'Manifold 1', mode: 'manifold', cwd: '/a' }])
     expect(scope.activeSessionId).toBe('s1')
+  })
+
+  // The scope key stays the workspace's primary checkout so the tab set never
+  // swaps; which folder a given tab runs in is chosen per tab on top of that.
+  it('opens a terminal in the chosen folder while keeping it in the workspace set', async () => {
+    await addTerminal('/a', 'manifold', '/a/packages/api')
+    expect(mockInvoke).toHaveBeenCalledWith('shell:create', '/a/packages/api', { mode: 'manifold' })
+    expect(getScope('/a').terminals[0].cwd).toBe('/a/packages/api')
+    expect(getScope('/a/packages/api').terminals).toEqual([])
+  })
+
+  it('defaults a terminal to the scope folder when none is chosen', async () => {
+    await addTerminal('/a', 'manifold')
+    expect(mockInvoke).toHaveBeenCalledWith('shell:create', '/a', { mode: 'manifold' })
+    expect(getScope('/a').terminals[0].cwd).toBe('/a')
+  })
+
+  it('persists each tab under its own folder, not the scope key', async () => {
+    await addTerminal('/a', 'manifold')
+    getScope('/a').state = 'ready'
+    await addTerminal('/a', 'manifold', '/a/packages/api')
+    expect(mockInvoke).toHaveBeenCalledWith('shell-tabs:set', '/a', {
+      tabs: [
+        { label: 'Manifold 1', cwd: '/a', mode: 'manifold' },
+        { label: 'Manifold 2', cwd: '/a/packages/api', mode: 'manifold' },
+      ],
+      counter: 3,
+    })
   })
 
   it('keeps two cwds independent', async () => {
@@ -128,6 +156,39 @@ describe('openScope', () => {
     await openScope('/a')
     expect(getScope('/a').terminals.map((t) => t.label)).toEqual(['Manifold 1', 'System 2'])
     expect(getScope('/a').counter).toBe(3)
+  })
+
+  it('restores each saved tab in the folder it was opened in', async () => {
+    const created: string[] = []
+    mockInvoke.mockImplementation((channel: string, cwd: string) => {
+      if (channel === 'shell-tabs:get') {
+        return Promise.resolve({
+          tabs: [{ label: 'Manifold 1', cwd: '/a', mode: 'manifold' },
+                 { label: 'Manifold 2', cwd: '/a/packages/api', mode: 'manifold' }],
+          counter: 3,
+        })
+      }
+      if (channel === 'shell:create') { created.push(cwd); return Promise.resolve({ sessionId: `r${created.length}` }) }
+      return Promise.resolve(undefined)
+    })
+    await openScope('/a')
+    expect(created).toEqual(['/a', '/a/packages/api'])
+    expect(getScope('/a').terminals.map((t) => t.cwd)).toEqual(['/a', '/a/packages/api'])
+  })
+
+  // Sets saved before terminals had folders of their own.
+  it('restores a saved tab with no folder into the scope folder', async () => {
+    const created: string[] = []
+    mockInvoke.mockImplementation((channel: string, cwd: string) => {
+      if (channel === 'shell-tabs:get') {
+        return Promise.resolve({ tabs: [{ label: 'Manifold 1', mode: 'manifold' }], counter: 2 })
+      }
+      if (channel === 'shell:create') { created.push(cwd); return Promise.resolve({ sessionId: 'r1' }) }
+      return Promise.resolve(undefined)
+    })
+    await openScope('/a')
+    expect(created).toEqual(['/a'])
+    expect(getScope('/a').terminals[0].cwd).toBe('/a')
   })
 
   it('is idempotent under a double-mount: two concurrent opens create one terminal', async () => {

@@ -4,6 +4,10 @@ export interface ShellTerminal {
   sessionId: string
   label: string
   mode: ShellMode
+  /** The folder this one runs in. Usually the scope key, but a terminal in a
+   *  multi-folder workspace can be opened in any member (`resolveShellFolders`),
+   *  so the set stays keyed to the workspace while its tabs differ. */
+  cwd: string
 }
 
 /** One terminal set, keyed by the workspace checkout path it runs in.
@@ -74,7 +78,7 @@ function updateScope(
   scopes.set(cwd, next)
   if (next.state === 'ready' && options?.persist !== false) {
     void window.electronAPI.invoke('shell-tabs:set', cwd, {
-      tabs: next.terminals.map((t) => ({ label: t.label, cwd, mode: t.mode })),
+      tabs: next.terminals.map((t) => ({ label: t.label, cwd: t.cwd, mode: t.mode })),
       counter: next.counter,
     }).catch(() => {})
   }
@@ -110,15 +114,17 @@ export function label(mode: ShellMode, counter: number): string {
  *  time it is closed, so a component-held message would be lost on close and a
  *  component-held "dismissed" flag would reset on reopen — resurrecting an error
  *  the user already dismissed. A successful add clears it. */
-export async function addTerminal(cwd: string, mode: ShellMode): Promise<void> {
+export async function addTerminal(cwd: string, mode: ShellMode, folderCwd?: string): Promise<void> {
   ensureExitSubscription()
+  const runIn = folderCwd ?? cwd
   try {
-    const result = await window.electronAPI.invoke('shell:create', cwd, { mode }) as { sessionId: string }
+    const result = await window.electronAPI.invoke('shell:create', runIn, { mode }) as { sessionId: string }
     const current = entry(cwd)
     const terminal: ShellTerminal = {
       sessionId: result.sessionId,
       label: label(mode, current.counter),
       mode,
+      cwd: runIn,
     }
     updateScope(cwd, {
       terminals: [...current.terminals, terminal],
@@ -152,7 +158,9 @@ export function closeTerminal(cwd: string, sessionId: string, options?: { kill?:
 }
 
 interface SavedShellState {
-  tabs: { label: string; cwd: string; mode?: ShellMode }[]
+  /** `cwd` is absent on sets saved before terminals had folders of their own;
+   *  those restore into the scope folder, which is where they ran. */
+  tabs: { label: string; cwd?: string; mode?: ShellMode }[]
   counter: number
 }
 
@@ -177,9 +185,10 @@ export async function openScope(cwd: string): Promise<void> {
       let lastFailure: string | null = null
       for (const tab of saved.tabs) {
         const mode: ShellMode = tab.mode === 'system' ? 'system' : 'manifold'
+        const tabCwd = tab.cwd ?? cwd
         try {
-          const result = await window.electronAPI.invoke('shell:create', cwd, { mode }) as { sessionId: string }
-          terminals.push({ sessionId: result.sessionId, label: tab.label, mode })
+          const result = await window.electronAPI.invoke('shell:create', tabCwd, { mode }) as { sessionId: string }
+          terminals.push({ sessionId: result.sessionId, label: tab.label, mode, cwd: tabCwd })
         } catch (e) {
           // One dead tab shouldn't sink the restore — but all of them should.
           lastFailure = e instanceof Error ? e.message : String(e)
@@ -204,7 +213,7 @@ export async function openScope(cwd: string): Promise<void> {
     const result = await window.electronAPI.invoke('shell:create', cwd, { mode: 'manifold' }) as { sessionId: string }
     scopes.set(cwd, {
       ...entry(cwd),
-      terminals: [{ sessionId: result.sessionId, label: label('manifold', 1), mode: 'manifold' }],
+      terminals: [{ sessionId: result.sessionId, label: label('manifold', 1), mode: 'manifold', cwd }],
       counter: 2,
       activeSessionId: result.sessionId,
     })

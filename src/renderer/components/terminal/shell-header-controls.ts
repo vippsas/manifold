@@ -1,3 +1,4 @@
+import type { ShellFolder } from './shell-cwd'
 import type { ShellMode } from './shell-terminal-store'
 
 /** What the dock header shows for the Shell panel: the +/chevron split button
@@ -6,7 +7,10 @@ import type { ShellMode } from './shell-terminal-store'
  *  Killing an individual terminal is a per-row trash in the list (`ShellTabs`). */
 export interface ShellHeaderControls {
   canAddShell: boolean
-  onAddShell: (mode: ShellMode) => void
+  /** The folders a new terminal may run in, primary first. One entry means
+   *  there is no choice to offer and the header opens it without asking. */
+  folders: ShellFolder[]
+  onAddShell: (mode: ShellMode, folderCwd?: string) => void
   onHideTerminals: () => void
 }
 
