@@ -77,6 +77,7 @@ function onReady(e: DockviewReadyEvent): void {
 // a stub so the fixture shows that button alongside the other header pills.
 registerShellHeaderControls({
   canAddShell: true,
+  folders: [{ projectId: 'p1', name: 'storefront', path: '/repos/storefront' }],
   onAddShell: () => {},
   onHideTerminals: () => {},
 })

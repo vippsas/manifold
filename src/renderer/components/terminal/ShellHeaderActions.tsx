@@ -6,6 +6,7 @@ import {
   subscribeShellHeaderControls,
 } from './shell-header-controls'
 import type { ShellMode } from './shell-terminal-store'
+import { ShellFolderMenu } from './ShellFolderMenu'
 import { shellTabStyles as styles } from './ShellTabs.styles'
 
 function ChevronIcon(): React.JSX.Element {
@@ -18,6 +19,9 @@ function ChevronIcon(): React.JSX.Element {
 
 export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps): React.JSX.Element | null {
   const [menuOpen, setMenuOpen] = React.useState(false)
+  // The mode a folder is being picked *for*. Non-null only while the folder menu
+  // is up, so the two menus can never both be open.
+  const [pendingMode, setPendingMode] = React.useState<ShellMode | null>(null)
   const [menuPosition, setMenuPosition] = React.useState<{ top: number; right: number } | null>(null)
   const buttonRef = React.useRef<HTMLButtonElement>(null)
   const menuRef = React.useRef<HTMLDivElement>(null)
@@ -63,9 +67,26 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
 
   if (!controls || activePanel?.id !== 'shell') return null
 
-  const addShell = (mode: ShellMode): void => {
+  const folders = controls.folders
+  const primary = folders[0]
+
+  /** One folder (or none resolvable) is no choice at all — open it. More than
+   *  one and the folder menu decides, VS Code's rule (`terminalActions.ts:104`). */
+  const requestAddShell = (mode: ShellMode): void => {
     setMenuOpen(false)
-    controls.onAddShell(mode)
+    if (folders.length > 1) {
+      updateMenuPosition()
+      setPendingMode(mode)
+      return
+    }
+    controls.onAddShell(mode, primary?.path)
+  }
+
+  /** The deliberate skip: open in the primary folder without being asked, the
+   *  same escape hatch VS Code keeps as `terminal.newInActiveWorkspace`. */
+  const addShellInPrimary = (): void => {
+    setMenuOpen(false)
+    controls.onAddShell('manifold', primary?.path)
   }
 
   return (
@@ -75,7 +96,7 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
           type="button"
           style={styles.headerAddButton}
           className="shell-header-add-button"
-          onClick={() => addShell('manifold')}
+          onClick={() => requestAddShell('manifold')}
           disabled={!controls.canAddShell}
           title="New Terminal"
           aria-label="New Terminal"
@@ -109,7 +130,7 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
               type="button"
               role="menuitem"
               style={styles.shellTypeMenuItem}
-              onClick={() => addShell('manifold')}
+              onClick={() => requestAddShell('manifold')}
             >
               New Manifold Shell
             </button>
@@ -117,12 +138,34 @@ export function ShellHeaderActions({ activePanel }: IDockviewHeaderActionsProps)
               type="button"
               role="menuitem"
               style={styles.shellTypeMenuItem}
-              onClick={() => addShell('system')}
+              onClick={() => requestAddShell('system')}
             >
               New System Shell
             </button>
+            {folders.length > 1 && primary && (
+              <button
+                type="button"
+                role="menuitem"
+                style={{ ...styles.shellTypeMenuItem, ...styles.shellTypeMenuItemSeparated }}
+                onClick={addShellInPrimary}
+              >
+                New Terminal in {primary.name}
+              </button>
+            )}
           </div>,
           document.body,
+        )}
+        {pendingMode && menuPosition && (
+          <ShellFolderMenu
+            folders={folders}
+            anchor={{ top: menuPosition.top, right: menuPosition.right }}
+            onPick={(folder) => {
+              const mode = pendingMode
+              setPendingMode(null)
+              controls.onAddShell(mode, folder.path)
+            }}
+            onClose={() => setPendingMode(null)}
+          />
         )}
       </div>
       <button

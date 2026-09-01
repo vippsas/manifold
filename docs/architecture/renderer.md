@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-08-27
+updated: 2026-09-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -545,19 +545,40 @@ saved layout before it is restored).
 - `editor` → **Editor** — `EditorPanel` wrapping `CodeViewer` (Monaco); split editors get ids prefixed `editor:` and each registers its own pane. `useCodeView`/`useCodeViewFileOps` gate `files:read` on the active session's allowed roots (worktree + additional dirs, passed from `App.tsx`): during a session switch the previous session's open file (rooted in a different worktree) is skipped instead of read against the new session id — avoiding a main-process path-traversal denial and its log noise, most visible when switching to a no-worktree agent whose root is the main repo.
 - `shell` → **Shell** — `ShellTabs`, a flat list of equal, closable terminals scoped to the
   workspace checkout that `resolveShellCwd` derives from workspace/project state
-  (`terminal/shell-cwd.ts:12`) — no agent required. The set lives in a module-level store
+  (`terminal/shell-cwd.ts:77`) — no agent required. The set lives in a module-level store
   keyed by that path (`terminal/shell-terminal-store.ts`), so closing the panel leaves the
   PTYs running and switching workspace swaps whole terminal sets, VS Code-window style.
-  The dock header carries, at the far right, a split `+` (a Manifold shell immediately) with a
-  narrow chevron flush against it for the Manifold/System menu, then a `×` that **hides the
-  whole terminal view** — `onHideTerminals` → `onClosePanel('shell')` (`ShellHeaderActions.tsx:19`,
+  **The scope key and a terminal's working directory are two different things.** The key stays
+  the workspace's primary checkout — selecting a different repo row must not swap the tab set —
+  while each terminal records the folder it actually runs in (`ShellTerminal.cwd`), so one
+  strip can hold a shell per repo. `resolveShellFolders` lists what a new terminal may open in
+  (`shell-cwd.ts:31`), collapsing members that resolve to one directory the way VS Code shrinks
+  its own pick list (`terminalActions.ts:1710`). Saved sets restore each tab in its own folder,
+  falling back to the scope key for tabs written before they had one.
+  The dock header carries, at the far right, a split `+` with a narrow chevron flush against it
+  for the Manifold/System menu, then a `×` that **hides the whole terminal view** —
+  `onHideTerminals` → `onClosePanel('shell')` (`ShellHeaderActions.tsx:20`,
   `ShellTabs.styles.ts:57`); the menu is anchored by its right edge so it cannot hang off the
-  window. Hiding only closes the panel — the PTYs keep running in the store, so reopening the
+  window. **A workspace of several folders is asked which one** before a terminal opens
+  (`ShellFolderMenu.tsx`), and one of a single folder is never asked — VS Code's rule verbatim
+  ("Only choose a path when there's more than 1 folder", `terminalActions.ts:104`), applied to
+  the `+`, both chevron items, and the empty state's button alike so no two entry points
+  disagree. Dismissing the menu opens nothing, also as VS Code does. The chevron additionally
+  offers "New Terminal in *primary*", the deliberate skip that mirrors
+  `workbench.action.terminal.newInActiveWorkspace`. Each menu row is a folder's name over the
+  part of its path that the offered folders do not share (`describeShellFolder`), omitted when
+  that is the name again — VS Code drops its pick description on the same test.
+  Hiding only closes the panel — the PTYs keep running in the store, so reopening the
   shell shows the same terminals. **Killing an individual terminal is a per-row trash, not a
   header control:** the list is a vertical list down the right edge of the panel body, as in VS
   Code, shown for any terminal count so it never appears from nowhere, and each row carries a
-  glyph, its label, and a trash that fades in on hover or keyboard focus
-  (`ShellTabControls.tsx:27`, `.shell-tab` in `styles/theme.css`).
+  glyph, its label, its folder, and a trash that fades in on hover or keyboard focus
+  (`ShellTabControls.tsx:31`, `.shell-tab` in `styles/theme.css`). The folder rides *beside*
+  the label rather than replacing it, as VS Code puts the folder in a tab's description and
+  leaves the process in its title (`tabs.description` defaults to `…${cwdFolder}`), and it
+  appears only when the workspace has more than one folder — nothing to disambiguate
+  otherwise. The strip widens to make room for it; VS Code leaves that to the user, whose
+  strip is draggable, while ours is a fixed width.
 - `pluginView` / `pluginTreeView` — webview hosts for plugin contributions (e.g. **Statistics**, the former Verdicts dashboard, now the `manifold.statistics` plugin).
 
 **The sidebar has one kind of root: the workspace.** There is no standalone-repository list —
