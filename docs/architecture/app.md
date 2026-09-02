@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-07-14
+updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -47,7 +47,10 @@ module body builds the full object graph eagerly: stores, `WorktreeManager`, `Pt
 longer exists, `index.ts:76`), memory modules, the verdict recorder, and
 the `PluginManager` (whose `scan()` runs immediately, `index.ts:116`). Cross-cutting
 collaborators are wired with post-construction setters (`sessionManager.setChatAdapter`,
-`setMemoryCapture`, `setVerdictRecorder`, …, `index.ts:92`). Everything the renderer can reach
+`setMemoryCapture`, `setVerdictRecorder`, …). After chat and git operations are available, the
+entry point constructs the native `ViolaHarness` and registers it on `SessionManager`; this
+keeps the orchestrator's session identity and chat routing in core rather than a plugin host
+(`index.ts:114`). Everything the renderer can reach
 is collected into a single `ipcDeps` bundle plus a `send` closure that guards against a
 destroyed window (`index.ts:118`).
 

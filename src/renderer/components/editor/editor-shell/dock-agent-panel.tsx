@@ -163,7 +163,12 @@ export function AgentPanel({ api }: { api?: { id: string } } = {}): React.JSX.El
   const isExited = targetStatus === 'done' || targetStatus === 'error'
 
   if (targetSession?.nonInteractive) {
-    return <AgentChatView sessionId={targetSessionId} mentionPaths={mentionPaths} fileDrop={AGENT_CHAT_FILE_DROP} />
+    return <AgentChatView
+      sessionId={targetSessionId}
+      runtimeId={targetSession.runtimeId}
+      mentionPaths={mentionPaths}
+      fileDrop={AGENT_CHAT_FILE_DROP}
+    />
   }
 
   return (

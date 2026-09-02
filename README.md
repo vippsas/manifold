@@ -23,6 +23,7 @@ Supported runtimes: **Claude Code**, **Codex**, **Copilot**, **Gemini CLI**, and
 - Group several repositories into a **Workspace** and run one agent across all of them, each repo mounted through the runtime's own multi-directory flag
 - Launch work on a new branch, the current branch, an existing branch, or an open pull request
 - Spin up a brand-new local web app from a one-line description, scaffolded on a constrained React/Vite stack with a live preview
+- Use **Viola** to plan a goal, fan independent tasks out to isolated runtimes, and cross-review every diff with another runtime
 - Run automated **Loop** cycles that prompt an agent, evaluate the result, and commit on improvement or revert on regression
 - Review changes with diffs, a file tree, split editors, shell tabs, and embedded localhost previews
 - Search code, file names, captured session memory, or everything at once, with an optional AI mode that answers questions or surfaces the most relevant results
@@ -174,6 +175,17 @@ A new agent can start in four ways:
 - **Open pull request**: select an open pull request, check out its branch, and continue work from there
 
 Agent states shown in the UI: `running` (actively working), `waiting` (paused for input), `done` (finished successfully), and `error` (stopped on failure).
+
+## Viola
+
+Choose **Viola** from the ordinary **New agent** screen when a goal can be split into
+independent, PR-sized tasks. It opens as a normal agent tab, proposes a plan, and waits for
+approval. Enter the goal as a normal chat message, then choose **Start plan** or **Revise plan**
+in Viola's reply. Once started, each task runs concurrently in
+its own managed worktree on one of the installed Claude, Codex, Copilot, or Gemini runtimes.
+A different runtime then reviews only the task contract and diff; one blocking-review fix round
+goes back to the original implementer. Viola never merges, and it needs at least two of
+those runtime binaries installed to preserve independent review.
 
 ## Automated Loop
 

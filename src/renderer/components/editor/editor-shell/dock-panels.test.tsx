@@ -213,6 +213,37 @@ describe('AgentPanel', () => {
     expect(screen.queryByText(/^terminal:Agent:/)).toBeNull()
   })
 
+  it('renders Viola through the normal agent chat panel', () => {
+    const AgentPanel = PANEL_COMPONENTS.agent
+
+    render(
+      <DockStateContext.Provider value={makeDockState({
+        activeProjectId: 'p1',
+        sessionId: 'viola-1',
+        primarySessionId: 'viola-1',
+        allProjectSessions: {
+          p1: [{
+            id: 'viola-1',
+            projectId: 'p1',
+            runtimeId: 'viola',
+            branchName: 'main',
+            worktreePath: '/repos/kong-gateway',
+            status: 'waiting',
+            pid: null,
+            additionalDirs: [],
+            nonInteractive: true,
+          }],
+        },
+      })}>
+        <AgentPanel />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByText('chat:viola-1')).toBeInTheDocument()
+    expect(screen.queryByText(/^terminal:Agent:/)).toBeNull()
+    expect(mockInvoke).not.toHaveBeenCalledWith('plugins:open-view', expect.anything())
+  })
+
   it('renders terminal for interactive sessions (regression guard)', () => {
     const AgentPanel = PANEL_COMPONENTS.agent
 

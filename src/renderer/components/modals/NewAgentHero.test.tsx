@@ -17,6 +17,7 @@ beforeEach(() => {
       return Promise.resolve([
         { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
         { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
+        { id: 'viola', name: 'Viola', binary: '', kind: 'orchestrator', installed: true },
       ])
     }
     return Promise.resolve([])
@@ -70,6 +71,7 @@ describe('NewAgentHero', () => {
         return Promise.resolve([
           { id: 'claude', name: 'Claude Code', binary: 'claude', installed: false },
           { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
+          { id: 'viola', name: 'Viola', binary: '', kind: 'orchestrator', installed: false },
         ])
       }
       return Promise.resolve([])
@@ -87,7 +89,46 @@ describe('NewAgentHero', () => {
 
     expect(await screen.findByRole('button', { name: /Claude Code/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Codex/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Viola \(alpha\)/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Chat with interface/ })).toBeInTheDocument()
+  })
+
+  it('starts Viola as its own native chat harness', async () => {
+    const { props } = renderHero({ defaultRuntime: 'codex' })
+    await ready()
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Viola \(alpha\)/ }))
+
+    await waitFor(() => {
+      expect(props.onLaunch).toHaveBeenCalledWith({
+        runtimeId: 'viola',
+        displayName: 'Viola',
+        nonInteractive: true,
+      })
+    })
+    expect(mockInvoke).toHaveBeenCalledWith('settings:update', {
+      defaultAgentMode: 'chat',
+      defaultRuntime: 'viola',
+    })
+  })
+
+  it('explains why Viola is unavailable with fewer than two supported agents', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'runtimes:list') {
+        return Promise.resolve([
+          { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
+          { id: 'codex', name: 'Codex', binary: 'codex', installed: false },
+          { id: 'viola', name: 'Viola', binary: '', kind: 'orchestrator', installed: false },
+        ])
+      }
+      return Promise.resolve([])
+    })
+    renderHero()
+    await ready()
+
+    const viola = await screen.findByRole('button', { name: /^Viola \(alpha\)/ })
+    expect(viola).toBeDisabled()
+    expect(viola).toHaveTextContent('needs 2 installed agents')
   })
 
   it('starts a terminal agent from a provider row', async () => {

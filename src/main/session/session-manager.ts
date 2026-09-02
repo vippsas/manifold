@@ -30,6 +30,12 @@ import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { sendSessionManagerRendererEvent } from './session-manager-renderer'
 import { getRuntimeById } from '../agent/runtimes'
 
+export interface ViolaHarnessController {
+  send(sessionId: string, input: string): void
+  interrupt(sessionId: string): void
+  disposeSession(sessionId: string): void
+}
+
 export class SessionManager {
   private sessions: Map<string, InternalSession> = new Map()
   private mainWindow: BrowserWindow | null = null
@@ -50,6 +56,7 @@ export class SessionManager {
   private verdictRecorder: VerdictRecorder | null = null
   private dismissedAgents: Pick<DismissedAgentsStore, 'has' | 'delete'> | null = null
   private readonly usageAccumulator = new SessionUsageAccumulator()
+  private violaHarness: ViolaHarnessController | null = null
 
   constructor(
     private worktreeManager: WorktreeManager,
@@ -191,6 +198,10 @@ export class SessionManager {
     this.shellController.setGitOps(gitOps)
   }
 
+  setViolaHarness(harness: ViolaHarnessController): void {
+    this.violaHarness = harness
+  }
+
   setMainWindow(window: BrowserWindow): void { this.mainWindow = window }
 
   private statusListener: ((sessionId: string, status: string) => void) | null = null
@@ -239,13 +250,39 @@ export class SessionManager {
     await this.workingSet.addDirToWorkspace(workspaceId, projectId, dir)
   }
 
-  interruptSession(sessionId: string): void { this.ioController.interruptSession(sessionId) }
+  interruptSession(sessionId: string): void {
+    if (this.sessions.get(sessionId)?.runtimeId === 'viola') {
+      this.violaHarness?.interrupt(sessionId)
+      return
+    }
+    this.ioController.interruptSession(sessionId)
+  }
 
-  sendInput(sessionId: string, input: string): void { this.ioController.sendInput(sessionId, input) }
+  sendInput(sessionId: string, input: string): void {
+    if (this.sessions.get(sessionId)?.runtimeId === 'viola') {
+      if (!this.violaHarness) throw new Error('Viola harness is not available')
+      this.memoryCapture?.recordInput(sessionId, input)
+      this.violaHarness.send(sessionId, input.trim())
+      return
+    }
+    this.ioController.sendInput(sessionId, input)
+  }
 
   resize(sessionId: string, cols: number, rows: number): void { this.ioController.resize(sessionId, cols, rows) }
 
-  async killSession(sessionId: string): Promise<void> { await this.killer.killSession(sessionId) }
+  async killSession(sessionId: string): Promise<void> {
+    if (this.sessions.get(sessionId)?.runtimeId === 'viola') {
+      this.violaHarness?.disposeSession(sessionId)
+    }
+    await this.killer.killSession(sessionId)
+  }
+
+  setHarnessStatus(sessionId: string, status: AgentSession['status']): void {
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+    session.status = status
+    this.sendToRenderer('agent:status', { sessionId, status })
+  }
 
   async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> { return this.lifecycle.resumeSession(sessionId, runtimeId) }
 
@@ -270,7 +307,8 @@ export class SessionManager {
     if (!displayName) throw new Error('Agent name cannot be empty')
     if (!getRuntimeById(settings.runtimeId)) throw new Error(`Runtime not found: ${settings.runtimeId}`)
 
-    const nonInteractive = settings.viewMode === 'chat'
+    const nextRuntime = getRuntimeById(settings.runtimeId)!
+    const nonInteractive = nextRuntime.kind === 'orchestrator' || settings.viewMode === 'chat'
     const mustRestart = session.runtimeId !== settings.runtimeId
       || Boolean(session.nonInteractive) !== nonInteractive
 
@@ -283,6 +321,7 @@ export class SessionManager {
     }
 
     const previous = { ...session }
+    if (previous.runtimeId === 'viola') this.violaHarness?.disposeSession(sessionId)
     this.chatAdapter?.clearSession(sessionId, true, chatStorageKey(previous.worktreePath, sessionId))
     this.killer.retireSession(sessionId)
 
@@ -362,7 +401,14 @@ export class SessionManager {
     return Array.from(this.sessions.values()).map(toPublicSession)
   }
 
-  async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string; noWorktree?: boolean }> { return this.teardown.killNonInteractiveSessions(projectId) }
+  async killNonInteractiveSessions(projectId: string): Promise<{ killedIds: string[]; branchName?: string; noWorktree?: boolean }> {
+    for (const session of this.sessions.values()) {
+      if (session.projectId === projectId && session.runtimeId === 'viola') {
+        this.violaHarness?.disposeSession(session.id)
+      }
+    }
+    return this.teardown.killNonInteractiveSessions(projectId)
+  }
 
   async killInteractiveSession(sessionId: string): Promise<{ projectPath: string; branchName: string; taskDescription?: string }> { return this.teardown.killInteractiveSession(sessionId) }
 
@@ -384,7 +430,12 @@ export class SessionManager {
     )
   }
 
-  killAllSessions(): void { this.ioController.killAllSessions() }
+  killAllSessions(): void {
+    for (const session of this.sessions.values()) {
+      if (session.runtimeId === 'viola') this.violaHarness?.disposeSession(session.id)
+    }
+    this.ioController.killAllSessions()
+  }
 
   /** Synchronously finalize active sessions' verdicts on app quit, before PTYs are killed. */
   finalizeActiveVerdictsForQuit(): void { this.verdictRecorder?.finalizeAllForQuitSync() }

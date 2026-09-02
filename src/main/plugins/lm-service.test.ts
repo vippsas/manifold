@@ -26,6 +26,13 @@ describe('createLmService', () => {
     expect(await svc.selectChatModels(undefined)).toEqual([])
   })
 
+  it('does not expose a native orchestrator as a direct language model', async () => {
+    const d = deps({ runtime: { id: 'viola', kind: 'orchestrator', binary: '' } })
+    const svc = createLmService(d.sm as never, d.gitOps as never, d.getRuntime as never)
+    expect(await svc.selectChatModels('s1')).toEqual([])
+    await expect(svc.sendRequest('s1', 'PROMPT')).rejects.toThrow(/no active session runtime/i)
+  })
+
   it('sendRequest runs aiGenerate with the runtime, worktree, and model args', async () => {
     const d = deps()
     const svc = createLmService(d.sm as never, d.gitOps as never, d.getRuntime as never)

@@ -5,6 +5,7 @@ const RUNTIME_LABELS: Record<string, string> = {
   claude: 'Claude',
   codex: 'Codex',
   gemini: 'Gemini',
+  viola: 'Viola',
 }
 
 export function formatBranch(branchName: string): string {

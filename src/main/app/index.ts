@@ -63,6 +63,7 @@ import { summarizeMiddle } from '../store/prompt-summarizer'
 import { PluginManager } from '../plugins/plugin-manager'
 import { registerWebviewSchemePrivileged } from '../plugins/webview-protocol'
 import { AgentNotifier } from '../notifications/agent-notifier'
+import { ViolaHarness } from '../viola/harness'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -110,6 +111,11 @@ const chatAdapter = new ChatAdapter()
 chatAdapter.setChatStore(chatStore)
 sessionManager.setChatAdapter(chatAdapter)
 sessionManager.setGitOps(gitOps)
+const violaHarness = new ViolaHarness(sessionManager, chatAdapter, gitOps, {
+  storageRoot: settingsStore.getSettings().storagePath,
+  getPreferredRuntime: () => settingsStore.getSettings().defaultRuntime,
+})
+sessionManager.setViolaHarness(violaHarness)
 
 const memoryStore = new MemoryStore()
 const memoryCapture = new MemoryCapture(chatAdapter, memoryStore, (sid) => sessionManager.getSession(sid))

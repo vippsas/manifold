@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import type { AgentRuntime } from '../../../shared/types'
 import type { AgentMode, PendingLaunch } from './useNewAgentForm'
 import { RuntimeGlyph, runtimeGlyphPath } from '../new-task/RuntimeGlyph'
+import { PluginGlyph } from '../plugin-glyphs'
 import { launchListStyles as s } from './AgentLaunchList.styles'
 
 const ChatGlyph = (
@@ -73,6 +74,7 @@ function Row({ glyph, name, onClick, disabled, starting, trailing, buttonRef, me
 }
 
 function runtimeGlyph(runtime: AgentRuntime): React.ReactNode {
+  if (runtime.kind === 'orchestrator') return <PluginGlyph icon="layers" size={22} />
   const path = runtimeGlyphPath(runtime.id)
   return path
     ? <RuntimeGlyph path={path} size={22} />
@@ -80,8 +82,8 @@ function runtimeGlyph(runtime: AgentRuntime): React.ReactNode {
 }
 
 /**
- * The provider list: one row per runtime that starts it in a terminal on click,
- * plus a Chat row that opens a provider picker to start a chat agent instead.
+ * The agent list: CLI harnesses start in a terminal, native orchestrators start
+ * in chat, and the Chat row can wrap a CLI runtime in Manifold's chat surface.
  * Shared by the compact dialog and the full-panel start view.
  *
  * Exactly one row leads — the runtime you launched last — and it wears the gold
@@ -112,26 +114,31 @@ export function AgentLaunchList({
   // The Ollama `needsModel` variants relaunch the same two agents and would
   // double every row, so they stay out of the list.
   const providers = runtimes.filter((rt) => !rt.needsModel)
-  const chatProviders = providers.filter((rt) => rt.installed !== false)
+  const installedProviders = providers.filter((rt) => rt.installed !== false)
+  const chatProviders = installedProviders.filter((rt) => rt.kind !== 'orchestrator')
   // A runtime that isn't installed can't lead — the plate would advertise a
   // default you can't click.
-  const lead = chatProviders.find((rt) => rt.id === leadRuntimeId) ?? chatProviders[0]
+  const lead = installedProviders.find((rt) => rt.id === leadRuntimeId) ?? installedProviders[0]
 
   return (
     <div style={s.list}>
       {providers.map((runtime, index) => {
         const missing = runtime.installed === false
+        const mode: AgentMode = runtime.kind === 'orchestrator' ? 'chat' : 'interactive'
+        const launchName = runtime.id === 'viola' ? `${runtime.name} (alpha)` : runtime.name
         return (
           <Row
             key={runtime.id}
             buttonRef={index === 0 ? firstRowRef : undefined}
             glyph={runtimeGlyph(runtime)}
-            name={runtime.name}
+            name={launchName}
             metal={runtime.id === lead?.id}
             disabled={missing || loading}
-            starting={pending?.runtimeId === runtime.id && pending.mode === 'interactive'}
-            trailing={missing ? 'not installed' : undefined}
-            onClick={() => onLaunch(runtime.id, 'interactive')}
+            starting={pending?.runtimeId === runtime.id && pending.mode === mode}
+            trailing={missing
+              ? runtime.kind === 'orchestrator' ? 'needs 2 installed agents' : 'not installed'
+              : runtime.kind === 'orchestrator' ? 'Plan and delegate' : undefined}
+            onClick={() => onLaunch(runtime.id, mode)}
           />
         )
       })}

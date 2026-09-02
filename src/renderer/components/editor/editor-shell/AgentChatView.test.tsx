@@ -43,6 +43,14 @@ describe('AgentChatView', () => {
     })
   })
 
+  it('renders Viola as a goal-oriented normal chat surface', async () => {
+    render(<AgentChatView sessionId="viola-1" runtimeId="viola" />)
+
+    expect(await screen.findByText('Give Viola a goal')).toBeInTheDocument()
+    expect(screen.getByText('Viola proposes a plan before starting workers')).toBeInTheDocument()
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+  })
+
   it('renders image references from existing non-interactive chat messages', async () => {
     const imagePath = '/var/folders/wl/app/T/manifold-chat-images/sess-1/image.png'
     mockInvoke.mockImplementation((channel: string) => {

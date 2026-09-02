@@ -53,7 +53,7 @@ export class SessionLifecycle {
     // Chat-mode (nonInteractive) agents show a `/` command autocomplete before
     // the first message is sent. Seed it from the project cache, and on a cache
     // miss probe for the list, so commands don't only appear from the 2nd message.
-    if (session.nonInteractive) {
+    if (session.nonInteractive && session.runtimeId !== 'viola') {
       if (project.slashCommands?.length) {
         session.slashCommands = project.slashCommands
       } else if (!session.ptyId) {

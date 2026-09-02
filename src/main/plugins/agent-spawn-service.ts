@@ -4,6 +4,7 @@
 // The watch plugin calls this surface via manifold.agents instead of
 // SessionManager directly.
 import type { SessionManager } from '../session/session-manager'
+import { gitExec } from '../git/git-exec'
 
 type SessionAccess = Pick<SessionManager, 'createSession' | 'killSession' | 'sendInput' | 'getSession'>
 
@@ -12,6 +13,13 @@ const DEFAULT_READY_TIMEOUT_MS = 30_000
 
 /** AgentStatus plus 'missing' for a session that no longer exists. */
 export type SpawnedSessionStatus = 'running' | 'waiting' | 'done' | 'error' | 'missing'
+
+export interface NativeAgentSpawnOptions {
+  title: string
+  runtimeId: string
+  newWorktree: boolean
+  nonInteractive?: boolean
+}
 
 export interface AgentSpawnService {
   spawnSibling(baseSessionId: string, opts?: { title?: string; groupId?: string }): Promise<{ sessionId: string }>
@@ -24,27 +32,61 @@ export interface AgentSpawnService {
   kill(sessionId: string): Promise<void>
 }
 
+export interface NativeAgentSpawnService extends AgentSpawnService {
+  /** Core-only orchestration path. Plugin spawnSibling deliberately keeps its
+   *  existing same-runtime, same-worktree contract. */
+  spawnAgent(baseSessionId: string, opts: NativeAgentSpawnOptions): Promise<{
+    sessionId: string
+    runtimeId: string
+    worktreePath: string
+  }>
+}
+
 export interface AgentSpawnServiceOptions {
   now?: () => number
   sleep?: (ms: number) => Promise<void>
+  resolveHead?: (worktreePath: string) => Promise<string>
 }
 
-export function createAgentSpawnService(sm: SessionAccess, options: AgentSpawnServiceOptions = {}): AgentSpawnService {
+export function createAgentSpawnService(sm: SessionAccess, options: AgentSpawnServiceOptions = {}): NativeAgentSpawnService {
   const now = options.now ?? ((): number => Date.now())
   const sleep = options.sleep ?? ((ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)))
+  const resolveHead = options.resolveHead
+    ?? (async (worktreePath: string): Promise<string> => (await gitExec(['rev-parse', 'HEAD'], worktreePath)).trim())
+
+  async function spawn(baseSessionId: string, opts: {
+    title?: string
+    groupId?: string
+    runtimeId?: string
+    newWorktree?: boolean
+    nonInteractive?: boolean
+  }): Promise<{ sessionId: string; runtimeId: string; worktreePath: string }> {
+    const base = sm.getSession(baseSessionId)
+    if (!base) throw new Error(`no session ${baseSessionId}`)
+    const baseRef = opts.newWorktree ? await resolveHead(base.worktreePath) : undefined
+    const sibling = await sm.createSession({
+      projectId: base.projectId,
+      runtimeId: opts.runtimeId ?? base.runtimeId,
+      prompt: opts.title ?? 'Plugin agent',
+      existingWorktreePath: opts.newWorktree ? undefined : base.worktreePath,
+      ...(opts.newWorktree ? { baseBranch: baseRef } : {}),
+      groupId: opts.groupId,
+      ...(opts.nonInteractive !== undefined ? { nonInteractive: opts.nonInteractive } : {}),
+    })
+    return {
+      sessionId: sibling.id,
+      runtimeId: sibling.runtimeId,
+      worktreePath: sibling.worktreePath,
+    }
+  }
 
   return {
     async spawnSibling(baseSessionId, opts) {
-      const base = sm.getSession(baseSessionId)
-      if (!base) throw new Error(`no session ${baseSessionId}`)
-      const sibling = await sm.createSession({
-        projectId: base.projectId,
-        runtimeId: base.runtimeId,
-        prompt: opts?.title ?? 'Plugin agent',
-        existingWorktreePath: base.worktreePath,
-        groupId: opts?.groupId,
-      })
-      return { sessionId: sibling.id }
+      const child = await spawn(baseSessionId, opts ?? {})
+      return { sessionId: child.sessionId }
+    },
+    async spawnAgent(baseSessionId, opts) {
+      return spawn(baseSessionId, opts)
     },
     sendText(sessionId, text) {
       sm.sendInput(sessionId, text)

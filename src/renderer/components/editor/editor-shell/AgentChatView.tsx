@@ -3,6 +3,7 @@ import { ManifoldGhost } from '../../ManifoldGhost'
 import { StarfieldBackdrop } from '../../StarfieldBackdrop'
 import { ChatPane, useChat, useAgentStatus, useSlashCommands } from '../../../../renderer-shared/chat'
 import type { PastedImage, FileDropConfig } from '../../../../renderer-shared/chat/ChatPane'
+import { PluginGlyph } from '../../plugin-glyphs'
 
 interface AgentChatViewProps {
   sessionId: string
@@ -10,9 +11,10 @@ interface AgentChatViewProps {
   mentionPaths?: string[]
   /** Enables drag-and-drop of file-tree paths into the composer. */
   fileDrop?: FileDropConfig
+  runtimeId?: string
 }
 
-export function AgentChatView({ sessionId, mentionPaths, fileDrop }: AgentChatViewProps): React.JSX.Element {
+export function AgentChatView({ sessionId, mentionPaths, fileDrop, runtimeId }: AgentChatViewProps): React.JSX.Element {
   const { messages, sendMessage } = useChat(sessionId)
   const { status, durationMs } = useAgentStatus(sessionId)
   const slashCommands = useSlashCommands(sessionId)
@@ -51,13 +53,30 @@ export function AgentChatView({ sessionId, mentionPaths, fileDrop }: AgentChatVi
         onInterrupt={interrupt}
         isThinking={status === 'running'}
         durationMs={durationMs}
-        placeholder={<AgentChatEmptyState />}
+        placeholder={runtimeId === 'viola' ? <ViolaEmptyState /> : <AgentChatEmptyState />}
         acceptImages
         collapsibleUserMessages
         mentionPaths={mentionPaths}
         slashCommands={slashCommands}
         fileDrop={fileDrop}
       />
+    </div>
+  )
+}
+
+function ViolaEmptyState(): React.JSX.Element {
+  return (
+    <div style={emptyStyles.container}>
+      <StarfieldBackdrop />
+      <div style={emptyStyles.logo} aria-hidden="true">
+        <PluginGlyph icon="layers" size={46} />
+      </div>
+      <div style={emptyStyles.heading}>Give Viola a goal</div>
+      <ul style={emptyStyles.tips}>
+        <li style={emptyStyles.tip}>Viola proposes a plan before starting workers</li>
+        <li style={emptyStyles.tip}>Each task runs in its own isolated worktree</li>
+        <li style={emptyStyles.tip}>A different harness reviews every diff</li>
+      </ul>
     </div>
   )
 }

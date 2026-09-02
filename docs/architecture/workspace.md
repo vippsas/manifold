@@ -1,7 +1,7 @@
 ---
 description: How Manifold groups repositories into a Workspace — a place to work that owns one checkout of every repo it spans, so agents join a workspace instead of cutting worktrees of their own.
 covers: [src/main/workspace]
-updated: 2026-08-27
+updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -115,7 +115,10 @@ worktrees, and why nothing the user selects in the sidebar can move an agent to 
 It calls `sessionManager.createSession()` with `projectId = projects[0].id`, `additionalDirs`,
 `workspaceId`, `workspaceWorktreePaths`, `branchName`, plus `runtimeId`, `nonInteractive` and
 `displayName` — the name typed in the New Agent dialog, which only titles the agent's tab
-(`session-creator.ts`); the prompt is empty, because nothing here asks for a task. The remaining option is the fork between the two kinds: a worktree workspace
+(`session-creator.ts`); the prompt is empty, because nothing here asks for a task. Viola uses
+the same path with `runtimeId: 'viola'` and `nonInteractive: true`: it joins the workspace and
+its working set like any other agent, while the native harness chooses CLI workers internally
+(`workspace-manager.ts:236`, `session-creator.ts:37`). The remaining option is the fork between the two kinds: a worktree workspace
 passes `existingWorktreePath = primary`, while a home workspace passes
 `noWorktree: true, stayOnBranch: true` so the agent works in the clone on whatever branch the
 user has checked out there (`:243`). The PTY is spawned with cwd = the primary path; only the

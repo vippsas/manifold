@@ -11,6 +11,7 @@ const runtimes: AgentRuntime[] = [
   { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
   { id: 'copilot', name: 'Copilot', binary: 'copilot', installed: true },
   { id: 'gemini', name: 'Gemini CLI', binary: 'gemini', installed: false },
+  { id: 'viola', name: 'Viola', binary: '', kind: 'orchestrator', installed: true },
 ]
 
 const baseStub = window.electronAPI

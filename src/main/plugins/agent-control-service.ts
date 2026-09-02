@@ -133,7 +133,7 @@ export function createAgentControlService(sm: SessionAccess, options: AgentContr
         sm.sendInput(sessionId, prompt)
         const agentPtyId = sm.getInternalSession(sessionId)?.ptyId || undefined
         await sleep(400)
-        sm.sendInput(sessionId, '\r')
+        if (!beforePrompt?.nonInteractive) sm.sendInput(sessionId, '\r')
         return await waitForTurnEnd(sessionId, opts?.budgetSeconds ?? DEFAULT_BUDGET_SECONDS, abort.signal, { agentPtyId, turnStartedAt, outputLengthAtStart })
       } finally {
         inflight.delete(sessionId)

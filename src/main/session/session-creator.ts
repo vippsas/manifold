@@ -35,6 +35,8 @@ export class SessionCreator {
   async create(options: SpawnAgentOptions): Promise<InternalSession> {
     const project = this.resolveProject(options.projectId)
     const runtime = this.resolveRuntime(options.runtimeId)
+    const nativeOrchestrator = runtime.kind === 'orchestrator'
+    const nonInteractive = nativeOrchestrator || Boolean(options.nonInteractive)
     const projectIsGit = isGitProject(project)
     const noWorktree = Boolean(options.noWorktree || !projectIsGit)
 
@@ -112,7 +114,7 @@ export class SessionCreator {
     } else {
       worktree = await this.worktreeManager.createWorktree(
         project.path,
-        project.baseBranch,
+        options.baseBranch ?? project.baseBranch,
         project.name,
         options.branchName,
         options.prompt
@@ -123,7 +125,7 @@ export class SessionCreator {
     // spawn until the user sends their first message in the chat panel. The
     // session exists with a worktree but no PTY — sendInput will route to
     // spawnPrintModeFollowUp, which spawns a fresh print-mode process per turn.
-    const deferRuntime = Boolean(options.nonInteractive) && !options.userMessage
+    const deferRuntime = nativeOrchestrator || (nonInteractive && !options.userMessage)
 
     // Mint the session id before the spawn so it can double as Claude's
     // `--session-id`, making the on-disk transcript locatable for usage capture.
@@ -135,7 +137,7 @@ export class SessionCreator {
 
     const additionalDirs = options.additionalDirs ?? []
 
-    if (options.nonInteractive && options.userMessage) {
+    if (!nativeOrchestrator && nonInteractive && options.userMessage) {
       const simpleCommand = buildSimpleRuntimeCommand(options.runtimeId, options.prompt, additionalDirs)
       commandBinary = simpleCommand.binary
       runtimeArgs = simpleCommand.args
@@ -144,7 +146,7 @@ export class SessionCreator {
       runtimeArgs.push('--model', options.ollamaModel)
     }
 
-    if (!options.nonInteractive && additionalDirs.length > 0) {
+    if (!nonInteractive && additionalDirs.length > 0) {
       // Codex only honors --add-dir when its effective sandbox allows writable
       // roots. Override a read-only user profile for this multi-root session.
       if (options.runtimeId === 'codex') {
@@ -157,12 +159,12 @@ export class SessionCreator {
     // ANSI-palette theme renders through the terminal's colors, so Manifold's
     // themed palette controls it. Only for interactive Claude Code — print-mode
     // output isn't a themed TUI, and non-claude runtimes don't take --settings.
-    if (!options.nonInteractive && commandBinary === 'claude') {
+    if (!nonInteractive && commandBinary === 'claude') {
       runtimeArgs.push('--session-id', sessionId)
       runtimeArgs.push(...claudeAnsiThemeArgs(this.getThemeType?.() ?? 'dark'))
     }
 
-    debugLog(`[session] nonInteractive=${options.nonInteractive}, deferRuntime=${deferRuntime}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
+    debugLog(`[session] nonInteractive=${nonInteractive}, deferRuntime=${deferRuntime}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)
 
     // Read worktree metadata BEFORE spawning the PTY. The spawn must be
     // immediately followed by listener wiring with no await in between: a
@@ -180,7 +182,14 @@ export class SessionCreator {
           rows: options.rows
         })
 
-    const session = this.buildSession(sessionId, options, worktree, ptyHandle, nonInteractiveOutputMode, noWorktree)
+    const session = this.buildSession(
+      sessionId,
+      { ...options, nonInteractive },
+      worktree,
+      ptyHandle,
+      nonInteractiveOutputMode,
+      noWorktree,
+    )
     if (sessionBaseBranch) {
       session.baseBranch = sessionBaseBranch
     }
@@ -205,7 +214,7 @@ export class SessionCreator {
       options.projectId,
     )
 
-    if (options.nonInteractive) {
+    if (nonInteractive) {
       if (!deferRuntime) {
         if (session.nonInteractiveOutputMode === 'plain-text') {
           this.streamWirer.wireOutputStreaming(ptyHandle.id, session)
@@ -232,11 +241,11 @@ export class SessionCreator {
         ollamaModel: options.ollamaModel ?? existingMeta?.ollamaModel,
         workspaceId: options.workspaceId,
         workspaceWorktreePaths: options.workspaceWorktreePaths,
-        nonInteractive: options.nonInteractive,
+        nonInteractive,
         codexThreadId: session.codexThreadId,
       }).catch((err) => {
         console.error(
-          `[session-creator] writeWorktreeMeta failed for ${worktree.path} — nonInteractive=${options.nonInteractive} may be lost on next launch:`,
+          `[session-creator] writeWorktreeMeta failed for ${worktree.path} — nonInteractive=${nonInteractive} may be lost on next launch:`,
           err,
         )
       })
@@ -263,7 +272,7 @@ export class SessionCreator {
     return project
   }
 
-  private resolveRuntime(runtimeId: string): { binary: string; args?: string[]; env?: Record<string, string> } {
+  private resolveRuntime(runtimeId: string): { binary: string; args?: string[]; env?: Record<string, string>; kind?: 'cli' | 'orchestrator' } {
     const runtime = getRuntimeById(runtimeId)
     if (!runtime) throw new Error(`Runtime not found: ${runtimeId}`)
     return runtime
