@@ -1,6 +1,7 @@
 import type { ViolaGates } from './gates'
 import type { ViolaGit } from './git'
 import type { ViolaStore } from './store'
+import type { ViolaVerdictStore } from './verdict-store'
 import { runTaskPipeline } from './task-pipeline'
 import type { ViolaPlan, ViolaRun, ViolaTaskRun, ViolaWorkerId } from '../../shared/viola'
 
@@ -35,6 +36,7 @@ export interface ViolaEngineDeps {
   spawn(baseSessionId: string, options: ViolaSpawnOptions): Promise<ViolaAgent>
   git: ViolaGit
   gates: ViolaGates
+  verdicts: ViolaVerdictStore
   store: ViolaStore
   emit?: (run: ViolaRun) => void
   now?: () => number

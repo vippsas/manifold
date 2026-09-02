@@ -22,8 +22,9 @@ describe('ViolaEngine', () => {
     ])
     expect(result.tasks.map((task) => task.report)).toEqual(['Implemented.', 'Implemented.'])
     expect(spawn).toHaveBeenCalledTimes(4)
+    // Every worker is a visible terminal the human can watch or take over; only Viola is chat.
     for (const [, options] of spawn.mock.calls) {
-      expect(options).toMatchObject({ newWorktree: true, nonInteractive: true })
+      expect(options).toMatchObject({ newWorktree: true, nonInteractive: false })
     }
     expect(git.apply).toHaveBeenCalledWith('/wt/codex-3', 'diff --git a/file b/file')
     expect(git.apply).toHaveBeenCalledWith('/wt/claude-4', 'diff --git a/file b/file')
@@ -85,6 +86,35 @@ describe('ViolaEngine', () => {
     expect(result.tasks[0]).toMatchObject({ state: 'done', stateSince: 5_000 })
   })
 
+  it('takes the verdict from the file the reviewer wrote, not from its terminal output', async () => {
+    const { engine, verdicts } = setup({
+      verdictViaFile: true,
+      verdicts: [
+        { passed: true, blocking: [], nonBlocking: ['Consider a helper.'] },
+        { passed: true, blocking: [], nonBlocking: [] },
+      ],
+    })
+    await engine.plan('viola-1', 'Fix it')
+    const result = await engine.start('viola-1')
+
+    expect(result.state).toBe('complete')
+    expect(result.tasks[0].review?.nonBlocking).toEqual(['Consider a helper.'])
+    // Cleared before every review turn, so a re-review cannot pick up the previous verdict.
+    for (const task of result.tasks) {
+      expect(verdicts.clear).toHaveBeenCalledWith(expect.stringContaining('/wt/'), task.id)
+      expect(verdicts.read).toHaveBeenCalledWith(expect.stringContaining('/wt/'), task.id)
+    }
+  })
+
+  it('falls back to the reviewer\'s reply when it answered inline instead of writing the file', async () => {
+    const { engine } = setup()
+    await engine.plan('viola-1', 'Fix it')
+    const result = await engine.start('viola-1')
+
+    expect(result.state).toBe('complete')
+    expect(result.tasks[0].review?.passed).toBe(true)
+  })
+
   it('allows one bounded fix turn and re-review', async () => {
     const { engine, turns } = setup({
       verdicts: [
@@ -114,7 +144,7 @@ describe('ViolaEngine', () => {
     expect(result.state).toBe('complete')
     expect(result.tasks[0]).toMatchObject({ state: 'done', report: 'The flake is in retry.ts:12.' })
     expect(spawn).toHaveBeenCalledTimes(1)
-    expect(spawn.mock.calls[0][1]).toMatchObject({ newWorktree: false, nonInteractive: true })
+    expect(spawn.mock.calls[0][1]).toMatchObject({ newWorktree: false, nonInteractive: false })
     expect(git.apply).not.toHaveBeenCalled()
   })
 

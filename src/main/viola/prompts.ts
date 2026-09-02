@@ -56,7 +56,7 @@ Read only what you need. Finish with a structured report that answers the questi
 
 export function buildReviewPrompt(
   task: ViolaTaskPlan,
-  input: { diff: string; stat: string; report: string },
+  input: { diff: string; stat: string; report: string; verdictPath: string },
 ): string {
   const inline = input.diff.length <= INLINE_DIFF_LIMIT
   const diffSection = inline
@@ -76,7 +76,10 @@ ${input.stat.trim() || '(no stat available)'}
 
 ${diffSection}
 
-Return JSON only:
+Write your verdict as JSON to this exact path, creating the directory if needed. That file is the
+only edit you may make, and it is how the verdict is collected — output alone is not read:
+${input.verdictPath}
+
 {"passed":true,"blocking":[],"nonBlocking":[]}
 
 Set passed=false for correctness, security, regression, missing-test, or unmet-acceptance issues. Blocking findings must be concrete and actionable.`

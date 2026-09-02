@@ -22,8 +22,8 @@ interface Props {
   onSend: (text: string, images?: PastedImage[]) => void
   onInterrupt?: () => void
   isThinking?: boolean
-  /** Rendered in place of the generic thinking phrases while thinking. Lets an orchestrator
-   *  show what its workers are actually doing instead of a rotating joke. */
+  /** Rendered above the thinking indicator while thinking. Lets an orchestrator show what its
+   *  workers are actually doing; the animated indicator stays underneath as the liveness cue. */
   activity?: React.ReactNode
   durationMs?: number | null
   placeholder?: React.ReactNode
@@ -180,7 +180,8 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, activity, 
             connectBelow={msg.role !== 'user' && messages[i + 1] != null && messages[i + 1].role !== 'user'}
           />
         ))}
-        {isThinking && (activity ?? <ThinkingIndicator />)}
+        {isThinking && activity}
+        {isThinking && <ThinkingIndicator />}
         {!isThinking && durationMs != null && durationMs > 0 && <DurationBadge durationMs={durationMs} />}
         <div ref={messagesEndRef} />
       </div>

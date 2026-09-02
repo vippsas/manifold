@@ -18,6 +18,8 @@ export const PASS: ViolaReview = { passed: true, blocking: [], nonBlocking: [] }
 export interface SetupOptions {
   deps?: Partial<ViolaEngineDeps>
   verdicts?: ViolaReview[]
+  /** Reviewers write their verdict to the advertised file instead of replying with JSON. */
+  verdictViaFile?: boolean
   /** Called with the implementer prompt; return a promise to hold that turn open. */
   implementerTurn?: (agent: ViolaAgent, prompt: string) => Promise<ViolaTurn>
 }
@@ -35,7 +37,15 @@ export function setup(options: SetupOptions = {}) {
       whenReady: vi.fn(async () => true),
       runTurn: vi.fn(async (prompt: string): Promise<ViolaTurn> => {
         if (prompt.startsWith('You are an independent code reviewer')) {
-          return { outcome: 'ended', response: JSON.stringify(verdicts.shift() ?? PASS) }
+          const verdict = verdicts.shift() ?? PASS
+          if (options.verdictViaFile) {
+            // Behave like a real reviewer: write the file it was told to write, and leave only
+            // terminal noise behind, so a verdict read from output would be wrong.
+            const path = /output alone is not read:\n(.+)/.exec(prompt)?.[1]?.trim()
+            if (path) verdictFiles.set(path, JSON.stringify(verdict))
+            return { outcome: 'ended', response: '\u001b[2K> wrote the verdict {ok}' }
+          }
+          return { outcome: 'ended', response: JSON.stringify(verdict) }
         }
         if (options.implementerTurn) return options.implementerTurn(agent, prompt)
         return { outcome: 'ended', response: prompt.startsWith('EXPLORE') ? 'The flake is in retry.ts:12.' : 'Implemented.' }
@@ -52,6 +62,14 @@ export function setup(options: SetupOptions = {}) {
     pullRequestUrl: vi.fn(async (path: string) => `https://example.test${path}`),
   }
   const gates = { run: vi.fn(async () => ({ ok: true, output: '' })) }
+  // Stands in for the files reviewers write, keyed by path exactly as the real store is.
+  const verdictFiles = new Map<string, string>()
+  const verdictPath = (wt: string, taskId: string): string => `${wt}/.viola/review-${taskId}.json`
+  const verdicts_ = {
+    path: vi.fn(verdictPath),
+    clear: vi.fn(async (wt: string, taskId: string) => { verdictFiles.delete(verdictPath(wt, taskId)) }),
+    read: vi.fn(async (wt: string, taskId: string) => verdictFiles.get(verdictPath(wt, taskId)) ?? null),
+  }
   const deps: ViolaEngineDeps = {
     availableRuntimes: vi.fn(async (): Promise<ViolaWorkerId[]> => ['claude', 'codex']),
     baseWorktreePath: vi.fn(async () => '/wt/base'),
@@ -61,10 +79,11 @@ export function setup(options: SetupOptions = {}) {
     git,
     gates,
     store: new MemoryViolaStore(),
+    verdicts: verdicts_,
     now: () => 100,
     ...options.deps,
   }
-  return { engine: new ViolaEngine(deps), deps, spawn, git, gates, turns }
+  return { engine: new ViolaEngine(deps), deps, spawn, git, gates, turns, verdicts: verdicts_, verdictFiles }
 }
 
 export function reviewerSpawns(spawn: ReturnType<typeof vi.fn>) {

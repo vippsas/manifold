@@ -13,7 +13,14 @@ const PLAN_JSON = JSON.stringify({
   }],
 })
 
-function setup(options: { preferredRuntime?: string; planResponse?: string; projectKind?: 'git' | 'folder' } = {}) {
+function setup(options: {
+  preferredRuntime?: string
+  planResponse?: string
+  projectKind?: 'git' | 'folder'
+  /** Replaces the default chat-writing worker turn (an interactive worker writes no chat). */
+  workerTurn?: (sessionId: string, prompt: string) => Promise<'ended'>
+  internalSessions?: { outputBuffer: string }
+} = {}) {
   const statuses: string[] = []
   const sent: { channel: string; payload: unknown }[] = []
   const sessions = {
@@ -23,7 +30,7 @@ function setup(options: { preferredRuntime?: string; planResponse?: string; proj
       runtimeId: 'viola',
       worktreePath: '/wt/base',
     } : undefined)),
-    getInternalSession: vi.fn(),
+    getInternalSession: vi.fn(() => options.internalSessions),
     setHarnessStatus: vi.fn((_sessionId: string, status: string) => statuses.push(status)),
     interruptSession: vi.fn(),
   }
@@ -43,6 +50,7 @@ function setup(options: { preferredRuntime?: string; planResponse?: string; proj
   }
   const controlService = {
     runTurn: vi.fn(async (sessionId: string, prompt: string) => {
+      if (options.workerTurn) return options.workerTurn(sessionId, prompt)
       chat.addAgentMessage(
         sessionId,
         prompt.startsWith('You are an independent code reviewer')
@@ -81,7 +89,7 @@ function setup(options: { preferredRuntime?: string; planResponse?: string; proj
       gates,
     },
   )
-  return { harness, chat, aiGenerate, spawnService, controlService, git, gates, statuses, sent }
+  return { harness, chat, aiGenerate, spawnService, controlService, git, gates, statuses, sent, sessions }
 }
 
 function texts(chat: ChatAdapter, sessionId: string): string[] {
@@ -163,10 +171,33 @@ describe('ViolaHarness', () => {
     expect(lines.at(-1)).toContain('https://example.test/pr/1')
 
     expect(spawnService.spawnAgent).toHaveBeenCalledWith('viola-1', expect.objectContaining({
-      title: 'Validation', runtimeId: 'claude', newWorktree: true, nonInteractive: true,
+      title: 'Validation', runtimeId: 'claude', newWorktree: true, nonInteractive: false,
     }))
     expect(gates.run).toHaveBeenCalledWith('/wt/Validation-1', 'npm test -- src/validation', expect.anything())
     expect(git.apply).toHaveBeenCalledWith('/wt/review-validation-2', 'diff --git a/v b/v')
+  })
+
+  it('reads an interactive worker\'s report from its terminal, stripped of escape codes', async () => {
+    const noisy = '\u001b[2K\u001b[1;36m> \u001b[0mAdded the validator.\r\n'
+      + '\u001b[38;5;246mRan npm test -- src/validation: 4 passed.\u001b[0m\r\n'
+    const { harness, chat, controlService, sessions } = setup({
+      // An interactive worker writes to its PTY, never to the chat store.
+      workerTurn: async () => 'ended',
+      internalSessions: { outputBuffer: noisy },
+    })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
+
+    const reviewPrompt = controlService.runTurn.mock.calls
+      .map(([, prompt]) => prompt as string)
+      .find((prompt) => prompt.startsWith('You are an independent code reviewer'))!
+    expect(reviewPrompt).toContain('Added the validator.')
+    expect(reviewPrompt).toContain('4 passed.')
+    expect(reviewPrompt).not.toContain('\u001b')
+    expect(sessions.getInternalSession).toHaveBeenCalled()
   })
 
   it('reports an explore task\'s answer in the summary', async () => {

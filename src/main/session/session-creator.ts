@@ -15,6 +15,7 @@ import type { MemoryInjector } from '../memory/memory-injector'
 import { debugLog } from '../app/debug-log'
 import type { InternalSession } from './session-types'
 import { buildSimpleRuntimeCommand } from '../agent/simple-runtime'
+import { orchestratedInteractiveArgs } from '../agent/orchestrated-args'
 import { agentSpawnEnv } from '../agent/agent-env'
 import { claudeAnsiThemeArgs } from '../agent/claude-theme-args'
 import { isGitProject } from '../../shared/project-kind'
@@ -146,6 +147,12 @@ export class SessionCreator {
       nonInteractiveOutputMode = simpleCommand.outputMode
     } else if (options.ollamaModel) {
       runtimeArgs.push('--model', options.ollamaModel)
+    }
+
+    // A worker an orchestrator spawned has no human to answer a permission prompt, so it needs
+    // the runtime's real bypass. Human-launched interactive sessions keep prompting.
+    if (!nonInteractive && options.orchestratedBy) {
+      runtimeArgs.push(...orchestratedInteractiveArgs(options.runtimeId))
     }
 
     if (!nonInteractive && additionalDirs.length > 0) {

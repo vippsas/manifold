@@ -1,6 +1,6 @@
 ---
 description: How the native Viola harness plans a goal, runs each task as its own pipeline (chat-mode worker, gates, cross-harness review), and reports progress through a live run board.
-covers: [src/main/viola, src/main/agent/runtimes.ts, src/shared/viola.ts, src/renderer/components/viola]
+covers: [src/main/viola, src/main/agent/runtimes.ts, src/main/agent/orchestrated-args.ts, src/shared/viola.ts, src/renderer/components/viola]
 updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
@@ -70,17 +70,27 @@ reviewed while a slower sibling is still implementing (`src/main/viola/engine.ts
 installed; otherwise tasks rotate through the available harnesses
 (`src/main/viola/engine.ts:127`).
 
-Every worker is a **chat-mode** Manifold session (`nonInteractive: true`,
-`src/main/viola/task-pipeline.ts:163`). Chat mode runs each turn as a print-mode process with
-the CLI's own approval bypass, so no permission or folder-trust prompt can stall a headless
-worker, the turn ends when the process exits, and the worker's final message is its report
-(`src/main/viola/harness.ts:216`).
+Every worker is an ordinary **interactive** Manifold session — a real terminal in its own tab, so
+the human can watch one or take it over mid-run (`src/main/viola/task-pipeline.ts:172`). Only Viola
+itself is a chat session. Two consequences follow from that choice, and both are handled rather
+than assumed away:
+
+- **Permission prompts would stall an unattended worker.** The registry's Claude entry passes
+  `--allow-dangerously-skip-permissions`, which enables bypass "as an option, without it being
+  enabled by default", so a worker launched with it alone still prompts — and the turn-end
+  heuristic reads that idle prompt as a finished turn, leaving Viola to review an untouched tree.
+  A session carrying `orchestratedBy` therefore gets its runtime's real bypass at launch
+  (`src/main/agent/orchestrated-args.ts:13`, `src/main/session/session-creator.ts:154`). Human
+  launched interactive sessions are untouched and keep prompting.
+- **A terminal has no chat messages to read.** A worker's report is the tail of its PTY, so it is
+  stripped of escape codes and bounded before it reaches a prompt or a summary
+  (`src/main/viola/harness.ts:260`).
 
 Each spawn is verified rather than trusted. A worker that asked for a worktree but came back on
 Viola's own checkout means isolation was unavailable after all, and the task fails there, before
-any turn, gate, or review runs (`src/main/viola/task-pipeline.ts:167`). A worker that is not
+any turn, gate, or review runs (`src/main/viola/task-pipeline.ts:176`). A worker that is not
 ready within 30 seconds, or a reviewer whose spawn fails, ends the task with that underlying
-error (`src/main/viola/task-pipeline.ts:179`).
+error (`src/main/viola/task-pipeline.ts:188`).
 
 - **Explore tasks** share Viola's own checkout (`newWorktree: false`), receive a read-only prompt,
   and are done when their report returns; no reviewer is involved
@@ -102,7 +112,13 @@ error (`src/main/viola/task-pipeline.ts:179`).
   that it tells the reviewer to run `git diff` locally rather than truncating silently
   (`src/main/viola/prompts.ts:5`, `:57`). A blocking verdict is sent once to the original
   implementer, the same reviewer re-reviews the fresh diff, and another failure becomes
-  `needs_attention` (`src/main/viola/task-pipeline.ts:79`).
+  `needs_attention` (`src/main/viola/task-pipeline.ts:81`).
+- **The verdict travels through a file, not the transcript.** A verdict has to be machine-readable,
+  and a terminal worker's scrollback is screen redraws and box drawing, so hunting a JSON object in
+  it is guesswork. The reviewer is told the exact path to write, and writing it is the one edit it
+  is allowed; Viola clears any previous verdict first so a re-review cannot read the stale one, and
+  falls back to parsing the reply only when no file was written
+  (`src/main/viola/verdict-store.ts:20`, `src/main/viola/task-pipeline.ts:145`).
 
 Workers are told to test, commit, optionally push/open a PR, and never merge. A passing task
 records a discoverable PR URL, but local-only work is valid and remains visible through its
@@ -169,8 +185,11 @@ re-reviews remain explicit task errors or `needs_attention`; healthy siblings st
 - `engine.test.ts` pins the two-harness precondition, plan gate, chat-mode fan-out, per-task
   pipelining, gates before review, explore reports, worker routing, and the bounded fix loop.
 - `harness.test.ts` pins the default-model planner call, live progress lines, and the summary.
-- `git.test.ts` and `gates.test.ts` run real git and real shell commands in temp repos, including
-  a linked-worktree apply and the refusal to touch a main checkout.
+- `git.test.ts`, `gates.test.ts`, and `verdict-store.test.ts` run real git, real shell commands,
+  and real files in temp repos, including a linked-worktree apply, the refusal to touch a main
+  checkout, and the clear-before-review that prevents a stale verdict.
+- `orchestrated-args.test.ts` and `session-creator.test.ts` pin that an orchestrated interactive
+  worker gets a real bypass while a human-launched session keeps prompting.
 - `ViolaRunBoard.test.tsx` pins the row contents, the ticking clock, the click-through, and the
   states that render nothing; `viola-run-store.test.ts` pins snapshot caching across remounts and
   malformed-payload tolerance; `ChatPane.test.tsx` pins the activity slot replacing the phrases.

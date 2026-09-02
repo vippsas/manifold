@@ -10,7 +10,7 @@ import {
 import type { ViolaReview, ViolaRun, ViolaTaskRun, ViolaTaskState, ViolaWorkerId } from '../../shared/viola'
 
 export interface PipelineContext {
-  deps: Pick<ViolaEngineDeps, 'spawn' | 'git' | 'gates'>
+  deps: Pick<ViolaEngineDeps, 'spawn' | 'git' | 'gates' | 'verdicts'>
   /** Viola's own checkout, used to detect a worker that was not given its own worktree. */
   basePath: string
   now(): number
@@ -140,13 +140,19 @@ async function review(
   if (!diff.trim()) throw new Error('The worker produced no diff to review.')
   const stat = await ctx.deps.git.diffStat(agent.worktreePath, baseSha)
   await ctx.deps.git.apply(reviewer.worktreePath, diff)
+
+  // Clear first: a re-review that read the previous verdict would pass on stale findings.
+  await ctx.deps.verdicts.clear(reviewer.worktreePath, task.id)
+  const verdictPath = ctx.deps.verdicts.path(reviewer.worktreePath, task.id)
   const response = await turn(
     reviewer,
-    buildReviewPrompt(task, { diff, stat, report: task.report ?? '' }),
+    buildReviewPrompt(task, { diff, stat, report: task.report ?? '', verdictPath }),
     signal,
     'Review',
   )
-  const parsed = parseReviewResponse(response)
+  // The file is exact; the reply is a fallback for a reviewer that answered inline.
+  const written = await ctx.deps.verdicts.read(reviewer.worktreePath, task.id)
+  const parsed = parseReviewResponse(written ?? response)
   if ('error' in parsed) throw new Error(parsed.error)
   task.review = parsed
   await ctx.publish(run)
@@ -161,7 +167,9 @@ async function spawnWorker(
   runtimeId: ViolaWorkerId,
   newWorktree: boolean,
 ): Promise<ViolaAgent> {
-  const agent = await ctx.deps.spawn(run.baseSessionId, { title, runtimeId, newWorktree, nonInteractive: true })
+  // Workers run as real terminals so the human can watch one or take it over. Only Viola itself
+  // is a chat session.
+  const agent = await ctx.deps.spawn(run.baseSessionId, { title, runtimeId, newWorktree, nonInteractive: false })
   // A project added as a plain folder always works in place, so it hands back Viola's own
   // checkout however loudly we ask for a worktree. Every implement guarantee depends on the
   // isolation, and reviewing there would reset a real working copy, so stop before any work.

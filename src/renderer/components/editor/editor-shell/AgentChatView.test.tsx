@@ -57,7 +57,7 @@ describe('AgentChatView', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument()
   })
 
-  it('shows the live Viola run board in place of the generic thinking phrases', async () => {
+  it('shows the live Viola run board above the thinking indicator', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'simple:chat-messages') return Promise.resolve([])
       if (channel === 'simple:get-agent-status') return Promise.resolve('running')
@@ -84,7 +84,7 @@ describe('AgentChatView', () => {
 
     expect(await screen.findByText('API tests')).toBeInTheDocument()
     expect(screen.getByText('implementing')).toBeInTheDocument()
-    expect(screen.queryByTestId('thinking-phrase')).not.toBeInTheDocument()
+    expect(screen.getByTestId('thinking-phrase')).toBeInTheDocument()
   })
 
   it('keeps a thinking indicator while Viola is still planning and has no live run', async () => {

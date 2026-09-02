@@ -171,7 +171,7 @@ describe('ChatPane', () => {
 })
 
 describe('ChatPane activity slot', () => {
-  it('shows a caller-supplied activity view instead of the generic thinking phrases', () => {
+  it('shows a caller-supplied activity view above the thinking indicator, not instead of it', () => {
     render(
       <ChatPane
         messages={[]}
@@ -182,8 +182,9 @@ describe('ChatPane activity slot', () => {
     )
 
     expect(screen.getByTestId('run-board')).toBeTruthy()
-    // The rotating phrase list must not also render; that is the noise being replaced.
-    expect(screen.queryByTestId('thinking-phrase')).toBeNull()
+    // The animated indicator stays: a board row can sit unchanged for minutes, so the
+    // continuous animation underneath it is what reads as "still working".
+    expect(screen.getByTestId('thinking-phrase')).toBeTruthy()
   })
 
   it('falls back to the thinking phrases when no activity view is supplied', () => {

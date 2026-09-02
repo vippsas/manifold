@@ -589,3 +589,50 @@ describe('SessionCreator orchestrated workers', () => {
     )
   })
 })
+
+describe('SessionCreator orchestrated interactive workers', () => {
+  it('gives an orchestrated interactive Claude worker a real permission bypass', async () => {
+    vi.mocked(readWorktreeMeta).mockResolvedValueOnce(null)
+    const ptyPool = createPtyPool()
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      ptyPool,
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'claude',
+      prompt: 'fix-auth',
+      orchestratedBy: 'viola-1',
+      existingWorktreePath: '/repo/.manifold/worktrees/manifold-bergen',
+    })
+
+    const args = vi.mocked(ptyPool.spawn).mock.calls[0][1] as string[]
+    expect(args).toContain('--dangerously-skip-permissions')
+  })
+
+  it('leaves a human-launched interactive Claude session prompting as before', async () => {
+    vi.mocked(readWorktreeMeta).mockResolvedValueOnce(null)
+    const ptyPool = createPtyPool()
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      ptyPool,
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'claude',
+      prompt: 'my own work',
+      existingWorktreePath: '/repo/.manifold/worktrees/manifold-bergen',
+    })
+
+    const args = vi.mocked(ptyPool.spawn).mock.calls[0][1] as string[]
+    expect(args).not.toContain('--dangerously-skip-permissions')
+  })
+})
