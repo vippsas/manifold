@@ -1,4 +1,4 @@
-import type { ViolaRun, ViolaTaskRun } from './types'
+import type { ViolaRun, ViolaTaskRun } from '../../shared/viola'
 
 const REPORT_MAX_CHARS = 2_000
 
@@ -37,31 +37,19 @@ export function formatResult(run: ViolaRun): string {
   return `## Run ${run.state.replace('_', ' ')}\n\n${tasks}\n\nViola did not merge any branch.`
 }
 
-/** One chat line per task state change; null for states the plan or summary already cover. */
-export function describeTaskProgress(task: ViolaTaskRun): string | null {
+/** A chat line for the durable outcomes only. In-flight states belong to the live board, which
+ *  updates in place; repeating them in the transcript just buries the milestones. */
+export function describeTaskMilestone(task: ViolaTaskRun): string | null {
   const label = `**${task.title}** ·`
   switch (task.state) {
-    case 'planned':
-    case 'spawning':
-      return null
-    case 'implementing':
-      return `${label} implementing on ${task.runtimeId}`
-    case 'exploring':
-      return `${label} exploring on ${task.runtimeId}`
-    case 'gating':
-      return `${label} running gates`
-    case 'reviewing':
-      return `${label} reviewing on ${task.reviewRuntimeId}`
-    case 'fixing': {
-      const blocking = task.review?.blocking.length ?? 0
-      return `${label} fixing ${blocking > 0 ? `${blocking} blocking finding${blocking === 1 ? '' : 's'}` : 'a red gate'}`
-    }
     case 'done':
       return `${label} done${task.prUrl ? ` · ${task.prUrl}` : ''}`
     case 'needs_attention':
       return `${label} needs attention · ${task.error ?? 'see summary'}`
     case 'error':
       return `${label} failed · ${task.error ?? 'unknown error'}`
+    default:
+      return null
   }
 }
 

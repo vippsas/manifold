@@ -48,10 +48,17 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 row beside the installed CLI agents; `AgentLaunchList` recognizes the orchestrator kind, opens it
 in chat mode, and explains the two-installed-harness precondition when unavailable
 (`components/modals/AgentLaunchList.tsx:100`, `:112`). `AgentPanel` sends every non-interactive
-session through the same `AgentChatView`; `runtimeId: 'viola'` only selects the goal-oriented
-empty state (`components/editor/editor-shell/dock-agent-panel.tsx:165`,
-`components/editor/editor-shell/AgentChatView.tsx:48`). Planning and worker orchestration stay in
+session through the same `AgentChatView`; `runtimeId: 'viola'` selects the goal-oriented empty
+state and the live run board (`components/editor/editor-shell/dock-agent-panel.tsx:165`,
+`components/editor/editor-shell/AgentChatView.tsx:59`). Planning and worker orchestration stay in
 the main process, so no plugin view or activity-rail entry is involved.
+
+**The Viola run board is the renderer's one always-on subscription.** `components/viola/
+viola-run-store.ts` listens on `viola:run` at module scope rather than per component, because a
+listener that unmounted with the tab would miss states and redisplay a stale board on return. It
+attaches lazily on first use, so importing it never assumes the preload bridge exists yet. The
+board reaches the chat through `ChatPane`'s `activity` slot, which replaces the generic thinking
+phrases for that runtime alone — see [Viola](viola.md).
 
 **UI scale.** `App` applies the `uiScale` setting in a layout effect that clamps the value with
 `clampUiScale`, sets the `--ui-scale` CSS variable on the document root, and dispatches a

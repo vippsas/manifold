@@ -4,6 +4,8 @@ import { StarfieldBackdrop } from '../../StarfieldBackdrop'
 import { ChatPane, useChat, useAgentStatus, useSlashCommands } from '../../../../renderer-shared/chat'
 import type { PastedImage, FileDropConfig } from '../../../../renderer-shared/chat/ChatPane'
 import { PluginGlyph } from '../../plugin-glyphs'
+import { ViolaRunBoard } from '../../viola/ViolaRunBoard'
+import { useViolaRun } from '../../viola/viola-run-store'
 
 interface AgentChatViewProps {
   sessionId: string
@@ -17,6 +19,8 @@ interface AgentChatViewProps {
 export function AgentChatView({ sessionId, mentionPaths, fileDrop, runtimeId }: AgentChatViewProps): React.JSX.Element {
   const { messages, sendMessage } = useChat(sessionId)
   const { status, durationMs } = useAgentStatus(sessionId)
+  const isViola = runtimeId === 'viola'
+  const violaRun = useViolaRun(isViola ? sessionId : null)
   const slashCommands = useSlashCommands(sessionId)
   const interrupt = useCallback(() => {
     void window.electronAPI.invoke('agent:interrupt', sessionId)
@@ -52,8 +56,11 @@ export function AgentChatView({ sessionId, mentionPaths, fileDrop, runtimeId }: 
         onSend={(text, images) => { void handleSend(text, images) }}
         onInterrupt={interrupt}
         isThinking={status === 'running'}
+        // Only once there are workers to show. While Viola is still planning there is nothing
+        // for a board to display, so the ordinary thinking indicator stays.
+        activity={violaRun?.state === 'running' ? <ViolaRunBoard run={violaRun} /> : undefined}
         durationMs={durationMs}
-        placeholder={runtimeId === 'viola' ? <ViolaEmptyState /> : <AgentChatEmptyState />}
+        placeholder={isViola ? <ViolaEmptyState /> : <AgentChatEmptyState />}
         acceptImages
         collapsibleUserMessages
         mentionPaths={mentionPaths}

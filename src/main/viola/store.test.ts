@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FileViolaStore } from './store'
-import type { ViolaRun } from './types'
+import type { ViolaRun } from '../../shared/viola'
 
 const roots: string[] = []
 

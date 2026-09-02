@@ -169,3 +169,41 @@ describe('ChatPane', () => {
     })
   })
 })
+
+describe('ChatPane activity slot', () => {
+  it('shows a caller-supplied activity view above the thinking indicator, not instead of it', () => {
+    render(
+      <ChatPane
+        messages={[]}
+        onSend={vi.fn()}
+        isThinking
+        activity={<div data-testid="run-board">2 implementing</div>}
+      />,
+    )
+
+    expect(screen.getByTestId('run-board')).toBeTruthy()
+    // The animated indicator stays: a board row can sit unchanged for minutes, so the
+    // continuous animation underneath it is what reads as "still working".
+    expect(screen.getByTestId('thinking-phrase')).toBeTruthy()
+  })
+
+  it('falls back to the thinking phrases when no activity view is supplied', () => {
+    render(<ChatPane messages={[]} onSend={vi.fn()} isThinking />)
+
+    expect(screen.getByTestId('thinking-phrase')).toBeTruthy()
+  })
+
+  it('shows nothing extra once the agent stops thinking', () => {
+    render(
+      <ChatPane
+        messages={[]}
+        onSend={vi.fn()}
+        isThinking={false}
+        activity={<div data-testid="run-board">idle</div>}
+      />,
+    )
+
+    expect(screen.queryByTestId('run-board')).toBeNull()
+    expect(screen.queryByTestId('thinking-phrase')).toBeNull()
+  })
+})

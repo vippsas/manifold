@@ -115,6 +115,9 @@ const violaHarness = new ViolaHarness(sessionManager, chatAdapter, gitOps, {
   storageRoot: settingsStore.getSettings().storagePath,
   getPreferredRuntime: () => settingsStore.getSettings().defaultRuntime,
   getProject: (projectId) => projectRegistry.getProject(projectId),
+  sendToRenderer: (channel, payload) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
+  },
 })
 sessionManager.setViolaHarness(violaHarness)
 

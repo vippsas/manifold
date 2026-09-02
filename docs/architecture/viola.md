@@ -1,6 +1,6 @@
 ---
-description: How the native Viola harness plans a goal, runs each task as its own pipeline (chat-mode worker, gates, cross-harness review) and narrates progress.
-covers: [src/main/viola, src/main/agent/runtimes.ts]
+description: How the native Viola harness plans a goal, runs each task as its own pipeline (chat-mode worker, gates, cross-harness review), and reports progress through a live run board.
+covers: [src/main/viola, src/main/agent/runtimes.ts, src/main/agent/orchestrated-args.ts, src/shared/viola.ts, src/renderer/components/viola]
 updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
@@ -70,17 +70,27 @@ reviewed while a slower sibling is still implementing (`src/main/viola/engine.ts
 installed; otherwise tasks rotate through the available harnesses
 (`src/main/viola/engine.ts:127`).
 
-Every worker is a **chat-mode** Manifold session (`nonInteractive: true`,
-`src/main/viola/task-pipeline.ts:163`). Chat mode runs each turn as a print-mode process with
-the CLI's own approval bypass, so no permission or folder-trust prompt can stall a headless
-worker, the turn ends when the process exits, and the worker's final message is its report
-(`src/main/viola/harness.ts:216`).
+Every worker is an ordinary **interactive** Manifold session — a real terminal in its own tab, so
+the human can watch one or take it over mid-run (`src/main/viola/task-pipeline.ts:172`). Only Viola
+itself is a chat session. Two consequences follow from that choice, and both are handled rather
+than assumed away:
+
+- **Permission prompts would stall an unattended worker.** The registry's Claude entry passes
+  `--allow-dangerously-skip-permissions`, which enables bypass "as an option, without it being
+  enabled by default", so a worker launched with it alone still prompts — and the turn-end
+  heuristic reads that idle prompt as a finished turn, leaving Viola to review an untouched tree.
+  A session carrying `orchestratedBy` therefore gets its runtime's real bypass at launch
+  (`src/main/agent/orchestrated-args.ts:13`, `src/main/session/session-creator.ts:154`). Human
+  launched interactive sessions are untouched and keep prompting.
+- **A terminal has no chat messages to read.** A worker's report is the tail of its PTY, so it is
+  stripped of escape codes and bounded before it reaches a prompt or a summary
+  (`src/main/viola/harness.ts:260`).
 
 Each spawn is verified rather than trusted. A worker that asked for a worktree but came back on
 Viola's own checkout means isolation was unavailable after all, and the task fails there, before
-any turn, gate, or review runs (`src/main/viola/task-pipeline.ts:167`). A worker that is not
+any turn, gate, or review runs (`src/main/viola/task-pipeline.ts:176`). A worker that is not
 ready within 30 seconds, or a reviewer whose spawn fails, ends the task with that underlying
-error (`src/main/viola/task-pipeline.ts:179`).
+error (`src/main/viola/task-pipeline.ts:188`).
 
 - **Explore tasks** share Viola's own checkout (`newWorktree: false`), receive a read-only prompt,
   and are done when their report returns; no reviewer is involved
@@ -102,18 +112,47 @@ error (`src/main/viola/task-pipeline.ts:179`).
   that it tells the reviewer to run `git diff` locally rather than truncating silently
   (`src/main/viola/prompts.ts:5`, `:57`). A blocking verdict is sent once to the original
   implementer, the same reviewer re-reviews the fresh diff, and another failure becomes
-  `needs_attention` (`src/main/viola/task-pipeline.ts:79`).
+  `needs_attention` (`src/main/viola/task-pipeline.ts:81`).
+- **The verdict travels through a file, not the transcript.** A verdict has to be machine-readable,
+  and a terminal worker's scrollback is screen redraws and box drawing, so hunting a JSON object in
+  it is guesswork. The reviewer is told the exact path to write, and writing it is the one edit it
+  is allowed; Viola clears any previous verdict first so a re-review cannot read the stale one, and
+  falls back to parsing the reply only when no file was written
+  (`src/main/viola/verdict-store.ts:20`, `src/main/viola/task-pipeline.ts:145`).
 
 Workers are told to test, commit, optionally push/open a PR, and never merge. A passing task
 records a discoverable PR URL, but local-only work is valid and remains visible through its
 branch/worktree.
 
-## Progress and results
+## Progress: a live board, not a rotating phrase
 
-The engine publishes every state change; the harness turns each task transition into one chat
-line (implementing, running gates, reviewing, fixing, done, needs attention) so a long run is
-never silent (`src/main/viola/harness.ts:88`, `:178`, `src/main/viola/format.ts:41`). The
-final summary lists each task's route, PR or error, and quotes explore reports inline
+A worker turn has a thirty-minute budget, so a run can sit in one state for a long time. The chat
+pane's default indicator only cycles random phrases from a 600-item list, and its elapsed badge
+renders solely once the agent has *stopped*, so a long step looked indistinguishable from a hang.
+
+The engine publishes a full run snapshot on every state change. The harness splits that stream in
+two (`src/main/viola/harness.ts:192`):
+
+- **The live board** gets every snapshot, pushed to the renderer on `viola:run`
+  (allow-listed in `src/preload/index.ts:169`). Each task carries `stateSince`, stamped by the one
+  helper every transition goes through, so the clock can never drift from the state
+  (`src/shared/viola.ts:46`, `src/main/viola/task-pipeline.ts:197`).
+- **The chat log** gets milestones only — done, needs attention, failed
+  (`src/main/viola/format.ts:42`). Repeating in-flight states in a transcript that only grows
+  buries the outcomes; the board updates in place instead.
+
+On the renderer side a module-level store owns the subscription
+(`src/renderer/components/viola/viola-run-store.ts`). It attaches on first use rather than at
+import, and never detaches: a per-component listener would go deaf whenever the user switched
+tabs, so returning to a Viola tab mid-run would show a board several states stale. `ViolaRunBoard`
+renders one row per task — title, step, harness, and a clock that ticks every second, which is
+what distinguishes a slow step from a dead one. A row opens its worker's own session through the
+dock's `onOpenSibling`, since Viola's children are ordinary visible sessions. A fixing row names
+the blocking finding it is addressing, the one detail that used to reach the chat log. The board
+is passed to `ChatPane` as its `activity` slot, so it replaces the phrases for Viola only and
+every other runtime is untouched (`src/renderer-shared/chat/ChatPane.tsx:183`).
+
+The final summary still lists each task's route, PR or error, and quotes explore reports inline
 (`src/main/viola/format.ts:28`).
 
 ## Guardrails
@@ -146,8 +185,15 @@ re-reviews remain explicit task errors or `needs_attention`; healthy siblings st
 - `engine.test.ts` pins the two-harness precondition, plan gate, chat-mode fan-out, per-task
   pipelining, gates before review, explore reports, worker routing, and the bounded fix loop.
 - `harness.test.ts` pins the default-model planner call, live progress lines, and the summary.
-- `git.test.ts` and `gates.test.ts` run real git and real shell commands in temp repos, including
-  a linked-worktree apply and the refusal to touch a main checkout.
+- `git.test.ts`, `gates.test.ts`, and `verdict-store.test.ts` run real git, real shell commands,
+  and real files in temp repos, including a linked-worktree apply, the refusal to touch a main
+  checkout, and the clear-before-review that prevents a stale verdict.
+- `orchestrated-args.test.ts` and `session-creator.test.ts` pin that an orchestrated interactive
+  worker gets a real bypass while a human-launched session keeps prompting.
+- `ViolaRunBoard.test.tsx` pins the row contents, the ticking clock, the click-through, and the
+  states that render nothing; `viola-run-store.test.ts` pins snapshot caching across remounts and
+  malformed-payload tolerance; `ChatPane.test.tsx` pins the activity slot replacing the phrases.
+  `ViolaRunBoard.fixture.tsx` backs `npm run screenshot:component ViolaRunBoard`.
 - `engine.test.ts` and `harness.test.ts` pin both preconditions and the non-isolated-spawn abort.
 - Session, renderer, and chooser tests pin native runtime creation, harness routing,
   `orchestratedBy` persistence, and the guarded Claude turn.

@@ -7,14 +7,16 @@ import { createAgentControlService, type AgentControlService } from '../plugins/
 import { createAgentSpawnService, type NativeAgentSpawnService } from '../plugins/agent-spawn-service'
 import type { ViolaHarnessController, SessionManager } from '../session/session-manager'
 import { ViolaEngine, type ViolaAgent, type ViolaTurn } from './engine'
-import { describeTaskProgress, formatPlan, formatResult, formatStart } from './format'
+import { describeTaskMilestone, formatPlan, formatResult, formatStart } from './format'
 import { createViolaGates, type ViolaGates } from './gates'
 import { createViolaGit, type ViolaGit } from './git'
+import { stripAnsiForContext } from '../session/nl-command-translator'
 import { parsePlanResponse } from './planner'
 import { buildPlanPrompt } from './prompts'
 import { FileViolaStore, type ViolaStore } from './store'
-import type { ViolaRun, ViolaTaskState, ViolaWorkerId } from './types'
-import { isViolaWorker } from './types'
+import { createViolaVerdictStore, type ViolaVerdictStore } from './verdict-store'
+import type { ViolaRun, ViolaTaskState, ViolaWorkerId } from '../../shared/viola'
+import { isViolaWorker } from '../../shared/viola'
 
 type GitAi = Pick<GitOperationsManager, 'aiGenerate'>
 
@@ -29,12 +31,16 @@ export interface ViolaHarnessOptions {
   store?: ViolaStore
   git?: ViolaGit
   gates?: ViolaGates
+  verdicts?: ViolaVerdictStore
+  /** Pushes run snapshots to the renderer's live board. */
+  sendToRenderer?: (channel: string, payload: unknown) => void
 }
 
 const START_COMMANDS = new Set(['start', 'start plan', 'run', 'run plan', 'approve', 'approved'])
 /** The planner may read the repository before answering, so it gets more than a one-shot budget. */
 const PLAN_TIMEOUT_MS = 10 * 60_000
 const WORKER_TURN_BUDGET_SECONDS = 30 * 60
+const TERMINAL_REPORT_MAX_CHARS = 4_000
 
 /** Native conversational harness for the Viola runtime. */
 export class ViolaHarness implements ViolaHarnessController {
@@ -42,6 +48,7 @@ export class ViolaHarness implements ViolaHarnessController {
   private readonly inflight = new Set<string>()
   private readonly planAborts = new Map<string, AbortController>()
   private readonly announced = new Map<string, Map<string, ViolaTaskState>>()
+  private readonly sendToRenderer: (channel: string, payload: unknown) => void
   private readonly control: AgentControlService
   private readonly listRuntimes: () => Promise<AgentRuntime[]>
 
@@ -54,6 +61,7 @@ export class ViolaHarness implements ViolaHarnessController {
     const spawn = options.spawnService ?? createAgentSpawnService(sessions)
     this.control = options.controlService ?? createAgentControlService(sessions)
     this.listRuntimes = options.listRuntimes ?? listRuntimesWithStatus
+    this.sendToRenderer = options.sendToRenderer ?? ((): void => {})
 
     this.engine = new ViolaEngine({
       availableRuntimes: () => this.availableWorkers(),
@@ -93,8 +101,9 @@ export class ViolaHarness implements ViolaHarnessController {
       },
       git: options.git ?? createViolaGit(),
       gates: options.gates ?? createViolaGates(),
+      verdicts: options.verdicts ?? createViolaVerdictStore(),
       store: options.store ?? new FileViolaStore(options.storageRoot),
-      emit: (run) => this.announceProgress(run),
+      emit: (run) => this.publishRun(run),
     })
   }
 
@@ -183,8 +192,11 @@ export class ViolaHarness implements ViolaHarnessController {
     }
   }
 
-  /** Posts one chat line per task state change so a long run is never silent. */
-  private announceProgress(run: ViolaRun): void {
+  /** Streams the run to the live board on every change, and writes only milestones to the chat
+   *  log: the board carries in-flight detail, the transcript keeps the durable outcomes. */
+  private publishRun(run: ViolaRun): void {
+    this.sendToRenderer('viola:run', { sessionId: run.baseSessionId, run })
+
     let seen = this.announced.get(run.baseSessionId)
     if (!seen) {
       seen = new Map()
@@ -193,7 +205,7 @@ export class ViolaHarness implements ViolaHarnessController {
     for (const task of run.tasks) {
       if (seen.get(task.id) === task.state) continue
       seen.set(task.id, task.state)
-      const line = describeTaskProgress(task)
+      const line = describeTaskMilestone(task)
       if (line) this.chat.addAgentMessage(run.baseSessionId, line)
     }
   }
@@ -228,8 +240,10 @@ export class ViolaHarness implements ViolaHarnessController {
         .filter((message) => message.role === 'agent')
         .map((message) => message.text)
         .join('\n')
-      const fallback = this.sessions.getInternalSession(sessionId)?.outputBuffer ?? ''
-      return { outcome, response: response || fallback }
+      // An interactive worker writes to its PTY, not to the chat store, so its report is the
+      // tail of the terminal — readable only once the escape codes are gone.
+      const terminal = this.sessions.getInternalSession(sessionId)?.outputBuffer ?? ''
+      return { outcome, response: response || terminalReport(terminal) }
     } finally {
       signal.removeEventListener('abort', cancel)
     }
@@ -240,6 +254,16 @@ export class ViolaHarness implements ViolaHarnessController {
     if (!session || session.runtimeId !== 'viola') throw new Error(`No Viola session ${sessionId}`)
     return session
   }
+}
+
+/** The readable tail of a worker's terminal, bounded so a long session cannot flood a prompt. */
+function terminalReport(output: string): string {
+  const clean = stripAnsiForContext(output)
+    .split('\n')
+    .map((line) => line.replace(/\r/g, '').trimEnd())
+    .filter((line) => line.trim().length > 0)
+    .join('\n')
+  return clean.length > TERMINAL_REPORT_MAX_CHARS ? clean.slice(-TERMINAL_REPORT_MAX_CHARS) : clean
 }
 
 function errorMessage(error: unknown): string {

@@ -1,8 +1,9 @@
 import type { ViolaGates } from './gates'
 import type { ViolaGit } from './git'
 import type { ViolaStore } from './store'
+import type { ViolaVerdictStore } from './verdict-store'
 import { runTaskPipeline } from './task-pipeline'
-import type { ViolaPlan, ViolaRun, ViolaTaskRun, ViolaWorkerId } from './types'
+import type { ViolaPlan, ViolaRun, ViolaTaskRun, ViolaWorkerId } from '../../shared/viola'
 
 export interface ViolaTurn {
   outcome: 'ended' | 'timeout' | 'aborted'
@@ -35,6 +36,7 @@ export interface ViolaEngineDeps {
   spawn(baseSessionId: string, options: ViolaSpawnOptions): Promise<ViolaAgent>
   git: ViolaGit
   gates: ViolaGates
+  verdicts: ViolaVerdictStore
   store: ViolaStore
   emit?: (run: ViolaRun) => void
   now?: () => number
@@ -90,7 +92,7 @@ export class ViolaEngine {
       summary: plan.summary,
       state: 'planned',
       availableRuntimes,
-      tasks: plan.tasks.map((task) => ({ ...task, state: 'planned' })),
+      tasks: plan.tasks.map((task) => ({ ...task, state: 'planned', stateSince: createdAt })),
       createdAt,
     }
     this.runs.set(baseSessionId, run)
@@ -112,6 +114,7 @@ export class ViolaEngine {
       const context = {
         deps: this.deps,
         basePath: await this.deps.baseWorktreePath(baseSessionId),
+        now: this.now,
         publish: (current: ViolaRun) => this.publish(current),
       }
       await Promise.all(run.tasks.map((task, index) => (
@@ -156,7 +159,12 @@ export class ViolaEngine {
 function normalizeStored(run: ViolaRun): ViolaRun {
   return {
     ...run,
-    tasks: run.tasks.map((task) => ({ ...task, purpose: task.purpose ?? 'implement', gates: task.gates ?? [] })),
+    tasks: run.tasks.map((task) => ({
+      ...task,
+      purpose: task.purpose ?? 'implement',
+      gates: task.gates ?? [],
+      stateSince: task.stateSince ?? run.createdAt,
+    })),
   }
 }
 
