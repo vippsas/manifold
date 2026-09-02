@@ -508,13 +508,17 @@ select:focus-visible {
   min-width: 0;
 }
 
-/* Text tabs (agent, shell, module panels) fill the header strip edge to edge and
-   sit in chrome, so the active one — carrying the content background — reads as
-   the surface below pulled up into the strip. Icon and headless tabs
-   (sidebar/editor) keep their own treatment. The active and hover fills live in
+/* Text tabs (agent, shell, module panels) are pills inset in the header strip —
+   24px in the 30px chrome, the same shape the icon tabs take — so a row of them
+   reads as tabs floating on one flat sheet rather than as abutting blocks. At
+   rest a pill draws nothing; the active and hover fills live in
    dockview-theme.css, scoped to dockview's `.dv-active-tab`. */
 .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
-  background: var(--bg-chrome);
+  height: 24px;
+  margin-block: 3px;
+  max-width: 200px;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-secondary);
   transition: background 150ms ease, color 150ms ease;
 }
@@ -548,6 +552,14 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Inside a text tab the × has to fit the 24px pill rather than the 30px strip,
+   so it drops to the overflow action's size and loses the strip centring. */
+.dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) .dock-tab__close {
+  width: 20px;
+  height: 20px;
+  margin-block: 0;
 }
 
 /* Each agent tab has one overflow action. It stays hidden until the tab is
@@ -654,14 +666,14 @@ select:focus-visible {
 }
 
 /* ─── Editor file tabs ─── */
-/* Modelled on VS Code's editor tabs (`multieditortabscontrol.css`): the strip is
-   chrome and the active tab is a piece of the editor surface pulled up into it —
-   same background, an accent rule along its top edge, and the only label at full
-   contrast. Everything else recedes, so the strip reads as "which file am I in"
-   rather than as a row of buttons. */
+/* Geometry follows VS Code's editor tabs (`multieditortabscontrol.css`); the
+   chrome is the dock's, so the file tabs and the agent tabs one panel over read
+   as one row: a flat strip with a pill per tab, nothing drawn at rest, and the
+   only filled shape — plus the only label at full contrast — is the file you are
+   in. The strip reads as "which file am I in" rather than as a row of buttons. */
 .code-tab {
   position: relative;
-  background: var(--bg-chrome);
+  background: transparent;
   color: var(--text-muted);
   transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium);
 }
@@ -671,25 +683,14 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
+/* The same fill the dock's text tabs carry (`styles/dockview-theme.css`): the
+   accent-tinted pill, not a piece of the surface below pulled up behind an
+   accent rule. The editor's tabs sit one panel over from the agent's, so a
+   different active marker between them reads as two different kinds of tab. */
 .code-tab--active {
-  background: var(--bg-chrome-active);
+  background: var(--sidebar-active-bg);
+  box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
   color: var(--text-primary);
-}
-
-/* The same rule the dock's text tabs carry (`styles/dockview-theme.css`): a line
-   of the accent metal that fades at both ends, not a hard border edge to edge.
-   The editor's tabs sit one panel over from the agent's, so a different active
-   marker between them reads as two different kinds of tab. */
-.code-tab--active::after {
-  content: '';
-  position: absolute;
-  left: var(--space-xs);
-  right: var(--space-xs);
-  top: 0;
-  height: 2px;
-  border-radius: 1px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, var(--accent) 28%, var(--accent) 72%, transparent);
 }
 
 .code-tab--menu {
