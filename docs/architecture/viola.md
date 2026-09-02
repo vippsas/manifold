@@ -181,7 +181,13 @@ grouped only into *home* workspaces holding its project, so a child of an agent 
 workspace would belong to none, and `useAgentSiblingDockTabs` prunes any panel whose session it
 does not know. Workers also share the run's `groupId` (`src/main/viola/task-pipeline.ts:174`),
 which keeps them out of the auto-tab set — a four-task run would otherwise open eight tabs — so
-the board is what opens one, on demand. A fixing row names
+the board is what opens one, on demand. Opening one is *recorded*
+(`src/renderer/hooks/agent-session/opened-agent-tabs.ts:15`), because there is a single
+window-wide dock layout: switching repositories reloads it and strips sibling panels whose session
+is not in the new workspace. An ungrouped agent's tab is recreated by the auto-tab pass on return,
+but a grouped one has nothing to recreate it, so a worker tab the user had opened simply
+disappeared. The record is in memory, matching the dismissal set beside it; after an app restart a
+run is `stopped` anyway. A fixing row names
 the blocking finding it is addressing, the one detail that used to reach the chat log. The board
 is passed to `ChatPane` as its `activity` slot, so it replaces the phrases for Viola only and
 every other runtime is untouched (`src/renderer-shared/chat/ChatPane.tsx:183`).
