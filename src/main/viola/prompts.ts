@@ -30,7 +30,17 @@ Rules:
 - Do not include markdown fences or commentary.`
 }
 
-export function buildImplementationPrompt(task: ViolaTaskPlan): string {
+/** Every worker turn ends the same way: write the file, or Viola never learns you finished. */
+function signOff(completionFile: string): string {
+  return `When you have completely finished — not before — write the single word DONE to this exact
+path, creating the directory if needed:
+${completionFile}
+
+Viola waits for that file and collects your work only once it appears. Nothing else is read as
+"finished": if you stop without writing it, your turn is eventually abandoned as a timeout.`
+}
+
+export function buildImplementationPrompt(task: ViolaTaskPlan, completionFile: string): string {
   return `IMPLEMENT this scoped task in your current Manifold-managed worktree.
 
 Task: ${task.description}
@@ -40,10 +50,12 @@ ${bullets(task.acceptance)}
 ${task.gates.length > 0 ? `\nGates Viola will run from the worktree root before review (each must exit 0):\n${bullets(task.gates)}\n` : ''}
 Stay within this task. Add or update tests, run the relevant gates, and inspect the result. Commit the finished change. If GitHub CLI authentication and a remote are available, push the branch and open a pull request. Never merge.
 
-Finish with a short report: what changed (file:line), the exact verification commands you ran with their results, and anything that did not fit the task.`
+Finish with a short report: what changed (file:line), the exact verification commands you ran with their results, and anything that did not fit the task.
+
+${signOff(completionFile)}`
 }
 
-export function buildExplorePrompt(task: ViolaTaskPlan): string {
+export function buildExplorePrompt(task: ViolaTaskPlan, completionFile: string): string {
   return `EXPLORE this question in your current worktree. Edit nothing; this is read-only investigation.
 
 Question: ${task.description}
@@ -51,7 +63,9 @@ Question: ${task.description}
 The answer is complete when:
 ${bullets(task.acceptance)}
 
-Read only what you need. Finish with a structured report that answers the question with file:line evidence and names anything you could not determine.`
+Read only what you need. Finish with a structured report that answers the question with file:line evidence and names anything you could not determine.
+
+${signOff(completionFile)}`
 }
 
 export function buildReviewPrompt(
@@ -77,7 +91,9 @@ ${input.stat.trim() || '(no stat available)'}
 ${diffSection}
 
 Write your verdict as JSON to this exact path, creating the directory if needed. That file is the
-only edit you may make, and it is how the verdict is collected — output alone is not read:
+only edit you may make, and it is both how the verdict is collected and how Viola learns you have
+finished — output alone is never read, and until the file appears your review is still considered
+in progress:
 ${input.verdictPath}
 
 {"passed":true,"blocking":[],"nonBlocking":[]}
@@ -85,7 +101,7 @@ ${input.verdictPath}
 Set passed=false for correctness, security, regression, missing-test, or unmet-acceptance issues. Blocking findings must be concrete and actionable.`
 }
 
-export function buildGateFixPrompt(task: ViolaTaskPlan, command: string, output: string): string {
+export function buildGateFixPrompt(task: ViolaTaskPlan, command: string, output: string, completionFile: string): string {
   return `A verification gate failed on your implementation.
 
 Original task: ${task.description}
@@ -98,10 +114,12 @@ ${command}
 Output:
 ${output.trim() || '(no output)'}
 
-Make the gate pass without weakening it, rerun it, and update the existing commit or PR. Never merge. Finish with a short report of what you changed.`
+Make the gate pass without weakening it, rerun it, and update the existing commit or PR. Never merge. Finish with a short report of what you changed.
+
+${signOff(completionFile)}`
 }
 
-export function buildFixPrompt(task: ViolaTaskPlan, blocking: string[]): string {
+export function buildFixPrompt(task: ViolaTaskPlan, blocking: string[], completionFile: string): string {
   return `The independent reviewer found blocking issues in your implementation.
 
 Original task: ${task.description}
@@ -111,7 +129,9 @@ ${bullets(task.acceptance)}
 Fix every blocking issue:
 ${bullets(blocking)}
 
-Keep the fix scoped, rerun the relevant gates, and update the existing commit or PR. Never merge. Finish with a short report of what you changed.`
+Keep the fix scoped, rerun the relevant gates, and update the existing commit or PR. Never merge. Finish with a short report of what you changed.
+
+${signOff(completionFile)}`
 }
 
 function bullets(items: string[]): string {

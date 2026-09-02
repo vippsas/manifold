@@ -33,7 +33,7 @@ describe('ViolaEngine preconditions and failures', () => {
     expect(gates.run).toHaveBeenCalledWith('/wt/claude-1', 'npm test -- src/api', expect.anything())
     const implementation = turns.get(result.tasks[0].sessionId!)!
     expect(implementation).toHaveBeenCalledTimes(2)
-    expect(implementation.mock.calls[1][0]).toContain('FAIL src/api.test.ts')
+    expect(implementation.mock.calls[1][0].prompt).toContain('FAIL src/api.test.ts')
     expect(reviewerSpawns(spawn)).toHaveLength(1)
   })
 

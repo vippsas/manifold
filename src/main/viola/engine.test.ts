@@ -131,7 +131,7 @@ describe('ViolaEngine', () => {
     expect(result.state).toBe('complete')
     const implementation = turns.get(result.tasks[0].sessionId!)!
     expect(implementation).toHaveBeenCalledTimes(2)
-    expect(implementation.mock.calls[1][0]).toContain('Add the missing regression test.')
+    expect(implementation.mock.calls[1][0].prompt).toContain('Add the missing regression test.')
   })
 
   it('returns an explore task\'s report without a worktree or a reviewer', async () => {

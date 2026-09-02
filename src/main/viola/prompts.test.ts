@@ -31,14 +31,14 @@ describe('Viola prompts', () => {
   })
 
   it('asks implementers to finish with a report and never merge', () => {
-    const prompt = buildImplementationPrompt(TASK)
+    const prompt = buildImplementationPrompt(TASK, '/wt/api/.viola/done')
     expect(prompt).toContain('npm test -- src/api')
     expect(prompt).toMatch(/finish with a (short )?report/i)
     expect(prompt).toContain('Never merge')
   })
 
   it('keeps explore tasks read-only', () => {
-    const prompt = buildExplorePrompt({ ...TASK, purpose: 'explore' })
+    const prompt = buildExplorePrompt({ ...TASK, purpose: 'explore' }, '/wt/api/.viola/done')
     expect(prompt).toMatch(/edit nothing/i)
     expect(prompt).toContain('file:line')
   })
@@ -48,6 +48,7 @@ describe('Viola prompts', () => {
       diff: 'diff --git a/file b/file',
       stat: ' file | 2 +-',
       report: 'Added the missing guard and ran npm test.',
+      verdictPath: '/wt/review/.viola/review-api.json',
     })
     expect(prompt).toContain('applied to your current worktree')
     expect(prompt).toContain('file | 2 +-')
@@ -58,21 +59,46 @@ describe('Viola prompts', () => {
   })
 
   it('never truncates a large diff silently; it points the reviewer at git diff instead', () => {
-    const prompt = buildReviewPrompt(TASK, { diff: 'x'.repeat(100_000), stat: ' big | 1 +', report: '' })
+    const prompt = buildReviewPrompt(TASK, {
+      diff: 'x'.repeat(100_000), stat: ' big | 1 +', report: '', verdictPath: '/wt/review/.viola/review-api.json',
+    })
     expect(prompt).not.toContain('truncated')
     expect(prompt).not.toContain('x'.repeat(1000))
     expect(prompt).toMatch(/run `git diff` in your worktree/i)
   })
 
   it('sends gate output back to the implementer verbatim', () => {
-    const prompt = buildGateFixPrompt(TASK, 'npm test -- src/api', 'FAIL src/api.test.ts > rejects bad input')
+    const prompt = buildGateFixPrompt(TASK, 'npm test -- src/api', 'FAIL src/api.test.ts > rejects bad input', '/wt/api/.viola/done')
     expect(prompt).toContain('npm test -- src/api')
     expect(prompt).toContain('FAIL src/api.test.ts > rejects bad input')
     expect(prompt).toContain('Never merge')
   })
 
+  it('tells every worker which file ends its turn, since nothing else is read as finished', () => {
+    const done = '/wt/api/.viola/done'
+    const prompts = [
+      buildImplementationPrompt(TASK, done),
+      buildExplorePrompt({ ...TASK, purpose: 'explore' }, done),
+      buildGateFixPrompt(TASK, 'npm test', 'FAIL', done),
+      buildFixPrompt(TASK, ['Add a test.'], done),
+    ]
+    for (const prompt of prompts) {
+      expect(prompt).toContain(done)
+      expect(prompt).toMatch(/write the single word DONE/i)
+      expect(prompt).toMatch(/timeout/i)
+    }
+  })
+
+  it('makes the reviewer\'s verdict file double as its completion signal', () => {
+    const verdictPath = '/wt/review/.viola/review-api.json'
+    const prompt = buildReviewPrompt(TASK, { diff: 'd', stat: 's', report: '', verdictPath })
+
+    expect(prompt).toContain(verdictPath)
+    expect(prompt).toMatch(/how Viola learns you have\s+finished/i)
+  })
+
   it('sends blocking review findings back to the implementer', () => {
-    const prompt = buildFixPrompt(TASK, ['Add the missing regression test.'])
+    const prompt = buildFixPrompt(TASK, ['Add the missing regression test.'], '/wt/api/.viola/done')
     expect(prompt).toContain('Add the missing regression test.')
     expect(prompt).toContain('Never merge')
   })

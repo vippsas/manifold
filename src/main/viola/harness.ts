@@ -6,8 +6,9 @@ import type { GitOperationsManager } from '../git/git-operations'
 import { createAgentControlService, type AgentControlService } from '../plugins/agent-control-service'
 import { createAgentSpawnService, type NativeAgentSpawnService } from '../plugins/agent-spawn-service'
 import type { ViolaHarnessController, SessionManager } from '../session/session-manager'
-import { ViolaEngine, type ViolaAgent, type ViolaTurn } from './engine'
+import { ViolaEngine, type ViolaAgent, type ViolaTurn, type ViolaTurnRequest } from './engine'
 import { describeTaskMilestone, formatPlan, formatResult, formatStart } from './format'
+import { createViolaDoneSignal, type ViolaDoneSignal } from './done-signal'
 import { createViolaGates, type ViolaGates } from './gates'
 import { createViolaGit, type ViolaGit } from './git'
 import { stripAnsiForContext } from '../session/nl-command-translator'
@@ -32,6 +33,7 @@ export interface ViolaHarnessOptions {
   git?: ViolaGit
   gates?: ViolaGates
   verdicts?: ViolaVerdictStore
+  done?: ViolaDoneSignal
   /** Pushes run snapshots to the renderer's live board. */
   sendToRenderer?: (channel: string, payload: unknown) => void
 }
@@ -41,6 +43,8 @@ const START_COMMANDS = new Set(['start', 'start plan', 'run', 'run plan', 'appro
 const PLAN_TIMEOUT_MS = 10 * 60_000
 const WORKER_TURN_BUDGET_SECONDS = 30 * 60
 const TERMINAL_REPORT_MAX_CHARS = 4_000
+/** Matches the interactive submit delay the shared turn driver uses. */
+const SUBMIT_DELAY_MS = 400
 
 /** Native conversational harness for the Viola runtime. */
 export class ViolaHarness implements ViolaHarnessController {
@@ -50,6 +54,7 @@ export class ViolaHarness implements ViolaHarnessController {
   private readonly announced = new Map<string, Map<string, ViolaTaskState>>()
   private readonly sendToRenderer: (channel: string, payload: unknown) => void
   private readonly control: AgentControlService
+  private readonly done: ViolaDoneSignal
   private readonly listRuntimes: () => Promise<AgentRuntime[]>
 
   constructor(
@@ -62,6 +67,7 @@ export class ViolaHarness implements ViolaHarnessController {
     this.control = options.controlService ?? createAgentControlService(sessions)
     this.listRuntimes = options.listRuntimes ?? listRuntimesWithStatus
     this.sendToRenderer = options.sendToRenderer ?? ((): void => {})
+    this.done = options.done ?? createViolaDoneSignal()
 
     this.engine = new ViolaEngine({
       availableRuntimes: () => this.availableWorkers(),
@@ -96,12 +102,13 @@ export class ViolaHarness implements ViolaHarnessController {
           runtimeId: child.runtimeId,
           worktreePath: child.worktreePath,
           whenReady: (timeoutMs) => spawn.whenReady(child.sessionId, timeoutMs),
-          runTurn: (prompt, signal) => this.runChildTurn(child.sessionId, prompt, signal),
+          runTurn: (request) => this.runChildTurn(child.sessionId, request),
         }
       },
       git: options.git ?? createViolaGit(),
       gates: options.gates ?? createViolaGates(),
       verdicts: options.verdicts ?? createViolaVerdictStore(),
+      done: this.done,
       store: options.store ?? new FileViolaStore(options.storageRoot),
       emit: (run) => this.publishRun(run),
     })
@@ -225,27 +232,44 @@ export class ViolaHarness implements ViolaHarnessController {
     return runtime
   }
 
-  private async runChildTurn(sessionId: string, prompt: string, signal: AbortSignal): Promise<ViolaTurn> {
+  /** Sends a prompt, then waits for the file the worker was told to write.
+   *
+   *  Deliberately not the shared turn-end heuristic: that infers "finished" from an idle-looking
+   *  terminal, and a TUI keeps its prompt glyph on screen while it works, so a worker that pauses
+   *  for a few seconds gets declared done while it is still going. */
+  private async runChildTurn(sessionId: string, request: ViolaTurnRequest): Promise<ViolaTurn> {
+    const { prompt, completionFile, signal } = request
     if (signal.aborted) return { outcome: 'aborted', response: '' }
     const before = this.chat.getMessages(sessionId).length
-    const cancel = (): void => {
+
+    await this.done.clear(completionFile)
+    this.sessions.sendInput(sessionId, prompt)
+    // An interactive runtime needs the prompt submitted; a chat-mode one already ran on send.
+    if (!this.sessions.getInternalSession(sessionId)?.nonInteractive) {
+      await sleep(SUBMIT_DELAY_MS)
+      this.sessions.sendInput(sessionId, '\r')
+    }
+
+    const outcome = await this.done.wait(completionFile, {
+      signal,
+      timeoutMs: WORKER_TURN_BUDGET_SECONDS * 1000,
+    })
+    if (outcome !== 'done') {
       this.control.cancelTurn(sessionId)
       this.sessions.interruptSession(sessionId)
     }
-    signal.addEventListener('abort', cancel, { once: true })
-    try {
-      const outcome = await this.control.runTurn(sessionId, prompt, { budgetSeconds: WORKER_TURN_BUDGET_SECONDS })
-      const response = this.chat.getMessages(sessionId)
-        .slice(before)
-        .filter((message) => message.role === 'agent')
-        .map((message) => message.text)
-        .join('\n')
-      // An interactive worker writes to its PTY, not to the chat store, so its report is the
-      // tail of the terminal — readable only once the escape codes are gone.
-      const terminal = this.sessions.getInternalSession(sessionId)?.outputBuffer ?? ''
-      return { outcome, response: response || terminalReport(terminal) }
-    } finally {
-      signal.removeEventListener('abort', cancel)
+
+    const response = this.chat.getMessages(sessionId)
+      .slice(before)
+      .filter((message) => message.role === 'agent')
+      .map((message) => message.text)
+      .join('\n')
+    // An interactive worker writes to its PTY, not to the chat store, so its report is the tail
+    // of the terminal — readable only once the escape codes are gone.
+    const terminal = this.sessions.getInternalSession(sessionId)?.outputBuffer ?? ''
+    return {
+      outcome: outcome === 'done' ? 'ended' : outcome,
+      response: response || terminalReport(terminal),
     }
   }
 
@@ -264,6 +288,10 @@ function terminalReport(output: string): string {
     .filter((line) => line.trim().length > 0)
     .join('\n')
   return clean.length > TERMINAL_REPORT_MAX_CHARS ? clean.slice(-TERMINAL_REPORT_MAX_CHARS) : clean
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function errorMessage(error: unknown): string {
