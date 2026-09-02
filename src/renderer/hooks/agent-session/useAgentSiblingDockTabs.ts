@@ -3,6 +3,7 @@ import type { DockviewApi } from 'dockview'
 import type { AgentSession } from '../../../shared/types'
 import { isSiblingPanelId, parseSiblingSessionId, siblingPanelId } from './agent-siblings'
 import { clearAgentTabDismissed, isAgentTabDismissed, pruneDismissedAgentTabs } from './dismissed-agent-tabs'
+import { isAgentTabOpened, pruneOpenedAgentTabs } from './opened-agent-tabs'
 import { findTopLeftWorkspaceReferencePanel } from '../dock-layout/dock-layout-helpers'
 
 interface Options {
@@ -109,12 +110,18 @@ export function useAgentSiblingDockTabs({
     // Auto-tabbed: ungrouped siblings only. Grouped siblings (e.g. playlist
     // runs) are opened on demand by their owner UI to keep the dock bar clean.
     // A tab the user hid (dismissed) is left out until they reopen the agent.
-    const desiredSessions = siblingsInWorkspace.filter((s) => !s.groupId && !isAgentTabDismissed(s.id))
+    // Ungrouped siblings are auto-tabbed. A grouped one (e.g. a Viola worker) only gets a tab
+    // once someone opened it — but then it must come back after a repo switch reloads the one
+    // window-wide layout and strips it, which is why that choice is remembered.
+    const desiredSessions = siblingsInWorkspace.filter((s) => (
+      (!s.groupId || isAgentTabOpened(s.id)) && !isAgentTabDismissed(s.id)
+    ))
     // Tabs are removed only when the underlying session is gone (closed, or
     // moved out of this workspace). Grouped sibling tabs that were manually
     // opened stay open until the session itself is gone.
     const knownSessionIds = new Set(siblingsInWorkspace.map((s) => s.id))
     pruneDismissedAgentTabs(knownSessionIds)
+    pruneOpenedAgentTabs(knownSessionIds)
 
     for (const panel of api.panels) {
       if (!isSiblingPanelId(panel.id)) continue

@@ -53,6 +53,14 @@ state and the live run board (`components/editor/editor-shell/dock-agent-panel.t
 `components/editor/editor-shell/AgentChatView.tsx:59`). Planning and worker orchestration stay in
 the main process, so no plugin view or activity-rail entry is involved.
 
+**Sibling tabs: auto for ungrouped agents, remembered for grouped ones.**
+`useAgentSiblingDockTabs` creates a tab per live ungrouped agent in the active workspace, and
+deliberately not for grouped ones (a Viola run's workers), which are opened on demand by their
+owner UI. Because the dock layout is one window-wide object that is reloaded and filtered on a
+repo switch, an on-demand tab would not survive returning to the workspace — nothing recreates a
+grouped panel. `opened-agent-tabs.ts` records that the user opened one, the mirror image of
+`dismissed-agent-tabs.ts` recording that they closed one.
+
 **The Viola run board is the renderer's one always-on subscription.** `components/viola/
 viola-run-store.ts` listens on `viola:run` at module scope rather than per component, because a
 listener that unmounted with the tab would miss states and redisplay a stale board on return. It
