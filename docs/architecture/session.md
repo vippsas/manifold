@@ -100,6 +100,9 @@ permanently: `runtime.kind === 'orchestrator'` forces chat mode and prevents a P
 slash-command probe for that runtime (`session-creator.ts:37`, `:126`,
 `session-lifecycle.ts:56`). `SessionManager` routes its input/interrupt/kill operations to the
 registered harness controller instead of the PTY I/O controller (`session-manager.ts:253`).
+Workers Viola spawns carry `orchestratedBy` on the session and in worktree meta
+(`session-creator.ts:245`, `:316`), and discovery restores it (`session-discovery.ts:132`) so a
+re-adopted worker keeps its guarded chat turns.
 Back in the lifecycle, the new
 session is added to the map, any dismissal recorded for that project + branch is lifted
 (`session-lifecycle.ts:84`), memory capture starts, and the renderer is told via

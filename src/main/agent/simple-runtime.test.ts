@@ -67,3 +67,24 @@ describe('buildSimpleRuntimeCommand', () => {
     expect(() => buildSimpleRuntimeCommand('unknown', 'build it')).toThrow('Runtime not found: unknown')
   })
 })
+
+describe('buildSimpleRuntimeCommand for orchestrated workers', () => {
+  it('denies the catastrophic command set for a guarded Claude worker via inline settings', () => {
+    const { args } = buildSimpleRuntimeCommand('claude', 'build it', [], { guarded: true })
+    const settingsIndex = args.indexOf('--settings')
+    expect(settingsIndex).toBeGreaterThan(-1)
+    expect(settingsIndex).toBeLessThan(args.indexOf('-p'))
+    const settings = JSON.parse(args[settingsIndex + 1]) as { permissions: { deny: string[] } }
+    expect(settings.permissions.deny).toEqual(expect.arrayContaining([
+      'Bash(git push*--force*)',
+      'Bash(git push* -f*)',
+      'Bash(rm -rf /*)',
+      'Bash(gh pr merge*)',
+    ]))
+  })
+
+  it('leaves unguarded Claude and guarded non-Claude commands untouched', () => {
+    expect(buildSimpleRuntimeCommand('claude', 'build it').args).not.toContain('--settings')
+    expect(buildSimpleRuntimeCommand('codex', 'build it', [], { guarded: true }).args).not.toContain('--settings')
+  })
+})

@@ -74,7 +74,8 @@ succeeds makes that failure recoverable, and the worktree being gone is what sto
 
 **Worktree meta.** The `WorktreeMeta` record (`worktree-meta.ts:3`) holds `runtimeId`,
 `displayName`, `taskDescription`, simple-mode template fields, `additionalDirs`,
-`ollamaModel`, workspace fields, `nonInteractive`, and `locked` (the deletion-protection
+`ollamaModel`, workspace fields, `nonInteractive`, `orchestratedBy` (the Viola session that
+owns a delegated worker; see [viola](viola.md)), and `locked` (the deletion-protection
 flag). It is stored *next to* the worktree
 directory as `<worktreePath>.manifold.json` (`metaPath`, `worktree-meta.ts:18`), not inside
 it, so it survives `git worktree remove` and isn't picked up by git. Reads swallow errors and

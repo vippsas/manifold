@@ -1,24 +1,24 @@
-import { buildFixPrompt, buildImplementationPrompt } from './planner'
+import type { ViolaGates } from './gates'
 import type { ViolaGit } from './git'
 import type { ViolaStore } from './store'
-import type {
-  ViolaPlan,
-  ViolaReview,
-  ViolaRun,
-  ViolaTaskPlan,
-  ViolaTaskRun,
-  ViolaWorkerId,
-} from './types'
+import { runTaskPipeline } from './task-pipeline'
+import type { ViolaPlan, ViolaRun, ViolaTaskRun, ViolaWorkerId } from './types'
+
+export interface ViolaTurn {
+  outcome: 'ended' | 'timeout' | 'aborted'
+  /** The worker's agent messages produced by this turn. */
+  response: string
+}
 
 export interface ViolaAgent {
   sessionId: string
   runtimeId: ViolaWorkerId
   worktreePath: string
   whenReady(timeoutMs?: number): Promise<boolean>
-  runTurn(prompt: string, signal: AbortSignal): Promise<'ended' | 'timeout' | 'aborted'>
+  runTurn(prompt: string, signal: AbortSignal): Promise<ViolaTurn>
 }
 
-interface SpawnOptions {
+export interface ViolaSpawnOptions {
   title: string
   runtimeId: ViolaWorkerId
   newWorktree: boolean
@@ -27,19 +27,17 @@ interface SpawnOptions {
 
 export interface ViolaEngineDeps {
   availableRuntimes(): Promise<ViolaWorkerId[]>
+  /** The orchestrator's own checkout. A worker that lands here was not isolated. */
+  baseWorktreePath(baseSessionId: string): Promise<string>
+  /** Whether this project gets managed worktrees at all. Folder projects always work in place. */
+  supportsIsolatedWorktrees(baseSessionId: string): Promise<boolean>
   plan(sessionId: string, goal: string, runtimes: ViolaWorkerId[]): Promise<ViolaPlan>
-  review(agent: ViolaAgent, task: ViolaTaskPlan, diff: string, signal: AbortSignal): Promise<ViolaReview>
-  spawn(baseSessionId: string, options: SpawnOptions): Promise<ViolaAgent>
+  spawn(baseSessionId: string, options: ViolaSpawnOptions): Promise<ViolaAgent>
   git: ViolaGit
+  gates: ViolaGates
   store: ViolaStore
   emit?: (run: ViolaRun) => void
   now?: () => number
-}
-
-interface SpawnedTask {
-  task: ViolaTaskRun
-  agent: ViolaAgent
-  baseSha: string
 }
 
 export class ViolaEngine {
@@ -54,8 +52,9 @@ export class ViolaEngine {
   async getRun(baseSessionId: string): Promise<ViolaRun | null> {
     const live = this.runs.get(baseSessionId)
     if (live) return snapshot(live)
-    const stored = await this.deps.store.get(baseSessionId)
-    if (!stored) return null
+    const saved = await this.deps.store.get(baseSessionId)
+    if (!saved) return null
+    const stored = normalizeStored(saved)
     if (stored.state === 'running') {
       stored.state = 'stopped'
       stored.error = 'Viola stopped when Manifold previously closed.'
@@ -71,6 +70,13 @@ export class ViolaEngine {
     const cleanedGoal = goal.trim()
     if (!cleanedGoal) throw new Error('Describe the goal before asking Viola to plan it.')
 
+    if (!(await this.deps.supportsIsolatedWorktrees(baseSessionId))) {
+      throw new Error(
+        'this project cannot host an isolated worktree, because it was added as a plain folder and every '
+        + 'agent works directly in it. Viola needs one worktree per task to keep tasks apart and to review '
+        + 'each diff independently. Re-add the repository as a git project and Viola will work.',
+      )
+    }
     const availableRuntimes = await this.deps.availableRuntimes()
     if (availableRuntimes.length < 2) {
       throw new Error('Viola needs at least two installed worker harnesses for independent review.')
@@ -92,6 +98,7 @@ export class ViolaEngine {
     return snapshot(run)
   }
 
+  /** Runs every task as its own pipeline (spawn, implement, gate, review, fix), all concurrently. */
   async start(baseSessionId: string): Promise<ViolaRun> {
     const run = await this.getRun(baseSessionId)
     if (!run || run.state !== 'planned') throw new Error('Create and approve a plan before starting Viola.')
@@ -102,23 +109,20 @@ export class ViolaEngine {
     await this.publish(run)
 
     try {
-      const spawnResults = await Promise.all(run.tasks.map((task, index) => (
-        this.spawnImplementation(run, task, run.availableRuntimes[index % run.availableRuntimes.length])
-      )))
-      const spawned = spawnResults.filter((item): item is SpawnedTask => item !== null)
-
-      await Promise.all(spawned.map((item) => this.implement(item, run, abort.signal)))
-      if (!abort.signal.aborted) {
-        const reviewers = await this.spawnReviewers(run, spawned)
-        await Promise.all(spawned.map((item) => this.review(item, run, reviewers, abort.signal)))
+      const context = {
+        deps: this.deps,
+        basePath: await this.deps.baseWorktreePath(baseSessionId),
+        publish: (current: ViolaRun) => this.publish(current),
       }
-
+      await Promise.all(run.tasks.map((task, index) => (
+        runTaskPipeline(context, run, task, this.assignWorker(run, task, index), abort.signal)
+      )))
       if (abort.signal.aborted) run.state = 'stopped'
       else if (run.tasks.every((task) => task.state === 'done')) run.state = 'complete'
       else run.state = 'needs_attention'
     } catch (error) {
       run.state = abort.signal.aborted ? 'stopped' : 'error'
-      run.error = errorMessage(error)
+      run.error = error instanceof Error ? error.message : String(error)
     } finally {
       this.aborts.delete(baseSessionId)
       await this.publish(run)
@@ -135,135 +139,24 @@ export class ViolaEngine {
     }
   }
 
-  private async spawnImplementation(run: ViolaRun, task: ViolaTaskRun, runtimeId: ViolaWorkerId): Promise<SpawnedTask | null> {
-    task.state = 'spawning'
-    task.runtimeId = runtimeId
-    await this.publish(run)
-    try {
-      const agent = await this.deps.spawn(run.baseSessionId, {
-        title: task.title,
-        runtimeId,
-        newWorktree: true,
-      })
-      task.sessionId = agent.sessionId
-      task.worktreePath = agent.worktreePath
-      const baseSha = await this.deps.git.head(agent.worktreePath)
-      return { task, agent, baseSha }
-    } catch (error) {
-      task.state = 'error'
-      task.error = errorMessage(error)
-      await this.publish(run)
-      return null
-    }
-  }
-
-  private async implement(item: SpawnedTask, run: ViolaRun, signal: AbortSignal): Promise<void> {
-    const { task, agent } = item
-    if (signal.aborted) {
-      task.state = 'needs_attention'
-      await this.publish(run)
-      return
-    }
-    task.state = 'implementing'
-    await this.publish(run)
-    try {
-      await agent.whenReady(30_000)
-      const outcome = await agent.runTurn(buildImplementationPrompt(task), signal)
-      if (outcome !== 'ended') throw new Error(`Implementation ${outcome}.`)
-    } catch (error) {
-      task.state = signal.aborted ? 'needs_attention' : 'error'
-      task.error = errorMessage(error)
-      await this.publish(run)
-    }
-  }
-
-  private async spawnReviewers(run: ViolaRun, items: SpawnedTask[]): Promise<Map<string, ViolaAgent>> {
-    const reviewers = new Map<string, ViolaAgent>()
-    await Promise.all(items.map(async ({ task }) => {
-      if (task.state !== 'implementing') return
-      const runtimeId = run.availableRuntimes.find((runtime) => runtime !== task.runtimeId)
-      if (!runtimeId) return
-      try {
-        const agent = await this.deps.spawn(run.baseSessionId, {
-          title: `review-${task.id}`,
-          runtimeId,
-          newWorktree: true,
-          nonInteractive: true,
-        })
-        reviewers.set(task.id, agent)
-      } catch {
-        // The affected task reports the missing reviewer below.
-      }
-    }))
-    return reviewers
-  }
-
-  private async review(
-    item: SpawnedTask,
-    run: ViolaRun,
-    reviewers: Map<string, ViolaAgent>,
-    signal: AbortSignal,
-  ): Promise<void> {
-    const { task, agent } = item
-    if (task.state !== 'implementing' || signal.aborted) return
-    const reviewRuntimeId = run.availableRuntimes.find((runtime) => runtime !== task.runtimeId)
-    const reviewer = reviewers.get(task.id)
-    if (!reviewRuntimeId || !reviewer) {
-      task.state = 'needs_attention'
-      task.error = 'No independent worker harness was available to review this task.'
-      await this.publish(run)
-      return
-    }
-    task.reviewRuntimeId = reviewRuntimeId
-
-    try {
-      let verdict = await this.runReview(task, item, reviewer, run, signal)
-      if (!verdict.passed && verdict.blocking.length > 0 && !signal.aborted) {
-        task.state = 'fixing'
-        await this.publish(run)
-        const outcome = await agent.runTurn(buildFixPrompt(task, verdict.blocking), signal)
-        if (outcome !== 'ended') throw new Error(`Fix turn ${outcome}.`)
-        verdict = await this.runReview(task, item, reviewer, run, signal)
-      }
-
-      task.review = verdict
-      if (verdict.passed) {
-        task.state = 'done'
-        task.prUrl = await this.deps.git.pullRequestUrl(agent.worktreePath)
-      } else {
-        task.state = 'needs_attention'
-        task.error = verdict.blocking.length > 0
-          ? `Review still has ${verdict.blocking.length} blocking finding${verdict.blocking.length === 1 ? '' : 's'}.`
-          : 'Review did not pass.'
-      }
-    } catch (error) {
-      task.state = signal.aborted ? 'needs_attention' : 'error'
-      task.error = errorMessage(error)
-    }
-    await this.publish(run)
-  }
-
-  private async runReview(
-    task: ViolaTaskRun,
-    item: SpawnedTask,
-    reviewer: ViolaAgent,
-    run: ViolaRun,
-    signal: AbortSignal,
-  ): Promise<ViolaReview> {
-    task.state = 'reviewing'
-    await this.publish(run)
-    const diff = await this.deps.git.diff(item.agent.worktreePath, item.baseSha)
-    if (!diff.trim()) throw new Error('The worker produced no diff to review.')
-    const verdict = await this.deps.review(reviewer, task, diff, signal)
-    task.review = verdict
-    await this.publish(run)
-    return verdict
+  /** The planner's suggestion wins when that harness is installed; otherwise round-robin. */
+  private assignWorker(run: ViolaRun, task: ViolaTaskRun, index: number): ViolaWorkerId {
+    if (task.worker && run.availableRuntimes.includes(task.worker)) return task.worker
+    return run.availableRuntimes[index % run.availableRuntimes.length]
   }
 
   private async publish(run: ViolaRun): Promise<void> {
     const copy = snapshot(run)
     await this.deps.store.set(copy)
     this.deps.emit?.(copy)
+  }
+}
+
+/** Runs saved by earlier Viola versions predate per-task `purpose` and `gates`. */
+function normalizeStored(run: ViolaRun): ViolaRun {
+  return {
+    ...run,
+    tasks: run.tasks.map((task) => ({ ...task, purpose: task.purpose ?? 'implement', gates: task.gates ?? [] })),
   }
 }
 
@@ -274,6 +167,7 @@ function snapshot(run: ViolaRun): ViolaRun {
     tasks: run.tasks.map((task) => ({
       ...task,
       acceptance: [...task.acceptance],
+      gates: [...task.gates],
       review: task.review ? {
         ...task.review,
         blocking: [...task.review.blocking],
@@ -281,8 +175,4 @@ function snapshot(run: ViolaRun): ViolaRun {
       } : undefined,
     })),
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

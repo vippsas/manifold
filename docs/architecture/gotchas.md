@@ -1,7 +1,7 @@
 ---
-description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, dockview layout restore/width-0, and terminal-query replay — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
-covers: [src/renderer/components/modals/useNewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts, src/renderer/hooks/terminal/terminal-replay.ts]
-updated: 2026-09-01
+description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, dockview layout restore/width-0, terminal-query replay, and folder projects that silently share one checkout — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
+covers: [src/renderer/components/modals/useNewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts, src/renderer/hooks/terminal/terminal-replay.ts, src/shared/project-kind.ts]
+updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -36,6 +36,7 @@ review when one of them changes:
 - `scripts/setup-worktree.sh` — `npm run bootstrap`, the one-step worktree setup.
 - `src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts` — the dockview width-0 guard.
 - `src/renderer/hooks/terminal/terminal-replay.ts` — the replay query-stripping guard.
+- `src/shared/project-kind.ts` — the folder-project rule that denies worktrees.
 
 Deeper, subsystem-level coverage lives in [Renderer](renderer.md) and
 [Build & release](build.md); this page is the cross-cutting index of the traps that bite
@@ -212,7 +213,31 @@ DECRQM, DECRQSS, window-size reports and OSC color queries, and only the color *
 are dropped on the input side (`terminal-input-filter.ts:10`). If new garbage appears on a
 view switch, suspect the replay before the key handler, and check that census first.
 
-## 6. Verify against the real code path, not an approximation
+## 6. A folder project never gets a worktree, however loudly you ask
+
+**Symptom.** Code that spawns a child agent with `newWorktree: true` finds the child
+working in the project directory itself. Two children share one checkout, so anything
+that resets or cleans "its own" worktree is really operating on the user's working copy.
+
+**Root cause.** `isGitProject()` is false for `kind: 'folder'`
+(`src/shared/project-kind.ts:3`), so `SessionCreator` computes `noWorktree` and returns
+`{ path: project.path }` for every such session, ignoring the requested worktree
+(`session-creator.ts:41`, `:55`). A folder project is worked in place by design; the
+request is not refused, it is silently satisfied with the shared directory. Viola hit
+this: implementer and reviewer landed on one checkout and the review step ran
+`git reset --hard` plus `git clean -fd` in it.
+
+**Guardrail.** Never trust a spawn's worktree — compare it against the orchestrator's own
+path and fail the task when they match (`src/main/viola/task-pipeline.ts:167`), and refuse
+the work up front when the project cannot host worktrees at all
+(`src/main/viola/engine.ts:73`). Any destructive git primitive must additionally prove its
+target is a linked worktree, comparing git's own absolute `--git-dir` and
+`--git-common-dir` so a symlinked prefix (macOS `/var` vs `/private/var`) cannot defeat the
+check (`src/main/viola/git.ts:54`). `viola/git.test.ts` pins both halves: a linked-worktree
+apply, and a main checkout that must survive with its uncommitted edits intact. See
+[Viola](viola.md).
+
+## 7. Verify against the real code path, not an approximation
 
 Cross-cutting principle behind the guardrails above. A test that stubs the very thing
 under test proves nothing; a green check must exercise the app's real imports and
@@ -232,5 +257,7 @@ could only be confirmed against the live system.
   native-module rebuild story and the worktree bootstrap/doctor flow).
 - **CLAUDE.md §7** — the worktree-setup rule this page's trap #3 summarizes.
 - **[Renderer](renderer.md)** — where the terminal hook of trap #5 sits in the panel tree.
+- **[Viola](viola.md)** — subsystem-level detail for trap #6 (both isolation
+  preconditions and the destructive-apply guard).
 - **Test template** — `src/renderer/test-utils/strict-mode.test.tsx` is the copyable
   guardrail for trap #1; copy it next to a component and swap in the real one.

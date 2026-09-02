@@ -560,3 +560,32 @@ describe('SessionCreator', () => {
     expect(firstKey).not.toBe(secondKey)
   })
 })
+
+describe('SessionCreator orchestrated workers', () => {
+  it('records the orchestrating session on the child and in its worktree meta', async () => {
+    vi.mocked(readWorktreeMeta).mockResolvedValueOnce(null)
+    const ptyPool = createPtyPool()
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      ptyPool,
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'claude',
+      prompt: 'fix-auth',
+      nonInteractive: true,
+      orchestratedBy: 'viola-1',
+      existingWorktreePath: '/repo/.manifold/worktrees/manifold-bergen',
+    })
+
+    expect(session.orchestratedBy).toBe('viola-1')
+    expect(writeWorktreeMeta).toHaveBeenCalledWith(
+      '/repo/.manifold/worktrees/manifold-bergen',
+      expect.objectContaining({ orchestratedBy: 'viola-1' }),
+    )
+  })
+})

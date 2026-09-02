@@ -114,6 +114,7 @@ sessionManager.setGitOps(gitOps)
 const violaHarness = new ViolaHarness(sessionManager, chatAdapter, gitOps, {
   storageRoot: settingsStore.getSettings().storagePath,
   getPreferredRuntime: () => settingsStore.getSettings().defaultRuntime,
+  getProject: (projectId) => projectRegistry.getProject(projectId),
 })
 sessionManager.setViolaHarness(violaHarness)
 

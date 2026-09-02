@@ -104,8 +104,9 @@ ad-hoc map deletion, checks out the preview branch, creates a `noWorktree` + `no
 and runs `npm run dev` in the project dir (`startDevServer`, `:118`). Dev-server stdout is
 scanned by `detectUrl`; the first URL flips status to `waiting` and emits `preview:url-detected`.
 Each follow-up chat turn is a *fresh* print-mode process: `spawnPrintModeFollowUp()` (`:164`)
-kills any in-flight process, rebuilds the prompt from chat history, spawns the runtime, and
-re-wires output streaming. `probeSlashCommands()` (`:226`) spawns a throwaway Claude run only
+kills any in-flight process, rebuilds the prompt from chat history, spawns the runtime (passing
+`guarded` for sessions with `orchestratedBy`, so a Viola worker's Claude turn carries the deny
+list, `:185`), and re-wires output streaming. `probeSlashCommands()` (`:226`) spawns a throwaway Claude run only
 to capture the `system/init` event's command list, then kills it. This class is owned by
 `SessionManager`, not the app module (`session-manager.ts:62`); it lives here because it is
 part of the app/preview surface.

@@ -138,7 +138,9 @@ export class SessionCreator {
     const additionalDirs = options.additionalDirs ?? []
 
     if (!nativeOrchestrator && nonInteractive && options.userMessage) {
-      const simpleCommand = buildSimpleRuntimeCommand(options.runtimeId, options.prompt, additionalDirs)
+      const simpleCommand = buildSimpleRuntimeCommand(options.runtimeId, options.prompt, additionalDirs, {
+        guarded: Boolean(options.orchestratedBy),
+      })
       commandBinary = simpleCommand.binary
       runtimeArgs = simpleCommand.args
       nonInteractiveOutputMode = simpleCommand.outputMode
@@ -242,6 +244,7 @@ export class SessionCreator {
         workspaceId: options.workspaceId,
         workspaceWorktreePaths: options.workspaceWorktreePaths,
         nonInteractive,
+        orchestratedBy: options.orchestratedBy,
         codexThreadId: session.codexThreadId,
       }).catch((err) => {
         console.error(
@@ -312,6 +315,7 @@ export class SessionCreator {
       groupId: options.groupId,
       nonInteractive: options.nonInteractive,
       nonInteractiveOutputMode,
+      orchestratedBy: options.orchestratedBy,
     }
   }
 }

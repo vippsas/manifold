@@ -1,20 +1,19 @@
-import type { AgentRuntime } from '../../shared/types'
+import type { AgentRuntime, Project } from '../../shared/types'
+import { isGitProject } from '../../shared/project-kind'
 import { getRuntimeById, listRuntimesWithStatus } from '../agent/runtimes'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { GitOperationsManager } from '../git/git-operations'
 import { createAgentControlService, type AgentControlService } from '../plugins/agent-control-service'
 import { createAgentSpawnService, type NativeAgentSpawnService } from '../plugins/agent-spawn-service'
 import type { ViolaHarnessController, SessionManager } from '../session/session-manager'
-import { ViolaEngine, type ViolaAgent } from './engine'
-import { createViolaGit } from './git'
-import {
-  buildPlanPrompt,
-  buildReviewPrompt,
-  parsePlanResponse,
-  parseReviewResponse,
-} from './planner'
+import { ViolaEngine, type ViolaAgent, type ViolaTurn } from './engine'
+import { describeTaskProgress, formatPlan, formatResult, formatStart } from './format'
+import { createViolaGates, type ViolaGates } from './gates'
+import { createViolaGit, type ViolaGit } from './git'
+import { parsePlanResponse } from './planner'
+import { buildPlanPrompt } from './prompts'
 import { FileViolaStore, type ViolaStore } from './store'
-import type { ViolaRun, ViolaWorkerId } from './types'
+import type { ViolaRun, ViolaTaskState, ViolaWorkerId } from './types'
 import { isViolaWorker } from './types'
 
 type GitAi = Pick<GitOperationsManager, 'aiGenerate'>
@@ -22,19 +21,27 @@ type GitAi = Pick<GitOperationsManager, 'aiGenerate'>
 export interface ViolaHarnessOptions {
   storageRoot: string
   getPreferredRuntime(): string
+  /** Resolves the session's project so Viola can refuse a folder project up front. */
+  getProject?: (projectId: string) => Pick<Project, 'kind'> | undefined | null
   listRuntimes?: () => Promise<AgentRuntime[]>
   spawnService?: NativeAgentSpawnService
   controlService?: AgentControlService
   store?: ViolaStore
+  git?: ViolaGit
+  gates?: ViolaGates
 }
 
 const START_COMMANDS = new Set(['start', 'start plan', 'run', 'run plan', 'approve', 'approved'])
+/** The planner may read the repository before answering, so it gets more than a one-shot budget. */
+const PLAN_TIMEOUT_MS = 10 * 60_000
+const WORKER_TURN_BUDGET_SECONDS = 30 * 60
 
 /** Native conversational harness for the Viola runtime. */
 export class ViolaHarness implements ViolaHarnessController {
   private readonly engine: ViolaEngine
   private readonly inflight = new Set<string>()
   private readonly planAborts = new Map<string, AbortController>()
+  private readonly announced = new Map<string, Map<string, ViolaTaskState>>()
   private readonly control: AgentControlService
   private readonly listRuntimes: () => Promise<AgentRuntime[]>
 
@@ -50,32 +57,24 @@ export class ViolaHarness implements ViolaHarnessController {
 
     this.engine = new ViolaEngine({
       availableRuntimes: () => this.availableWorkers(),
+      baseWorktreePath: async (sessionId) => this.requireSession(sessionId).worktreePath,
+      supportsIsolatedWorktrees: async (sessionId) => {
+        const lookup = options.getProject
+        if (!lookup) return true
+        return isGitProject(lookup(this.requireSession(sessionId).projectId))
+      },
       plan: async (sessionId, goal, runtimes) => {
         const session = this.requireSession(sessionId)
         const brain = this.resolveBrain(options.getPreferredRuntime(), runtimes)
+        // No model args: the brain's cheap `aiModelArgs` exist for commit messages, not planning.
         const response = await gitOps.aiGenerate(
           brain,
           buildPlanPrompt(goal, runtimes),
           session.worktreePath,
-          brain.aiModelArgs ?? [],
-          { silent: true, timeoutMs: 180_000, signal: this.planAborts.get(sessionId)?.signal },
+          [],
+          { silent: true, timeoutMs: PLAN_TIMEOUT_MS, signal: this.planAborts.get(sessionId)?.signal },
         )
         const parsed = parsePlanResponse(response)
-        if ('error' in parsed) throw new Error(parsed.error)
-        return parsed
-      },
-      review: async (agent, task, diff, signal) => {
-        await agent.whenReady(30_000)
-        const before = this.chat.getMessages(agent.sessionId).length
-        const outcome = await agent.runTurn(buildReviewPrompt(task, diff), signal)
-        if (outcome !== 'ended') throw new Error(`Review ${outcome}.`)
-        const response = this.chat.getMessages(agent.sessionId)
-          .slice(before)
-          .filter((message) => message.role === 'agent')
-          .map((message) => message.text)
-          .join('\n')
-        const fallback = this.sessions.getInternalSession(agent.sessionId)?.outputBuffer ?? ''
-        const parsed = parseReviewResponse(response || fallback)
         if ('error' in parsed) throw new Error(parsed.error)
         return parsed
       },
@@ -92,8 +91,10 @@ export class ViolaHarness implements ViolaHarnessController {
           runTurn: (prompt, signal) => this.runChildTurn(child.sessionId, prompt, signal),
         }
       },
-      git: createViolaGit(),
+      git: options.git ?? createViolaGit(),
+      gates: options.gates ?? createViolaGates(),
       store: options.store ?? new FileViolaStore(options.storageRoot),
+      emit: (run) => this.announceProgress(run),
     })
   }
 
@@ -126,6 +127,7 @@ export class ViolaHarness implements ViolaHarnessController {
     this.planAborts.delete(sessionId)
     void this.engine.stop(sessionId)
     this.inflight.delete(sessionId)
+    this.announced.delete(sessionId)
   }
 
   private async handleInput(sessionId: string, input: string): Promise<void> {
@@ -150,14 +152,11 @@ export class ViolaHarness implements ViolaHarnessController {
   private async plan(sessionId: string, goal: string): Promise<void> {
     const abort = new AbortController()
     this.planAborts.set(sessionId, abort)
+    this.announced.delete(sessionId)
     this.sessions.setHarnessStatus(sessionId, 'running')
     try {
       const run = await this.engine.plan(sessionId, goal)
-      this.chat.addAgentMessageWithOptions(
-        sessionId,
-        formatPlan(run),
-        ['Start plan', 'Revise plan'],
-      )
+      this.chat.addAgentMessageWithOptions(sessionId, formatPlan(run), ['Start plan', 'Revise plan'])
       this.sessions.setHarnessStatus(sessionId, 'waiting')
     } catch (error) {
       if (abort.signal.aborted) {
@@ -173,10 +172,7 @@ export class ViolaHarness implements ViolaHarnessController {
 
   private async start(sessionId: string, plan: ViolaRun): Promise<void> {
     this.sessions.setHarnessStatus(sessionId, 'running')
-    this.chat.addAgentMessage(
-      sessionId,
-      `Starting ${plan.tasks.length} worker${plan.tasks.length === 1 ? '' : 's'} in isolated worktrees. Each diff will be reviewed by a different harness.`,
-    )
+    this.chat.addAgentMessage(sessionId, formatStart(plan))
     try {
       const result = await this.engine.start(sessionId)
       this.chat.addAgentMessage(sessionId, formatResult(result))
@@ -184,6 +180,21 @@ export class ViolaHarness implements ViolaHarnessController {
     } catch (error) {
       this.chat.addAgentMessage(sessionId, `The run failed: ${errorMessage(error)}`)
       this.sessions.setHarnessStatus(sessionId, 'error')
+    }
+  }
+
+  /** Posts one chat line per task state change so a long run is never silent. */
+  private announceProgress(run: ViolaRun): void {
+    let seen = this.announced.get(run.baseSessionId)
+    if (!seen) {
+      seen = new Map()
+      this.announced.set(run.baseSessionId, seen)
+    }
+    for (const task of run.tasks) {
+      if (seen.get(task.id) === task.state) continue
+      seen.set(task.id, task.state)
+      const line = describeTaskProgress(task)
+      if (line) this.chat.addAgentMessage(run.baseSessionId, line)
     }
   }
 
@@ -202,15 +213,23 @@ export class ViolaHarness implements ViolaHarnessController {
     return runtime
   }
 
-  private async runChildTurn(sessionId: string, prompt: string, signal: AbortSignal): Promise<'ended' | 'timeout' | 'aborted'> {
-    if (signal.aborted) return 'aborted'
+  private async runChildTurn(sessionId: string, prompt: string, signal: AbortSignal): Promise<ViolaTurn> {
+    if (signal.aborted) return { outcome: 'aborted', response: '' }
+    const before = this.chat.getMessages(sessionId).length
     const cancel = (): void => {
       this.control.cancelTurn(sessionId)
       this.sessions.interruptSession(sessionId)
     }
     signal.addEventListener('abort', cancel, { once: true })
     try {
-      return await this.control.runTurn(sessionId, prompt, { budgetSeconds: 30 * 60 })
+      const outcome = await this.control.runTurn(sessionId, prompt, { budgetSeconds: WORKER_TURN_BUDGET_SECONDS })
+      const response = this.chat.getMessages(sessionId)
+        .slice(before)
+        .filter((message) => message.role === 'agent')
+        .map((message) => message.text)
+        .join('\n')
+      const fallback = this.sessions.getInternalSession(sessionId)?.outputBuffer ?? ''
+      return { outcome, response: response || fallback }
     } finally {
       signal.removeEventListener('abort', cancel)
     }
@@ -221,25 +240,6 @@ export class ViolaHarness implements ViolaHarnessController {
     if (!session || session.runtimeId !== 'viola') throw new Error(`No Viola session ${sessionId}`)
     return session
   }
-}
-
-function formatPlan(run: ViolaRun): string {
-  const tasks = run.tasks.map((task, index) => {
-    const acceptance = task.acceptance.map((item) => `   - ${item}`).join('\n')
-    return `${index + 1}. **${task.title}**\n   ${task.description}\n\n   Done when:\n${acceptance}`
-  }).join('\n\n')
-  return `## Proposed plan\n\n${run.summary}\n\n${tasks}\n\nNo worker has started. Approve this plan or tell me what to change.`
-}
-
-function formatResult(run: ViolaRun): string {
-  const tasks = run.tasks.map((task) => {
-    const route = task.reviewRuntimeId
-      ? `${task.runtimeId ?? 'unassigned'} → review: ${task.reviewRuntimeId}`
-      : task.runtimeId ?? 'unassigned'
-    const detail = task.prUrl ? ` · ${task.prUrl}` : task.error ? ` · ${task.error}` : ''
-    return `- **${task.title}** — ${task.state} (${route})${detail}`
-  }).join('\n')
-  return `## Run ${run.state.replace('_', ' ')}\n\n${tasks}\n\nViola did not merge any branch.`
 }
 
 function errorMessage(error: unknown): string {
