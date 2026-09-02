@@ -21,6 +21,7 @@ function status(projectId: string, path: string): WorkspaceRepoStatus {
     branch: 'main',
     staged: [],
     unstaged: [{ path, type: 'modified' }],
+    untracked: [],
   }
 }
 
@@ -40,6 +41,7 @@ describe('countWorkspaceChangedFiles', () => {
           { path: 'src/both.ts', type: 'modified' },
           { path: 'src/unstaged.ts', type: 'modified' },
         ],
+        untracked: [],
       },
       {
         projectId: 'p2',
@@ -48,10 +50,27 @@ describe('countWorkspaceChangedFiles', () => {
         branch: 'feature',
         staged: [],
         unstaged: [{ path: 'src/both.ts', type: 'modified' }],
+        untracked: [],
       },
     ]
 
     expect(countWorkspaceChangedFiles(repos)).toBe(4)
+  })
+
+  it('counts untracked files, which are their own group', () => {
+    const repos: WorkspaceRepoStatus[] = [
+      {
+        projectId: 'p1',
+        projectName: 'one',
+        checkoutPath: '/worktrees/one',
+        branch: 'feature',
+        staged: [],
+        unstaged: [{ path: 'src/edited.ts', type: 'modified' }],
+        untracked: [{ path: 'src/brand-new.ts', type: 'added' }],
+      },
+    ]
+
+    expect(countWorkspaceChangedFiles(repos)).toBe(2)
   })
 })
 

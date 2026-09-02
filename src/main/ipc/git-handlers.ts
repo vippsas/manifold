@@ -163,7 +163,7 @@ export function registerGitHandlers(deps: IpcDependencies): void {
       const checkoutPath = workspace.worktreePaths?.[projectId] ?? project.path
       const [branch, groups, upstreamAheadBehind] = await Promise.all([
         gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], checkoutPath).then((out) => out.trim()).catch(() => ''),
-        gitStatus(checkoutPath).then(parseWorkspaceStatus).catch(() => ({ staged: [], unstaged: [] })),
+        gitStatus(checkoutPath).then(parseWorkspaceStatus).catch(() => ({ staged: [], unstaged: [], untracked: [] })),
         gitExec(['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], checkoutPath)
           .then((out) => {
             const [behind, ahead] = out.trim().split(/\s+/).map(Number)

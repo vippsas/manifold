@@ -198,10 +198,8 @@ describe('registerGitHandlers git:workspace-status', () => {
         branch: 'manifold/feature',
         upstreamAheadBehind: { behind: 2, ahead: 3 },
         staged: [],
-        unstaged: [
-          { path: 'src/a.ts', type: 'modified' },
-          { path: 'b.ts', type: 'added' },
-        ],
+        unstaged: [{ path: 'src/a.ts', type: 'modified' }],
+        untracked: [{ path: 'b.ts', type: 'added' }],
       },
     ])
     expect(mocks.gitExec).toHaveBeenCalledWith(['rev-parse', '--abbrev-ref', 'HEAD'], '/worktrees/repo-one')
@@ -220,7 +218,7 @@ describe('registerGitHandlers git:workspace-status', () => {
     const result = await handler({}, 'ws-home')
 
     expect(result).toEqual([
-      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: 'main', staged: [], unstaged: [] },
+      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: 'main', staged: [], unstaged: [], untracked: [] },
     ])
     expect(mocks.gitStatus).toHaveBeenCalledWith('/repos/repo-one')
   })
@@ -234,7 +232,7 @@ describe('registerGitHandlers git:workspace-status', () => {
     )
 
     await expect(handler({}, 'ws-1')).resolves.toEqual([
-      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: '', staged: [], unstaged: [] },
+      { projectId: 'p1', projectName: 'repo-one', checkoutPath: '/repos/repo-one', branch: '', staged: [], unstaged: [], untracked: [] },
     ])
   })
 

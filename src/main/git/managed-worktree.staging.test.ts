@@ -25,6 +25,10 @@ function groups(): { staged: string[]; unstaged: string[] } {
   return { staged: staged.map((c) => c.path), unstaged: unstaged.map((c) => c.path) }
 }
 
+function untrackedPaths(): string[] {
+  return parseWorkspaceStatus(git('status', '--porcelain')).untracked.map((c) => c.path)
+}
+
 beforeEach(() => {
   repo = fs.mkdtempSync(path.join(os.tmpdir(), 'manifold-staging-'))
   git('init', '-q', '-b', 'main')
@@ -148,6 +152,6 @@ describe('commitManagedWorktreeIndex', () => {
     await commitManagedWorktreeIndex(repo, 'index only')
 
     expect(git('show', '--name-only', '--pretty=', 'HEAD').trim()).toBe('src/tracked.ts')
-    expect(groups().unstaged).toEqual(['src/scratch.ts'])
+    expect(untrackedPaths()).toEqual(['src/scratch.ts'])
   })
 })
