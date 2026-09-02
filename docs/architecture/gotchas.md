@@ -1,7 +1,7 @@
 ---
-description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, and dockview layout restore/width-0 — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
-covers: [src/renderer/components/modals/useNewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts]
-updated: 2026-08-09
+description: The top recurring development traps in Manifold — StrictMode double-mount, the better-sqlite3 Node↔Electron ABI flip, worktree bootstrap, dockview layout restore/width-0, and terminal-query replay — each paired with the checked-in guardrail (test/script/doc) that pins it, cited to file:line.
+covers: [src/renderer/components/modals/useNewAgentForm.tsx, scripts/rebuild-better-sqlite3-node.mjs, scripts/setup-worktree.sh, src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts, src/renderer/hooks/terminal/terminal-replay.ts]
+updated: 2026-09-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -35,6 +35,7 @@ review when one of them changes:
 - `scripts/rebuild-better-sqlite3-node.mjs` — the self-healing Node-ABI rebuild.
 - `scripts/setup-worktree.sh` — `npm run bootstrap`, the one-step worktree setup.
 - `src/renderer/hooks/dock-layout/dock-layout-lifecycle.ts` — the dockview width-0 guard.
+- `src/renderer/hooks/terminal/terminal-replay.ts` — the replay query-stripping guard.
 
 Deeper, subsystem-level coverage lives in [Renderer](renderer.md) and
 [Build & release](build.md); this page is the cross-cutting index of the traps that bite
@@ -175,7 +176,43 @@ re-asserting it on open — never replaying a snapshot's position
 (`PANEL_RESTORE_HINTS`, `dock-layout-model.ts:35`; `spanShellAcrossWorkspace`,
 `dock-layout-shell-span.ts:50`). More in [Renderer](renderer.md).
 
-## 5. Verify against the real code path, not an approximation
+## 5. Replaying raw terminal output re-answers the queries baked into it
+
+**Symptom.** Switching to another agent or shell types garbage into the program that is
+already running there — classically `;1R;1R;1R;1R` at a Claude Code or shell prompt. It
+looks like a key-handling or `/add-dir` bug, because the burst lands right after an action
+that switches views.
+
+**Root cause.** `useTerminal` restores a session by writing its raw `outputBuffer` into a
+freshly created xterm.js (`useTerminal.ts:228`). xterm.js does not distinguish live output
+from history: it *answers* the terminal queries it parses. Each `ESC[6n` in the replayed
+bytes makes it emit `ESC[<row>;<col>R`, each `ESC[c` makes it emit `ESC[?1;2c`, both
+through `onData` — which the same hook forwards to the live PTY as if the user had typed
+it (`useTerminal.ts:285`). The input filter passes cursor reports through on purpose, so
+the GitHub CLI auth prompt doesn't hang (`terminal-input-filter.ts:3-7`). Codex sends one
+`ESC[6n` on startup and one per resize, and codex and Claude Code each send one `ESC[c` on
+startup, so a session's buffer holds several and every view switch replays the whole burst.
+How that surfaces is up to whatever is reading the PTY: a reader whose key parser walks
+`ESC[<row>` as a sequence prefix and then gives up leaves the unmatched `;1R` tail in its
+input line, and a shell that is not in raw mode gets the whole thing kernel-echoed as
+`^[[7;1R`. Either way the app injected input nobody typed.
+
+**Guardrail.** Strip the queries from the replayed buffer — history was already answered
+by whichever terminal was attached at the time — and leave the live path alone
+(`stripTerminalQueries`, `hooks/terminal/terminal-replay.ts:30`). Pinned by
+`terminal-replay.test.ts`, which drives the **real** `@xterm/xterm` over the real replay
+path: one test asserts nothing reaches the PTY after stripping, its twin asserts the
+unstripped buffer still yields one stale report per query, so the mechanism itself stays
+pinned and cannot silently drift.
+
+**Generalizes.** Any historical byte stream fed back into a stateful emulator can trigger
+a reply the peer never asked for. The strip covers the queries the runtimes were actually
+measured emitting (cursor position and device attributes); xterm.js also auto-answers
+DECRQM, DECRQSS, window-size reports and OSC color queries, and only the color *replies*
+are dropped on the input side (`terminal-input-filter.ts:10`). If new garbage appears on a
+view switch, suspect the replay before the key handler, and check that census first.
+
+## 6. Verify against the real code path, not an approximation
 
 Cross-cutting principle behind the guardrails above. A test that stubs the very thing
 under test proves nothing; a green check must exercise the app's real imports and
@@ -194,5 +231,6 @@ could only be confirmed against the live system.
 - **[Build & release](build.md)** — subsystem-level detail for traps #2 and #3 (the
   native-module rebuild story and the worktree bootstrap/doctor flow).
 - **CLAUDE.md §7** — the worktree-setup rule this page's trap #3 summarizes.
+- **[Renderer](renderer.md)** — where the terminal hook of trap #5 sits in the panel tree.
 - **Test template** — `src/renderer/test-utils/strict-mode.test.tsx` is the copyable
   guardrail for trap #1; copy it next to a component and swap in the real one.

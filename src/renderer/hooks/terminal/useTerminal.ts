@@ -11,6 +11,7 @@ import {
   includesInterruptSignal,
   INTERRUPT_TERMINAL_MODE_RESET,
 } from '../../terminal-input-filter'
+import { stripTerminalQueries } from './terminal-replay'
 import {
   loadWebFont,
   resolveFontFamily,
@@ -228,7 +229,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
         // PTY emits new output (e.g. user presses Enter).
         void window.electronAPI.invoke('agent:replay', sessionId).then((buffer) => {
           if (!disposed && buffer) {
-            terminal.write(buffer as string)
+            terminal.write(stripTerminalQueries(buffer as string))
           }
           if (!disposed) {
             void window.electronAPI.invoke('shell:predict-suggestion', sessionId)
