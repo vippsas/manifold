@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-09-01
+updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -247,9 +247,9 @@ toggles, the sidebar views, and the settings entry — the status bar
 (`components/git/StatusBar.tsx`) renders none of them. Its left edge is the active workspace
 repo's branch control even when no agent is open: `AppShell` resolves the active repo from
 `workspaceRepoStatuses`, and `BranchSwitcher` opens the same centered picker used by Source
-Control (`AppShell.tsx:157`, `StatusBar.tsx:72`). Beside it, one sync button combines a
-circular pull glyph with aligned down/up glyphs and the checkout's counts against its
-configured upstream (`WorkspaceRepoStatus.upstreamAheadBehind`), not the session's separate
+Control (`AppShell.tsx:157`, `StatusBar.tsx:72`). Beside it, one sync button combines VS Code's
+filled Codicon-style sync glyph with compact `2↓ 3↑` counts for the checkout against its
+configured upstream (`WorkspaceRepoStatus.upstreamAheadBehind`; `StatusBar.tsx:91`, `:175`), not the session's separate
 base-branch comparison. Clicking it invokes `git:workspace-pull`, replacing the sync glyph with
 the sidebar's shared ring spinner through a fast-forward-only pull followed by a push, then
 refreshing both workspace status and the session comparison. A pull or push failure opens
