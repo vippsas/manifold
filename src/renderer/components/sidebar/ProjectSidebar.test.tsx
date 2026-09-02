@@ -64,13 +64,15 @@ describe('ProjectSidebar', () => {
 
   // Which repo a workspace belongs to has to be readable without opening it —
   // the name alone can't say, since only some names carry their branch prefix.
+  // It trails the name as a dimmed description now, VS Code's label layout, so
+  // the name keeps the front of the row and full contrast.
   it('names the repo of a workspace whose own name does not', () => {
     renderSidebar()
 
     const row = screen.getByText('alpha-space').closest('.sidebar-project-row')
 
-    expect(within(row as HTMLElement).getByText('Alpha')).toBeInTheDocument()
-    expect(row).toHaveAttribute('title', 'Alpha/alpha-space')
+    expect(within(row as HTMLElement).getByText('Alpha')).toHaveClass('sidebar-row-description')
+    expect(row).toHaveAttribute('title', 'alpha-space — Alpha')
   })
 
   it('leaves the repo unsaid when the workspace is already named after it', () => {
@@ -84,11 +86,13 @@ describe('ProjectSidebar', () => {
 
     expect(within(row as HTMLElement).getAllByText('Alpha')).toHaveLength(1)
     expect(row).toHaveAttribute('title', 'Alpha')
+    expect(row?.querySelector('.sidebar-row-description')).toBeNull()
   })
 
-  // Both kinds sit in one flat list, so the glyph is the only thing that says
-  // whether a row is the repo you opened or a worktree cut off it.
-  it('draws a branch for a worktree workspace and a folder for a home one', () => {
+  // Both kinds sit in one flat list, and the row's one glyph column is the
+  // disclosure chevron now — so the kind is said in the dimmed description,
+  // where it is a word rather than a 14px silhouette to decode.
+  it('says in words that a workspace is a worktree, and stays quiet for a home one', () => {
     renderSidebar({
       workspaces: [
         { id: 'w1', name: 'moss', projectIds: ['p1'], createdAt: '2024-01-01', branchName: 'alpha/moss', worktreePaths: { p1: '/wt/moss' } },
@@ -96,12 +100,12 @@ describe('ProjectSidebar', () => {
       ],
     })
 
-    const glyphOf = (name: string): string | null | undefined =>
+    const descriptionOf = (name: string): string | null | undefined =>
       screen.getByText(name).closest('.sidebar-project-row')
-        ?.querySelector('[data-glyph]')?.getAttribute('data-glyph')
+        ?.querySelector('.sidebar-row-description')?.textContent
 
-    expect(glyphOf('moss')).toBe('worktree')
-    expect(glyphOf('beta-space')).toBe('folder')
+    expect(descriptionOf('moss')).toBe('Alpha · worktree')
+    expect(descriptionOf('beta-space')).toBe('Beta')
   })
 
   it('counts the extra folders of a multi-folder workspace', () => {
@@ -122,13 +126,27 @@ describe('ProjectSidebar', () => {
     expect(folderLabel('Beta')).not.toBeInTheDocument()
   })
 
-  it('opens one workspace at a time — opening another closes the one before it', () => {
+  // Like VS Code's multi-root explorer: each root keeps its own state, so the
+  // list holds still under a click instead of collapsing what you last opened.
+  it('opens workspaces independently — opening one leaves the others open', () => {
     renderSidebar()
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
 
     expect(folderLabel('Beta')).toBeInTheDocument()
+    expect(folderLabel('Alpha')).toBeInTheDocument()
+  })
+
+  // The one control that can empty the list in a click, and the reason the
+  // sidebar rather than the list owns which workspaces are open.
+  it('closes every open workspace from the header\'s Collapse All', () => {
+    renderSidebar()
+
+    fireEvent.click(screen.getByLabelText('Expand beta-space'))
+    fireEvent.click(screen.getByLabelText('Collapse All Workspaces'))
+
     expect(folderLabel('Alpha')).not.toBeInTheDocument()
+    expect(folderLabel('Beta')).not.toBeInTheDocument()
   })
 
   it('closes a workspace from its chevron without changing the selection', () => {
@@ -197,20 +215,19 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('beta-space').closest('.sidebar-label-working')).toBeNull()
   })
 
-  // The sweep covers the dimmed `repo /` prefix too — but as a class on each
+  // The sweep covers the dimmed description too — but as a class on each
   // segment, never on the span wrapping them. One `background-clip: text`
   // element paints everything beneath it from a single gradient, so a wrapper
-  // would flatten the repo to the name's contrast and swallow the "/"; a
-  // gradient per segment keeps each one's own colour as the sweep's base.
-  it('sweeps each segment of the path on its own, not the span wrapping them', () => {
+  // would flatten the description to the name's contrast; a gradient per
+  // segment keeps each one's own colour as the sweep's base.
+  it('sweeps each segment of the label on its own, not the span wrapping them', () => {
     renderSidebar({ outputtingSessionIds: new Set(['s1']) })
 
     const row = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
-    const repo = within(row!).getByText('Alpha')
-    const sep = within(row!).getByText('/')
+    const description = within(row!).getByText('Alpha')
     const name = within(row!).getByText('alpha-space')
 
-    for (const segment of [repo, sep, name]) {
+    for (const segment of [description, name]) {
       expect(segment).toHaveClass('sidebar-label-working')
       // The segment carries it itself — nothing above it may, or the gradient
       // would be shared and the per-segment colours lost.
@@ -226,28 +243,21 @@ describe('ProjectSidebar', () => {
     expect(props.onNewProject).toHaveBeenCalled()
   })
 
-  // The toolbar carries the sort toggle and nothing else — it is pinned exactly
-  // so an action cannot drift back in beside it. Both *create* actions are words
-  // in the bottom bar, where a folder-plus glyph up here read as "new workspace"
-  // to the eye and duplicated the button below.
-  it('renders just the sort toggle in the compact top toolbar', () => {
+  // Every action the pane has lives in its header, VS Code style, in the order
+  // you reach for them: create, then arrange. New Repo before New Workspace —
+  // a workspace is built out of repos, so the prerequisite reads first. Pinned
+  // exactly, so an action cannot drift in without a decision about where.
+  it('carries every pane action in the header, create actions first', () => {
     renderSidebar()
 
     const toolbar = screen.getByRole('toolbar', { name: 'Workspace list actions' })
-    const buttons = within(toolbar).getAllByRole('button')
-    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+    const actions = toolbar.querySelector<HTMLElement>('.sidebar-pane-actions')
+    expect(within(actions!).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'New Repo',
+      'New Workspace',
       'Sorted by recently used — click to sort A–Z',
+      'Collapse All Workspaces',
     ])
-  })
-
-  // New Repo before New Workspace: a workspace is built out of repos, so the
-  // prerequisite reads first, and the accented workspace CTA keeps the edge.
-  it('names both create actions in the bottom bar, prerequisite first', () => {
-    renderSidebar()
-
-    const bar = screen.getByRole('button', { name: 'New Workspace' }).parentElement
-    const buttons = within(bar!).getAllByRole('button')
-    expect(buttons.map((button) => button.textContent)).toEqual(['+ New Repo', '+ New Workspace'])
   })
 
   // A fork glyph and a folder-plus glyph used to sit here, each meaning nothing
@@ -395,11 +405,17 @@ describe('ProjectSidebar', () => {
     expect(scroller?.contains(button)).toBe(false)
   })
 
-  it('keeps a static Workspaces label that is not a collapse control', () => {
+  // The pane header folds the whole list away, the way every VS Code view does.
+  it('collapses the whole list from the Workspaces title', () => {
     renderSidebar()
 
-    expect(screen.getByText('Workspaces')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Workspaces' })).not.toBeInTheDocument()
+    const title = screen.getByRole('button', { name: 'Workspaces' })
+    expect(title).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(title)
+
+    expect(title).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('alpha-space')).not.toBeInTheDocument()
   })
 
   it('renders a draft chat row in the workspace holding its repo', () => {

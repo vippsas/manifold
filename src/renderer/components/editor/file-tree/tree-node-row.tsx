@@ -7,11 +7,22 @@ import { highlightByIndices } from '../../search/search-highlight'
 import { CHANGE_INDICATORS, treeStyles } from './FileTree.styles'
 import type { DirChangeEntry } from './file-tree-changes'
 
-/** Directory expand/collapse chevron; the wrapper rotates it when expanded. */
+/** Directory expand/collapse chevron; the wrapper rotates it when expanded.
+ *  Drawn stroked, like VS Code's `chevron-right` codicon and like the workspace
+ *  and folder rows above it, so one twistie shape runs the whole sidebar. */
 function ChevronIcon(): React.JSX.Element {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M6 4l4 4-4 4" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6.5 4l4 4-4 4" />
     </svg>
   )
 }

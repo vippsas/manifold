@@ -94,9 +94,10 @@ describe('sidebar folders', () => {
   it('saves folders opened in different cards into one remembered set', () => {
     renderWithFiles()
 
+    // Both cards stay open at once now, so no re-expanding in between: the
+    // point of the test is that the two toggles write to one shared set.
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
     fireEvent.click(folderLabel('Beta')!)
-    fireEvent.click(screen.getByLabelText('Expand alpha-space'))
     fireEvent.click(folderLabel('Alpha')!)
 
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toEqual(['project:p2', 'project:p1'])

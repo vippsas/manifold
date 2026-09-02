@@ -3,7 +3,7 @@ import type { Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
 import { isGitProject } from '../../../shared/project-kind'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { FilesChevronGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
+import { FilesChevronGlyph } from './SidebarCardActionGlyphs'
 import { RepoFetchButton } from './RepoFetchButton'
 import { useFetchProject } from '../../hooks/project/useFetchProject'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
@@ -55,7 +55,11 @@ export function WorkspaceRepoRow({
     <>
       <div
         className={`sidebar-item-row sidebar-repo-row${isActive ? ' sidebar-item-row--active' : ''}`}
-        style={{ ...sidebarStyles.item, paddingLeft: 16 }}
+        style={{
+          ...sidebarStyles.item,
+          ...(isActive ? sidebarStyles.itemActive : undefined),
+          paddingLeft: 'var(--sidebar-indent-repo)',
+        }}
         title={folderPath}
         role="button"
         tabIndex={0}
@@ -63,22 +67,20 @@ export function WorkspaceRepoRow({
         onClick={selectAndDisclose}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectAndDisclose() } }}
       >
-        <span
-          className="truncate sidebar-row-label"
-          style={{ ...sidebarStyles.itemName, color: 'var(--text-secondary)', fontSize: 'var(--type-ui-small)' }}
+        {/* Outside the label, in the row's own twistie column, so it sits
+            directly under the workspace's chevron and directly above its files'. */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleFiles() }}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="sidebar-files-toggle"
+          aria-expanded={filesOpen}
+          aria-label={`${filesOpen ? 'Hide' : 'Show'} files in ${repoName}`}
+          title="Folder files"
         >
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onToggleFiles() }}
-            onKeyDown={(e) => e.stopPropagation()}
-            className="sidebar-files-toggle"
-            aria-expanded={filesOpen}
-            aria-label={`${filesOpen ? 'Hide' : 'Show'} files in ${repoName}`}
-            title="Folder files"
-          >
-            <FilesChevronGlyph expanded={filesOpen} />
-          </button>
-          <span style={sidebarStyles.rowGlyph}><RepoGlyph /></span>
+          <FilesChevronGlyph expanded={filesOpen} />
+        </button>
+        <span className="truncate sidebar-row-label" style={sidebarStyles.itemName}>
           <span className="truncate">{repoName}</span>
         </span>
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>

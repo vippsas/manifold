@@ -34,29 +34,15 @@ export function FilesChevronGlyph({ expanded }: { expanded: boolean }): React.JS
       width="16"
       height="16"
       viewBox="0 0 16 16"
-      fill="currentColor"
-      aria-hidden="true"
-      style={{ transform: expanded ? 'rotate(90deg)' : undefined, transition: 'transform 0.1s ease' }}
-    >
-      <path d="M6 4l4 4-4 4" />
-    </svg>
-  )
-}
-
-export function RepoGlyph(): React.JSX.Element {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.3"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      style={{ transform: expanded ? 'rotate(90deg)' : undefined, transition: 'transform 0.1s ease' }}
     >
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+      <path d="M6.5 4l4 4-4 4" />
     </svg>
   )
 }
@@ -111,6 +97,53 @@ export function SortModeGlyph({ mode }: { mode: SidebarSortMode }): React.JSX.El
     <svg {...stroke} aria-hidden="true">
       <circle cx="12" cy="12" r="8" />
       <path d="M12 7.5V12l3 1.8" />
+    </svg>
+  )
+}
+
+/** The pane header's actions wear VS Code's own explorer silhouettes, drawn on
+ *  the same 24-unit grid and 2px stroke as the glyphs above so the row reads as
+ *  one set. Each one's meaning lives in its `aria-label` and tooltip — the
+ *  header is a toolbar, and a toolbar's icons are learned once. */
+const headerGlyph = {
+  width: 16,
+  height: 16,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.7,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+} as const
+
+/** Registering a repo: a document with a plus, VS Code's "New File". */
+export function NewRepoGlyph(): React.JSX.Element {
+  return (
+    <svg {...headerGlyph} aria-hidden="true">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5" />
+      <path d="M14 3l5 5v3" />
+      <path d="M18 15v6M15 18h6" />
+    </svg>
+  )
+}
+
+/** Creating a workspace: a folder with a plus, VS Code's "New Folder". */
+export function NewWorkspaceGlyph(): React.JSX.Element {
+  return (
+    <svg {...headerGlyph} aria-hidden="true">
+      <path d="M21 13V9a2 2 0 0 0-2-2h-8l-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7" />
+      <path d="M18 15v6M15 18h6" />
+    </svg>
+  )
+}
+
+/** Closing every open workspace at once, VS Code's "Collapse Folders". */
+export function CollapseAllGlyph(): React.JSX.Element {
+  return (
+    <svg {...headerGlyph} aria-hidden="true">
+      <rect x="3" y="3" width="13" height="13" rx="2" />
+      <path d="M7 9.5h5" />
+      <path d="M19 8v11a2 2 0 0 1-2 2H6" />
     </svg>
   )
 }

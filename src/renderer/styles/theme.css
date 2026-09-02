@@ -104,6 +104,14 @@
   --tree-hover: rgba(226, 194, 117, 0.051);
   --tree-indent-guide: #1e2a40;
 
+  /* The sidebar's indent ladder, one 8px step per level, matching the file
+     tree's own `depth * 8` (tree-node-row.tsx). A workspace's folders sit one
+     step in from it, and that folder's files one step in again — so the chevron
+     column marches right by exactly 8px per level all the way down. */
+  --sidebar-indent-workspace: 4px;
+  --sidebar-indent-repo: 12px;
+  --sidebar-indent-files: 16px;
+
   --bg-chrome: var(--bg-secondary);
   --bg-chrome-active: var(--bg-primary);
   --bg-overlay: #101219;
@@ -876,15 +884,21 @@ select:focus-visible {
   background: var(--warning-subtle);
 }
 
+/* A VS Code explorer row: 22px tall, full-bleed, no margin and no radius, so a
+   column of them reads as one continuous list rather than a stack of cards. The
+   left padding is the tree's indent — `--sidebar-indent-*` below — and every row
+   in the sidebar sits on the same 8px ladder as the file tree it opens into. */
 .sidebar-item-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-xs);
-  min-height: 28px;
-  margin: 1px 8px;
-  padding: 0 8px;
-  font-size: var(--type-ui-small);
+  gap: 0;
+  height: 22px;
+  min-height: 22px;
+  margin: 0;
+  padding: 0 8px 0 var(--sidebar-indent-workspace);
+  font-size: var(--type-ui);
+  line-height: 22px;
   color: var(--text-secondary);
   position: relative;
   cursor: pointer;
@@ -896,14 +910,14 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
-/* The active row carries no fill — selection is shown by label color alone
-   (the agent label goes accent, set inline in AgentItem), which keeps the
-   narrow sidebar clean and gives the text the full row width. */
-.sidebar-item-row--active {
-  color: var(--sidebar-active-text);
-}
-
+/* Selection is a single solid full-bleed bar on the one selected row —
+   `list.activeSelectionBackground` straight from the theme, the same token VS
+   Code paints its explorer selection with. It replaced a 2px accent rail plus a
+   tinted wash over the whole workspace card: two markers for one state, and the
+   wash meant a deep tree carried highlight on every row in it. */
+.sidebar-item-row--active,
 .sidebar-project-row.sidebar-item-row--active {
+  background: var(--list-active-bg);
   color: var(--text-primary);
 }
 
@@ -923,84 +937,7 @@ select:focus-visible {
 
 .sidebar-project-row {
   font-weight: 400;
-  padding-right: 56px;
-}
-
-/* The workspace you are in reads as a region, not a row: a 2px accent rail down
-   the card's whole height — past an expanded tree — with a subtle wash on the
-   workspace's own rows. Neither half works alone. The rail by itself competes
-   with the pulsing status dots on every working workspace below it (`core-pulse`,
-   :477), and a static 2px line loses to motion; the wash by itself does not tie
-   the header to the folders under it. */
-.sidebar-workspace-card.sidebar-project-group--active {
-  position: relative;
-  margin: 2px 8px;
-  border-radius: var(--radius-sm);
-}
-
-/* Deliberately no `overflow: hidden` — it would kill the sticky header inside
-   this card. The rail rounds its own left corners instead.
-   `z-index: 3` clears the sticky header below (:2), whose background is opaque
-   by necessity and would otherwise paint over the rail's top — leaving the rail
-   to start at the first folder row instead of the top of the card. Only the
-   leftmost 2px is involved; row text starts 8px in. */
-.sidebar-workspace-card.sidebar-project-group--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  z-index: 3;
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  background: var(--accent);
-}
-
-/* The card now owns the 8px its rows used to carry (:871), so the wash meets the
-   rail with no gap. Padding is untouched, so no label moves. The child
-   combinator is what scopes the wash: it lands on the workspace header, its repo
-   rows and any drafts, while an expanded tree renders into
-   `.sidebar-project-files` (`WorkspaceRepoRow.tsx:117`) — not a row, so it stays
-   on the plain sidebar surface and the highlight costs the same at any depth. */
-.sidebar-workspace-card.sidebar-project-group--active > .sidebar-item-row {
-  margin-inline: 0;
-  background: var(--sidebar-active-bg);
-}
-
-/* `--list-hover-bg` is accent at 5% against this 7% wash, and loses on
-   specificity besides (:881 is `(0,2,0)`) — without this rule, rows in the
-   active card would not respond to hover at all. `--sidebar-active-border` is
-   accent at 12%: an unambiguous step up, and already in the palette. */
-.sidebar-workspace-card.sidebar-project-group--active > .sidebar-item-row:hover {
-  background: var(--sidebar-active-border);
-}
-
-/* The workspace you are in is the first row in the list, and it stays put while
-   its own folders and files scroll under it — so scrolling deep into a tree
-   never costs you the label saying where you are. It needs its own background:
-   a row is transparent until hovered, and the rows passing beneath would
-   otherwise read straight through this one.
-   That background has to be the card's wash *composited onto* an opaque base,
-   not a flat `--bg-sidebar`: this rule ties with the card's own wash rule at
-   `(0,3,0)` and comes later, so a flat fill would win and leave the header
-   reading unhighlighted while its children stayed washed. */
-.sidebar-workspace-card.sidebar-project-group--active > .sidebar-project-row {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background:
-    linear-gradient(var(--sidebar-active-bg), var(--sidebar-active-bg)),
-    var(--bg-sidebar);
-}
-
-/* Same trick for hover, and it is not optional: the card's hover rule scores
-   `(0,3,1)` and would otherwise beat the rule above, swapping this row's opaque
-   base for a translucent 12% fill and letting the rows scrolling under it show
-   through. */
-.sidebar-workspace-card.sidebar-project-group--active > .sidebar-project-row:hover {
-  background:
-    linear-gradient(var(--sidebar-active-border), var(--sidebar-active-border)),
-    var(--bg-sidebar);
+  padding-right: 28px;
 }
 
 /* One 8px step in from its repo row, so the agent's chevron lands between the
@@ -1008,18 +945,19 @@ select:focus-visible {
 .sidebar-agent-row {
   flex-direction: column;
   align-items: flex-start;
-  min-height: 28px;
+  height: 22px;
+  min-height: 22px;
   justify-content: center;
-  padding: 2px 8px 2px 16px;
+  padding: 0 8px 0 var(--sidebar-indent-repo);
   gap: 0;
   background: transparent;
   position: relative;
 }
 
-/* Workspace agents sit one level deeper than their repo row, which itself sits
-   a step in from the workspace card's header. */
+/* Drafts hang off the workspace beside its folders, so they share the folder
+   row's step rather than taking one of their own. */
 .sidebar-workspace-card .sidebar-agent-row {
-  padding-left: 24px;
+  padding-left: var(--sidebar-indent-repo);
 }
 
 .sidebar-agent-row--exited {
@@ -1043,6 +981,49 @@ select:focus-visible {
 .sidebar-row-label {
   flex: 1;
   min-width: 0;
+  margin-left: 6px;
+}
+
+/* The dimmed detail after a row's name — which repo a workspace belongs to, and
+   whether it is a worktree. VS Code's `.label-description`: the name keeps full
+   contrast and the qualifier trails it, rather than a prefix the eye has to step
+   over to reach the name. */
+.sidebar-row-description {
+  flex-shrink: 1;
+  min-width: 0;
+  margin-left: 6px;
+  font-size: var(--type-ui-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A 1px guide down each parent's chevron column, so a folder five rows below
+   its workspace still reads as being under it. Centred on the parent twistie:
+   a workspace's chevron sits at 4px + 8px, so its children's guide is at 12px. */
+.sidebar-repo-row::before,
+.sidebar-project-files::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--tree-indent-guide);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.sidebar-repo-row::before {
+  left: calc(var(--sidebar-indent-workspace) + 8px);
+}
+
+.sidebar-project-files {
+  position: relative;
+}
+
+.sidebar-project-files::before {
+  left: calc(var(--sidebar-indent-repo) + 8px);
 }
 
 /* A working workspace says so twice on the same row: the dot pulses, and an
@@ -1084,17 +1065,23 @@ select:focus-visible {
   animation: sidebar-sweep 1.8s linear infinite;
 }
 
-/* The disclosure on rows that also carry a selection — an agent, or a repo
-   inside a workspace: the row selects and opens, this opens without selecting.
-   Sized to the repo row's chevron column so both line up down the sidebar. */
+/* One 16px chevron column, always visible, on every expandable row — the file
+   tree's twistie, extended up over the workspace and folder rows so a single
+   column runs the height of the sidebar.
+   It used to hold the workspace's kind glyph and swap to a chevron on hover.
+   That hid the disclosure until you were already on the row, and it cost the
+   column its alignment with the file rows below, which have only ever shown one
+   glyph. The folder-vs-worktree distinction moved to the row's dimmed
+   description, where it is a word instead of a 14px silhouette. */
+.sidebar-workspace-toggle,
 .sidebar-files-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   width: 16px;
-  height: 16px;
-  margin-left: -4px;
+  height: 22px;
+  margin: 0;
   padding: 0;
   border: none;
   background: none;
@@ -1102,54 +1089,34 @@ select:focus-visible {
   cursor: pointer;
 }
 
+.sidebar-workspace-toggle:hover,
 .sidebar-files-toggle:hover {
   color: var(--text-primary);
 }
 
-/* A workspace row leads with its kind glyph — a folder for a home workspace, a
-   branch for a worktree — not a chevron beside one: the same icon column carries
-   the disclosure, swapping to the state's chevron while the row is hovered or
-   focused so the affordance appears where the eye already is. */
-.sidebar-workspace-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  margin-left: -4px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
+/* The pane header's action row, VS Code's: hidden until the header is hovered
+   or holds focus, so the sidebar at rest is a title and a list and nothing else.
+   Never `display: none` — the buttons stay in the tree and reachable by Tab,
+   and focus inside the cluster is itself one of the things that reveals it. */
+.sidebar-pane-actions {
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-premium);
 }
 
-.sidebar-workspace-toggle__glyph,
-.sidebar-workspace-toggle__chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.sidebar-pane-header:hover .sidebar-pane-actions,
+.sidebar-pane-header:focus-within .sidebar-pane-actions {
+  opacity: 1;
 }
 
-/* Keyboard focus is `:focus-visible`, not `:focus-within`: clicking the row
-   focuses it, and that must not leave the chevron showing after the pointer
-   has gone. */
-.sidebar-workspace-toggle__chevron,
-.sidebar-item-row:hover .sidebar-workspace-toggle__glyph,
-.sidebar-item-row:focus-visible .sidebar-workspace-toggle__glyph,
-.sidebar-workspace-toggle:focus-visible .sidebar-workspace-toggle__glyph {
-  display: none;
-}
-
-.sidebar-item-row:hover .sidebar-workspace-toggle__chevron,
-.sidebar-item-row:focus-visible .sidebar-workspace-toggle__chevron,
-.sidebar-workspace-toggle:focus-visible .sidebar-workspace-toggle__chevron {
-  display: inline-flex;
-}
-
-.sidebar-workspace-toggle:hover {
+.sidebar-pane-header button:hover {
   color: var(--text-primary);
+  background: var(--list-hover-bg);
+}
+
+.sidebar-pane-header button:focus-visible {
+  outline: none;
+  opacity: 1;
+  box-shadow: 0 0 0 1px var(--focus-ring);
 }
 
 .sidebar-item-actions {
@@ -1207,12 +1174,12 @@ select:focus-visible {
   opacity: 0;
 }
 
-.sidebar-project-group {
-  margin-bottom: 2px;
-}
-
+/* No gap between workspaces. The list is one unbroken column of 22px rows —
+   the gap was what made a workspace read as a card, and cards are what the
+   sidebar is getting away from. */
+.sidebar-project-group,
 .sidebar-project-group--has-agents {
-  margin: 0 0 var(--space-sm);
+  margin: 0;
   padding: 0;
   background: transparent;
   border: 0;
@@ -1227,16 +1194,6 @@ select:focus-visible {
    elevation) with an accent-tinted border to read as a workspace, not a repo. */
 .sidebar-project-group--has-agents.sidebar-workspace-card {
   background: transparent;
-}
-
-.sidebar-new-workspace-button:hover {
-  background: var(--accent-subtle);
-  border-color: var(--accent);
-}
-
-.sidebar-new-repo-button:hover {
-  background: var(--list-hover-bg);
-  color: var(--text-primary);
 }
 
 .sidebar-card-actions button:hover {
@@ -1300,21 +1257,6 @@ select:focus-visible {
 .sidebar-icon-button:disabled:hover {
   background: transparent;
   color: var(--text-muted);
-}
-
-.sidebar-toolbar-button {
-  transition: background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium), border-color var(--duration-normal) var(--ease-premium);
-}
-
-.sidebar-toolbar-button:hover {
-  color: var(--text-primary);
-  background: var(--list-hover-bg);
-  border-color: var(--control-border);
-}
-
-.sidebar-toolbar-button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
 /* ─── Activity bar (fixed icon rail) ─── */

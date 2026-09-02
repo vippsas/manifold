@@ -9,7 +9,6 @@ import { useContextMenu } from '../../hooks/useContextMenu'
 import { buildWorkspaceContextMenu } from './workspace-context-menu'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { DraftAgentItem } from './DraftAgentItem'
-import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { FilesChevronGlyph, WorkspaceActionsGlyph } from './SidebarCardActionGlyphs'
 import { projectFolderKey, useFolderDisclosure } from './folder-disclosure'
 import { workspaceRowLabel } from './agent-labels'
@@ -20,8 +19,9 @@ export interface WorkspaceCardProps {
   workspace: Workspace
   projects: Project[]
   isActive: boolean
-  /** Whether this card shows its folders and drafts. Only one card in the list
-   *  is expanded at a time, so the list owns the state. */
+  /** Whether this card shows its folders and drafts. Each workspace keeps its
+   *  own state, but the sidebar owns them all so its header can collapse the
+   *  lot in one click. */
   expanded: boolean
   onToggleExpanded: () => void
   sessions: AgentSession[]
@@ -102,6 +102,23 @@ export function WorkspaceCard({
   // alone can't, since only some names carry their branch prefix.
   const label = workspaceRowLabel(workspace, projects)
 
+  // Everything the name can't say, dimmed and trailing it — VS Code's label
+  // description. It carries what the row's glyph used to: the repo the
+  // workspace belongs to, and whether it is a worktree rather than the clone.
+  const description = [
+    label.repo,
+    isWorktreeWorkspace(workspace) ? 'worktree' : null,
+  ].filter(Boolean).join(' · ')
+
+  // Exactly one row in the sidebar wears the selection bar. While this
+  // workspace is open and one of its folders is the selected one, that row is
+  // the folder's — the header would otherwise paint a second bar for the same
+  // selection, which is what the old whole-card wash did.
+  const folderSelected = expanded
+    && Boolean(activeProjectId)
+    && workspace.projectIds.includes(activeProjectId!)
+  const rowSelected = isActive && !folderSelected
+
   // With no agent rows, the card still has to say "someone is working here" —
   // a pulsing dot by the name, plus a highlight sweeping the name itself, so the
   // signal carries even when the eye is not on the dot.
@@ -137,13 +154,15 @@ export function WorkspaceCard({
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
-        className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}`}
-        style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined) }}
-        title={label.repo ? `${label.repo}/${label.name}` : label.name}
+        className={`sidebar-item-row sidebar-project-row${rowSelected ? ' sidebar-item-row--active' : ''}`}
+        style={{ ...sidebarStyles.item, ...(rowSelected ? sidebarStyles.itemActive : undefined) }}
+        title={description ? `${label.name} — ${description}` : label.name}
       >
-        {/* The workspace's glyph is also its disclosure: it turns into the
-            chevron for its state while the row is hovered or focused, so the row
-            keeps one icon column instead of a chevron beside a glyph. */}
+        {/* The chevron is always drawn, in the same 16px column the folder rows
+            and the file tree below use, so one twistie column runs the height of
+            the sidebar. It used to be the workspace's kind glyph, swapping to a
+            chevron on hover — which hid the disclosure until the pointer was
+            already on the row, and broke that column's alignment besides. */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleExpanded() }}
@@ -153,12 +172,7 @@ export function WorkspaceCard({
           aria-label={`${expanded ? 'Collapse' : 'Expand'} ${workspace.name}`}
           title={expanded ? 'Collapse workspace' : 'Expand workspace'}
         >
-          <span className="sidebar-workspace-toggle__glyph">
-            <WorkspaceGlyph active={isActive} worktree={isWorktreeWorkspace(workspace)} />
-          </span>
-          <span className="sidebar-workspace-toggle__chevron">
-            <FilesChevronGlyph expanded={expanded} />
-          </span>
+          <FilesChevronGlyph expanded={expanded} />
         </button>
         {nameDraft !== null ? (
           <input
@@ -178,31 +192,25 @@ export function WorkspaceCard({
         ) : (
           <span
             className="sidebar-row-label"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}
+            style={sidebarStyles.rowLabelPath}
             onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(label.name) }}
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
           >
-            {/* Own group, so the label's 6px gap spaces the dot off the name
-                without also prising the repo, the "/" and the name apart. */}
-            {/* The sweep goes on each segment, never on this wrapper: one
-                `background-clip: text` element paints everything beneath it from
-                a single gradient, which flattened the repo to the name's
-                contrast and swallowed the "/". Per segment, each keeps its own
-                colour as the sweep's base, and `background-attachment: fixed`
-                (theme.css) is what still makes the three read as one band. */}
-            <span style={sidebarStyles.rowLabelPath}>
-              {label.repo && (
-                <>
-                  <span className={sweep} style={sidebarStyles.rowRepo}>{label.repo}</span>
-                  <span className={sweep} style={sidebarStyles.rowRepoSep}>/</span>
-                </>
-              )}
-              <span className={`truncate ${sweep}`.trim()} style={{ minWidth: 0 }}>
-                {label.name}
-              </span>
+            {/* The sweep goes on each segment, never on the span wrapping them:
+                one `background-clip: text` element paints everything beneath it
+                from a single gradient, which flattened the dimmed segment to the
+                name's contrast. Per segment, each keeps its own colour as the
+                sweep's base, and `background-attachment: fixed` (theme.css) is
+                what still makes the two read as one band. */}
+            <span className={`truncate ${sweep}`.trim()} style={{ minWidth: 0 }}>
+              {label.name}
             </span>
+            {description && (
+              <span className={`sidebar-row-description ${sweep}`.trim()}>{description}</span>
+            )}
             {isWorking && (
               <span
+                style={{ marginLeft: 6 }}
                 className="status-dot status-dot--active"
                 role="status"
                 aria-label="An agent is working in this workspace"

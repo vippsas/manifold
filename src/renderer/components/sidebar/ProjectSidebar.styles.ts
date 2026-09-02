@@ -1,24 +1,5 @@
 import type React from 'react'
 
-// The two create actions in the bottom bar. They never shrink below their basis
-// — they wrap to a stack instead — so "+ New Workspace" cannot clip to
-// "+ New Workspac…" in a narrowed sidebar.
-const footerButton: React.CSSProperties = {
-  flex: '1 0 120px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-xs)',
-  height: 'var(--control-height)',
-  padding: '0 var(--space-sm)',
-  borderRadius: 'var(--radius-sm)',
-  background: 'transparent',
-  fontSize: 'var(--type-ui-small)',
-  whiteSpace: 'nowrap',
-  cursor: 'pointer',
-  transition: 'border-color var(--duration-normal) var(--ease-premium), background var(--duration-normal) var(--ease-premium), color var(--duration-normal) var(--ease-premium)',
-}
-
 export const sidebarStyles: Record<string, React.CSSProperties> = {
   root: {
     display: 'flex',
@@ -30,42 +11,58 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     minHeight: 0,
     overflowY: 'auto',
   },
+  // VS Code's pane header: 22px tall, its title 11px bold uppercase, and its
+  // actions hidden until the header is hovered or holds focus. The title is a
+  // button — clicking it collapses the whole section, chevron and all.
   actionToolbar: {
     display: 'flex',
     alignItems: 'center',
-    gap: 'var(--space-xs)',
-    minHeight: '32px',
-    padding: 'var(--space-xs) var(--space-sm)',
+    height: '22px',
+    padding: '0 var(--space-xs)',
     background: 'transparent',
     flexShrink: 0,
   },
   toolbarLabel: {
-    paddingLeft: '8px',
-    fontSize: 'var(--type-ui-small)',
-    fontWeight: 500,
-    color: 'var(--text-muted)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '2px',
+    flex: 1,
+    minWidth: 0,
+    padding: 0,
+    border: 0,
+    background: 'transparent',
+    fontFamily: 'inherit',
+    fontSize: 'var(--type-label)',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    color: 'var(--text-secondary)',
+    textAlign: 'left',
+    cursor: 'pointer',
     userSelect: 'none',
   },
+  // 22px square, matching the header's own height, so the icon row never makes
+  // the header taller than a list row.
   toolbarButton: {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '24px',
-    height: '24px',
+    width: '22px',
+    height: '22px',
     padding: 0,
-    border: '1px solid transparent',
-    borderRadius: 'var(--radius-sm)',
+    border: 0,
+    borderRadius: 'var(--radius-xs)',
     background: 'transparent',
     color: 'var(--text-secondary)',
     cursor: 'pointer',
     flexShrink: 0,
   },
-  // Holds the toolbar's actions as one right-aligned cluster.
+  // Holds the header's actions as one right-aligned cluster. Revealed on hover
+  // or focus-within by `.sidebar-pane-actions` in theme.css.
   toolbarActions: {
     marginLeft: 'auto',
     display: 'flex',
     alignItems: 'center',
-    gap: 'var(--space-xs)',
+    gap: 0,
   },
   list: {
     padding: 'var(--space-xs) 0',
@@ -85,63 +82,26 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   // The sidebar is a ladder of 8px steps — the file tree's own per-depth indent
-  // — so every chevron sits one step right of its parent's: the workspace card,
-  // then its folders and its worktrees, then a worktree's files.
+  // — so every chevron sits one step right of its parent's: the workspace row,
+  // then its folders, then those folders' files. The file tree adds its own 4px
+  // to whatever it is given, so this margin is the folder step, not the file's.
   projectFiles: {
-    marginLeft: '24px',
+    marginLeft: 'var(--sidebar-indent-files)',
   },
   worktreeFiles: {
-    marginLeft: '32px',
-  },
-  rowGlyph: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    marginRight: 'var(--space-xs)',
-    color: 'var(--text-muted)',
-    verticalAlign: '-2px',
+    marginLeft: 'calc(var(--sidebar-indent-files) + 8px)',
   },
   itemActive: {
     color: 'var(--text-primary)',
   },
-  // The repo a workspace row belongs to, dimmed ahead of the row's own name.
-  // Capped rather than flexible so the name — the row's identity — is the last
-  // thing to truncate.
-  // `repo / name` as one unit. Sits inside the label's 6px flex gap rather than
-  // being spaced by it, so that gap keeps separating the status dot from the
-  // name without also widening the two joins of the path itself.
+  // The row's label: its name, then whatever dimmed detail trails it, then the
+  // working dot. No flex gap — each trailing piece carries its own 6px, so the
+  // name and its description sit as one phrase rather than three even columns.
   rowLabelPath: {
     display: 'flex',
     alignItems: 'center',
     minWidth: 0,
     overflow: 'hidden',
-  },
-  // Sized to its text, so the separator always sits right after the repo. An
-  // ellipsis cuts at a character boundary inside a fixed-width box, so any cap
-  // that bites leaves dead space between the repo and the "/" — the name absorbs
-  // the row's width pressure instead (`flexShrink: 0` here, so only the name
-  // gives), and the cap is only a backstop against a pathological repo erasing
-  // the name entirely.
-  //
-  // The cap is a length, not a percentage. A percentage resolves against
-  // `rowLabelPath`, which is shrink-to-fit, so it scaled with the row's *own*
-  // text instead of the space available — biting hardest on the short rows that
-  // had room to spare, and never on the long ones it was written for. At
-  // `calc(100% - 5ch)` that rendered `apex / zed` as `a… / zed`. 28ch clears a
-  // real repo folder name (`commerce-platform-services`, 26, fits) while still
-  // capping a pathological one.
-  rowRepo: {
-    color: 'var(--text-muted)',
-    maxWidth: '28ch',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    flexShrink: 0,
-  },
-  rowRepoSep: {
-    color: 'var(--text-muted)',
-    opacity: 0.55,
-    margin: '0 3px',
-    flexShrink: 0,
   },
   itemName: {
     flex: 1,
@@ -215,33 +175,6 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     padding: 0,
     lineHeight: 1,
     background: 'transparent',
-  },
-  // A bar of its own below the scrolling list, so however long the list grows
-  // the create actions stay where they were — the sidebar's one fixed edge.
-  actions: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 'var(--space-sm)',
-    padding: 'var(--space-sm)',
-    borderTop: '1px solid var(--border)',
-    flexShrink: 0,
-  },
-  // Registering a repo is the prerequisite, not the act, so it wears the neutral
-  // hairline and cedes the accent to the workspace CTA beside it. It lives here
-  // in words rather than as a folder-plus glyph in the top toolbar, where the
-  // silhouette read as "new workspace" and doubled that button.
-  newRepoButton: {
-    ...footerButton,
-    border: '1px solid var(--control-border)',
-    color: 'var(--text-secondary)',
-  },
-  // Transparent behind an accent hairline: unmistakably a control rather than
-  // one more row, while staying under the metal plate the primary agent CTA
-  // owns. Hover brightens the hairline (.sidebar-new-workspace-button).
-  newWorkspaceButton: {
-    ...footerButton,
-    border: '1px solid color-mix(in srgb, var(--accent), transparent 70%)',
-    color: 'var(--accent)',
   },
   cardActions: {
     display: 'flex',
@@ -334,17 +267,19 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     background: 'color-mix(in srgb, var(--accent), transparent 94%)',
     margin: 'var(--space-sm) var(--space-xs)',
   } as React.CSSProperties,
+  // The same pane header the Workspaces title wears, so Favorites reads as a
+  // sibling section rather than a differently-styled label above the same list.
   sectionLabelToggle: {
     fontSize: 'var(--type-label)',
-    fontWeight: 500,
-    letterSpacing: 'var(--tracking-wide)',
+    fontWeight: 700,
     textTransform: 'uppercase' as const,
-    color: 'color-mix(in srgb, var(--accent), transparent 60%)',
-    padding: '0 var(--space-sm)',
-    marginBottom: 'var(--space-xs)',
+    color: 'var(--text-secondary)',
+    height: '22px',
+    padding: '0 var(--space-xs)',
+    marginBottom: 0,
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
+    gap: '2px',
     cursor: 'pointer',
     userSelect: 'none' as const,
     border: 0,

@@ -69,6 +69,16 @@ for a **home** workspace and a git branch for a **worktree** one
 workspace also sits on a branch, it just does not own the checkout. Favorites carry the
 same glyph — `ResolvedFavorite.worktree` is resolved alongside the name in `useFavorites`
 (`hooks/project/useFavorites.ts`) so the starred rows above the list read the same way.
+**A workspace row says its kind in words, not a glyph.** The list is flat — a repo's own
+clone and the worktrees cut off it sit side by side — so the row has to say which it is.
+It does so in its dimmed description: `isWorktreeWorkspace`
+(`shared/workspace-types.ts`) appends the word `worktree` (`WorkspaceCard.tsx:108`). That
+predicate's marker is `worktreePaths` and not `branchName`: a home workspace also sits on
+a branch, it just does not own the checkout. `WorkspaceGlyph`
+(`sidebar/WorkspaceGlyph.tsx`) still draws the folder-or-branch shape for **favorites**,
+whose rows have no disclosure to spend the icon column on —
+`ResolvedFavorite.worktree` is resolved alongside the name in `useFavorites`
+(`hooks/project/useFavorites.ts`).
 
 **Only home workspaces take in an agent that names no workspace.**
 `groupSessionsByWorkspace` (`hooks/app/session-workspace-map.ts:18`) buckets every session
@@ -81,65 +91,73 @@ repo alone put it in *both*: a second workspace over the same folders ("New Work
 Folders") adopted the clone's agent and became its `primarySession` (`App.tsx:107`), which
 the agent panel renders in preference to the active session (`dock-agent-panel.tsx:98`) —
 so the new workspace opened on another workspace's agent, on the wrong checkout, with both
-rows' activity dots lit for the one running agent (`WorkspaceCard.tsx:108`).
-The glyph doubles as the row's disclosure control, swapping to a chevron on hover
-(`theme.css:1019`), so one column carries kind and state at once.
+rows' activity dots lit for the one running agent.
 
-**Workspace rows name their repo.** A sidebar workspace row reads `kong / moss`: the
-owning repo dimmed, then the workspace's own name (`WorkspaceCard.tsx:153`,
-`ProjectSidebar.styles.ts` `rowRepo`). The repo comes from `projectIds[0]` via
-`workspaceRowLabel` (`sidebar/agent-labels.ts`), never from parsing the name — only some
-stored names carry a branch prefix, since `workspaceNameFor` strips just the literal
-`manifold/` while branches are prefixed with the repo folder name
-(`workspace-promotion.ts:14`, `git/branch-namer.ts:53`). The helper strips a redundant
-prefix off the name, appends `+N` for the extra repos of a multi-repo workspace, and
-drops the segment entirely when the name already *is* the repo, so a home workspace stays
-`vops` rather than `vops / vops`. **The repo segment is sized to its own text and the
-name absorbs the row's width pressure** (`ProjectSidebar.styles.ts` `rowRepo`): an
-ellipsis cuts at a character boundary, so any width cap that bites leaves dead space
-between the repo and the `/`. The `max-width: 28ch` cap is only a backstop against a
-repo long enough to erase the name, and `white-space: nowrap` is load-bearing — without
-it `text-overflow` never fires and a long repo wraps to a second line instead.
+**Workspace rows name their repo, after their own name.** A sidebar workspace row reads
+`moss  kong · worktree`: the workspace's name at full contrast, then a dimmed description
+carrying the owning repo and the kind (`WorkspaceCard.tsx:108`, `:209`, styled by
+`.sidebar-row-description`, `theme.css:991`). This is VS Code's label layout — name first,
+qualifier trailing — and it replaced a dimmed `kong / moss` **prefix**, which put two
+pieces of chrome in front of the one thing the eye is scanning for.
 
-That cap **must be a length, not a percentage**. A percentage resolves against
-`rowLabelPath`, which is shrink-to-fit rather than full-width, so it scaled with the row's
-*own* text instead of the space available — biting hardest on the short rows that had room
-to spare and never on the long ones it was written for. The previous
-`calc(100% - 5ch)` rendered `apex / zed` as `a… / zed` while leaving the 26-character
-`commerce-platform-services` untouched. Verify a change here by screenshot
-(`SidebarSortAlpha` for the short rows, `ProjectSidebar` for a long repo); jsdom has no
-layout engine, so no unit test can catch it.
+The repo comes from `projectIds[0]` via `workspaceRowLabel` (`sidebar/agent-labels.ts`),
+never from parsing the name — only some stored names carry a branch prefix, since
+`workspaceNameFor` strips just the literal `manifold/` while branches are prefixed with
+the repo folder name (`workspace-promotion.ts:14`, `git/branch-namer.ts:53`). The helper
+strips a redundant prefix off the name, appends `+N` for the extra repos of a multi-repo
+workspace, and drops the segment entirely when the name already *is* the repo, so a home
+workspace stays `vops` rather than `vops / vops`. As a trailing segment the description
+is the part that gives under width pressure (`flex-shrink: 1` with `text-overflow`,
+`theme.css:991`), so the name is the last thing to truncate — which is what the old
+prefix needed a `max-width: 28ch` backstop and a length-not-percentage cap to achieve.
+jsdom has no layout engine, so verify a width change here by screenshot
+(`SidebarSortAlpha` for short rows, `ProjectSidebar` for a long repo), never by unit test.
 
-**The active workspace is marked as a region, not a row.** The card carrying
-`sidebar-project-group--active` (`WorkspaceCard.tsx:118`, fed by `activeWorkspaceId` at
-`WorkspaceList.tsx:116`) gets a 2px accent rail down its full height
-(`theme.css:933`) plus a wash of `--sidebar-active-bg` on its rows
-(`theme.css:951`). The split is deliberate: the rail runs past an expanded file tree so
-the region still reads as one, while the wash lands only on *direct* `.sidebar-item-row`
-children — an expanded tree renders into `.sidebar-project-files`
-(`WorkspaceRepoRow.tsx:117`), which is not a row, so the highlight costs the same whether
-a folder is collapsed or a large tree is open. Label color and the accent glyph
-(`WorkspaceGlyph.tsx:22`) stay, but they are no longer carrying the signal alone: that
-glyph is the same hue as the `status-dot--active` dots on every *working* workspace, and
-those pulse (`core-pulse`, `theme.css:477`), so a static 14px icon lost to them.
+**The sidebar is VS Code's explorer: 22px rows on one 8px indent ladder.** Every row —
+favorite, workspace, folder, file — is a 22px full-bleed line with no margin and no
+radius (`.sidebar-item-row`, `theme.css:891`), and the workspace groups butt directly
+against each other (`theme.css:1180`). Depth is the row's `padding-left`, stepping 8px
+per level through `--sidebar-indent-workspace` / `-repo` / `-files` (`theme.css:111`),
+which land the chevron column at 12px, 20px and 28px; the file tree continues the same
+ladder with its own `depth * 8` (`tree-node-row.tsx:87`). Because the tree adds a further
+4px of its own, `projectFiles` passes it the *folder* step, not the file's
+(`ProjectSidebar.styles.ts`). One consequence worth knowing: the 16px chevron column is
+the row's **only** glyph column, which is why the workspace kind moved into the
+description above — a second icon would have broken the alignment that makes the column
+read as a single line down the sidebar. Indent guides are drawn as `::before` rules
+centred on the parent's chevron (`theme.css:1005`).
 
-Three cascade traps live in these selectors, all of them invisible to the sidebar's unit
-tests since jsdom never loads `theme.css`. **The sticky header** (`theme.css:973`) needs
-the wash *composited onto* `--bg-sidebar` through a `linear-gradient` layer rather than a
-flat fill: it ties with the card's wash rule at `(0,3,0)` and comes later, so a flat
-opaque fill wins and leaves the header reading unhighlighted while its children stay
-washed. **Its hover** (`theme.css:986`) needs the same treatment, because the card's own
-hover rule scores `(0,3,1)` and would otherwise replace that opaque base with a
-translucent fill, letting rows scroll visibly through the header. And **the rail needs
-`z-index: 3`** to clear the header's `2` — the header's background is opaque by necessity
-and otherwise paints over the rail's top, so the rail appears to start at the first folder
-row instead of the top of the card. Rows in the active card also need their own `:hover`
-(`theme.css:960`): `--list-hover-bg` is accent at 5% against the 7% wash and loses on
-specificity anyway (`theme.css:880` is `(0,2,0)`), so without it the active card stops
-responding to the pointer entirely. Verify a change here by screenshot plus a driven page
-— `--emit-html` on the screenshot script, then read `getComputedStyle` after the row's
-`background` transition (`theme.css:877`) settles, or the value read back is a mid-flight
-interpolation rather than the resting one.
+**Exactly one row wears the selection bar.** Selection is a solid full-bleed fill of
+`--list-active-bg` (`theme.css:918`), which resolves to the theme's own
+`list.activeSelectionBackground` (`shared/themes/adapter.ts:119`) — the same token VS Code
+paints its explorer selection with. Because a workspace and one of its folders can both
+be "active" at once, `WorkspaceCard` hands the bar to the folder whenever an open
+workspace holds the selected `activeProjectId`, and keeps it otherwise
+(`WorkspaceCard.tsx:117`). Without that rule the sidebar paints two bars for one
+selection. This replaced a 2px accent rail plus an `--sidebar-active-bg` wash over the
+whole card, together with a sticky card header — three interlocking cascade rules whose
+specificity ties and `z-index` ordering were a recurring source of bugs, and a highlight
+whose cost grew with the size of the open tree.
+
+**Both create actions live in the pane header, revealed on hover.** `ProjectSidebar`
+renders a 22px VS Code pane header: a chevron-and-title button that collapses the whole
+list (persisted under the `workspaces` key of `useSidebarSectionState`), then New Repo,
+New Workspace, the sort toggle and Collapse All as 22px icon buttons
+(`ProjectSidebar.tsx:145`). The cluster is `opacity: 0` until the header is hovered or
+holds focus (`.sidebar-pane-actions`, `theme.css:1101`) — never `display: none`, so the
+buttons stay tabbable and focus inside the cluster is itself one of the things that
+reveals it. Their words survive as `aria-label` and `title`. This replaced a bottom bar
+of two worded buttons, the last part of the sidebar still shaped like a dialog.
+
+**Every workspace keeps its own open state.** `expandedIds` is a `ReadonlySet` owned by
+`ProjectSidebar` (`ProjectSidebar.tsx:103`) and read by `WorkspaceList`
+(`WorkspaceList.tsx:109`), so opening one workspace no longer closes the last — VS Code's
+multi-root explorer behaviour. It lives in the sidebar rather than the list precisely
+because the header's Collapse All has to be able to empty it in one call
+(`ProjectSidebar.tsx:115`). Which *folders* are open is separate and persisted, in
+`useFolderDisclosure` (`sidebar/folder-disclosure.ts`) — one shared set across all cards,
+since each card holding its own copy would mean the later toggle saved a snapshot without
+the other's.
 
 **A folder row fetches its repo's clone, not the workspace's checkout.** Each git folder
 row of an open workspace card carries a `RepoFetchButton` (`WorkspaceRepoRow.tsx:86`) that
@@ -156,7 +174,7 @@ re-armed on window focus (`App.tsx:164`), and its `behindCounts` reach the row t
 `DockAppState` → `ProjectSidebar` → `WorkspaceList` → `WorkspaceCard`; a successful fetch
 calls back to `markFresh` so the pill clears without another network probe. Both the
 button and the `×` live in `.sidebar-item-actions`, which is `opacity: 0` until the row is
-hovered or focused (`theme.css:974`) — so the pill is a hover-time warning, not a
+hovered or focused (`theme.css:1132`) — so the pill is a hover-time warning, not a
 persistent badge.
 
 **A workspace row's actions are words, not glyphs.** The row carries exactly one control —
@@ -483,7 +501,7 @@ saved layout before it is restored).
   rendering whichever of its three views the rail has selected — the views are swapped
   rather than each holding a column of its own, so only one is mounted at a time and none
   of them competes for the sidebar's width.
-- The **Explorer** view — `ProjectSidebar` (`ProjectSidebar.tsx:38`): a **Workspaces** toolbar carrying the **sort toggle** and nothing else, right-aligned (`sidebarStyles.toolbarActions`), then `FavoritesList` and `WorkspaceList`. The body is a flat list of bordered workspace cards and nothing else — there is no standalone-repository list, no `With agents` / `Repositories` category headers, and no Enable-Workspaces setting; a card spanning one folder *is* the simple case. **One card is open at a time**: each collapses to its name behind a disclosure chevron, and opening another closes the one before it, so the list reads as a column of workspace names until you pick one — `WorkspaceList` owns the single open id and seeds it with the active workspace (`WorkspaceList.tsx:62`, `:66`). Clicking a card's row opens it as well as selecting it; the disclosure alone closes it again, so selecting a workspace never hides what is under it (`WorkspaceCard.tsx:92`, `:119`). **A card leads with a folder glyph, and that glyph *is* its disclosure** — one icon column, not a chevron beside a folder. It swaps to the state's chevron (right when closed, down when open) while the row is hovered or keyboard-focused, so the affordance appears where the eye already is; the swap is pure CSS on `.sidebar-workspace-toggle__folder` / `__chevron` (`theme.css:929`), keyed to `:hover` and `:focus-visible` rather than `:focus-within` so a click does not leave the chevron showing after the pointer has gone. A card's folders keep their own open/closed files state while their card is closed, since that state is keyed by folder and persisted separately. **A card shows where work happens, never who is working: it renders no agent rows and no New-agent button.** Agents are the tabs of the Agent panel (below); the card signals a streaming agent on its own row twice — a pulsing `status-dot` beside the name, and `.sidebar-label-working` on the `repo / name` label, an accent highlight sweeping the text via the `sidebar-sweep` keyframe (`WorkspaceCard.tsx:108`, `:196`, `:206`; `theme.css:1068`, `:1991`). The sweep is text-only (`background-clip: text` over a `currentColor` base, so the label reads normally between passes) and the row never moves or resizes; under `prefers-reduced-motion` it falls back to plain text rather than freezing the highlight mid-label (`theme.css:2157`). **The class goes on each segment of the path, never on the span wrapping them**: everything beneath one `background-clip: text` element is painted from that element's single gradient, so a wrapper flattened the dimmed repo to the row's own contrast and swallowed the `/` (which `opacity` isolates from an ancestor's background). A gradient per segment keeps each one's colour as the sweep's base — the band crosses a dimmed repo dimly and the name at full contrast. `background-attachment: fixed` is what still makes the three read as *one* band: without it each segment sizes its gradient to itself, so the band crosses a short repo faster than a long name and the `/` blinks on its own. Fixed also means the geometry is shared by every working row, so they sweep in step down the column, and the tile is a length (`360px` over `1.8s`) rather than a percentage — `shimmer` stays percentage-based for the chat thinking indicator, which sizes its gradient to itself (`ChatThinkingIndicator.tsx:57`). A folder row says nothing about agents either, and neither the card nor its folders name a branch — branch lives in Source Control. A card header carries exactly one control — a **`⋯`** that opens the worded action menu (`WorkspaceActionsGlyph`, `WorkspaceCard.tsx:214`); double-clicking the name renames the workspace (`WorkspaceCard.tsx:152`). The actions themselves live only in that menu (see above), among them **New Workspace, Same Folders** (`App.tsx:305` names it after an unused Norwegian city, calls `workspace:create`, activates the result and clears the session so the empty agent view greets the fresh checkout) and **Add Folder…** (native picker, attaches the chosen local project to that workspace). A folder row offers removal only while the workspace spans more than one, since the last one leaving would take the workspace with it (`WorkspaceCard.tsx:250`). **Clicking the card enters the workspace** (`App.tsx:364`): when the active agent isn't one of this workspace's, the main view jumps to one that is — two workspaces can span the same folders, so the active project alone can't tell them apart — or to the empty agent view when it has none. Clicking a folder only opens its files and leaves the agent alone (`App.tsx:351`) — it cannot move an agent, which always runs in the workspace's *first* folder whatever the sidebar has selected; favorite jumps follow the same rule (`App.tsx:66`). **Both create actions are words in a bar below that list, not rows in it** — `+ New Repo` then `+ New Workspace` (`sidebarStyles.actions`, `ProjectSidebar.tsx:112`): the list scrolls, the bar does not, so the only way to create a workspace cannot scroll out of reach — the pre-#880 arrangement, restored. They are drawn as controls rather than rows — `--control-height`, text behind a hairline that lights on hover (`.sidebar-new-workspace-button` / `.sidebar-new-repo-button`, `theme.css:1202`) — because a glyph-and-label row was indistinguishable from the workspace rows above it. Only the workspace hairline is accent-tinted; registering a repo is the prerequisite rather than the act, so `+ New Repo` wears the neutral `--control-border` and cedes the accent to the button beside it. **Adding a repository used to be a folder-plus glyph in the top toolbar and is not** — icon-only above a column of folder-looking rows, it read as "new workspace" and doubled the button below, so it moved down here and said what it does in words. Both refuse to shrink below a `120px` basis and wrap to a stack instead (`footerButton`), so a narrowed sidebar never clips `+ New Workspac…`. The accent hairline deliberately stops short of the metal plate (`.btn-metal`) the primary agent CTA owns. A workspace entry in `FavoritesList` still leads with the cards' folder glyph (`WorkspaceGlyph`). Once at least one repository exists, adding a repository and creating a workspace use body-portaled dialog overlays (`AddRepositoryModal`, `NewWorkspaceModal`), leaving the dock and current agent view mounted underneath; only the true first visit with zero repositories uses the full-pane `OnboardingView`. A folder row carries a manual fetch control (`RepoFetchButton`, `WorkspaceRepoRow.tsx:86`) on top of `useBranchStaleness`, which refreshes the active repository's remote-tracking state on activation and window focus, throttled to once every three minutes. **A workspace row carries no favorite star; favoriting lives on its right-click menu** (`WorkspaceCard.tsx:121`, built by `buildWorkspaceContextMenu`, `workspace-context-menu.ts`). A star was not an option rather than merely unwanted: the row's action cluster is `opacity: 0` at rest (`.sidebar-item-actions`, `theme.css:1036`), and opacity on a parent makes a compositing group a child cannot escape, so a star there could never stay lit to *mark* a favorite. Because the menu is the row's only such affordance it carries the whole set — the favorites toggle, then `Rename…`, `New Workspace, Same Folders`, `Add Folder…`, then `Remove Workspace` — omitting any whose handler is absent and collapsing the separators that leaves behind (`tidy`). Each card owns its own menu state (`useContextMenu`), so `Rename…` reuses the inline name draft the row already holds instead of lifting it into `WorkspaceList`. `ContextMenu` itself is shared with the file tree from `components/common/ContextMenu.tsx` and portals to `document.body`, since a `position: fixed` menu inside a dockview panel is otherwise offset by `.dv-render-overlay`'s transform. **Favorites are workspace ids and nothing else** (`settings.favorites: string[]`): every sidebar root is a workspace, and a repo has no root row of its own to star. A favorited workspace still appears in the list below as well as in `FavoritesList` — the section is a stable address with a fixed ⌘1–9 key, while the list below keeps reshuffling by recency in the default sort mode (less of a difference once that list is switched to A–Z, where every row's position is already stable). Every folder row is also the disclosure for its **files** — see below.
+- The **Explorer** view — `ProjectSidebar` (`ProjectSidebar.tsx:38`): a 22px VS Code **pane header** — a chevron-and-title button that collapses the whole view, then New Repo, New Workspace, the sort toggle and Collapse All as icon buttons revealed on hover (`ProjectSidebar.tsx:145`) — then `FavoritesList` and `WorkspaceList`. The body is a flat list of 22px full-bleed workspace rows and nothing else — there is no standalone-repository list, no `With agents` / `Repositories` category headers, and no Enable-Workspaces setting; a card spanning one folder *is* the simple case. **Every workspace opens independently**, as in VS Code's multi-root explorer: opening one leaves the others as they were, so the list never collapses under a click. `ProjectSidebar` owns the `expandedIds` set and seeds it with the active workspace (`ProjectSidebar.tsx:103`); it lives there rather than in the list because the header's Collapse All has to empty it in one call (`ProjectSidebar.tsx:115`). Clicking a card's row opens it as well as selecting it; the disclosure alone closes it again, so selecting a workspace never hides what is under it (`WorkspaceCard.tsx:92`, `:119`). **A row leads with an always-visible chevron** in the same 16px column its folders and their files use, so one twistie column runs the height of the sidebar. It used to be the workspace's kind glyph, swapping to a chevron on hover — which hid the disclosure until the pointer was already on the row and cost the column its alignment with the file rows below. The kind moved into the row's dimmed description instead. A workspace's folders keep their own open/closed files state while their card is closed, since that state is keyed by folder and persisted separately. **A card shows where work happens, never who is working: it renders no agent rows and no New-agent button.** Agents are the tabs of the Agent panel (below); the card signals a streaming agent on its own row twice — a pulsing `status-dot` beside the name, and `.sidebar-label-working` on the name and its description, an accent highlight sweeping the text via the `sidebar-sweep` keyframe (`WorkspaceCard.tsx:108`, `:196`, `:206`; `theme.css:1048`, `:1936`). The sweep is text-only (`background-clip: text` over a `currentColor` base, so the label reads normally between passes) and the row never moves or resizes; under `prefers-reduced-motion` it falls back to plain text rather than freezing the highlight mid-label (`theme.css:2102`). **The class goes on each segment, never on the span wrapping them**: everything beneath one `background-clip: text` element is painted from that element's single gradient, so a wrapper flattened the dimmed description to the row's own contrast. A gradient per segment keeps each one's colour as the sweep's base — the band crosses the description dimly and the name at full contrast. `background-attachment: fixed` is what still makes the two read as *one* band: without it each segment sizes its gradient to itself, so the band crosses a short name faster than a long description and they sweep out of step. Fixed also means the geometry is shared by every working row, so they sweep in step down the column, and the tile is a length (`360px` over `1.8s`) rather than a percentage — `shimmer` stays percentage-based for the chat thinking indicator, which sizes its gradient to itself (`ChatThinkingIndicator.tsx:57`). A folder row says nothing about agents either, and neither the card nor its folders name a branch — branch lives in Source Control. A card header carries exactly one control — a **`⋯`** that opens the worded action menu (`WorkspaceActionsGlyph`, `WorkspaceCard.tsx:214`); double-clicking the name renames the workspace (`WorkspaceCard.tsx:152`). The actions themselves live only in that menu (see above), among them **New Workspace, Same Folders** (`App.tsx:305` names it after an unused Norwegian city, calls `workspace:create`, activates the result and clears the session so the empty agent view greets the fresh checkout) and **Add Folder…** (native picker, attaches the chosen local project to that workspace). A folder row offers removal only while the workspace spans more than one, since the last one leaving would take the workspace with it (`WorkspaceCard.tsx:250`). **Clicking the card enters the workspace** (`App.tsx:364`): when the active agent isn't one of this workspace's, the main view jumps to one that is — two workspaces can span the same folders, so the active project alone can't tell them apart — or to the empty agent view when it has none. Clicking a folder only opens its files and leaves the agent alone (`App.tsx:351`) — it cannot move an agent, which always runs in the workspace's *first* folder whatever the sidebar has selected; favorite jumps follow the same rule (`App.tsx:66`). **Both create actions are icons in the pane header, not a bar below the list** — New Repo then New Workspace, the prerequisite first, followed by the sort toggle and Collapse All (`ProjectSidebar.tsx:145`). VS Code puts a pane's actions in its header, and the bottom bar they replaced was the last part of the sidebar still shaped like a dialog. The cluster is `opacity: 0` until the header is hovered or holds focus (`.sidebar-pane-actions`, `theme.css:1101`) — never `display: none`, so the buttons stay tabbable and focus inside the cluster is itself one of the things that reveals it; their words survive as `aria-label` and `title`. A workspace entry in `FavoritesList` still leads with the folder-or-branch `WorkspaceGlyph`, whose rows have no disclosure to spend the icon column on. Once at least one repository exists, adding a repository and creating a workspace use body-portaled dialog overlays (`AddRepositoryModal`, `NewWorkspaceModal`), leaving the dock and current agent view mounted underneath; only the true first visit with zero repositories uses the full-pane `OnboardingView`. A folder row carries a manual fetch control (`RepoFetchButton`, `WorkspaceRepoRow.tsx:86`) on top of `useBranchStaleness`, which refreshes the active repository's remote-tracking state on activation and window focus, throttled to once every three minutes. **A workspace row carries no favorite star; favoriting lives on its right-click menu** (`WorkspaceCard.tsx:121`, built by `buildWorkspaceContextMenu`, `workspace-context-menu.ts`). A star was not an option rather than merely unwanted: the row's action cluster is `opacity: 0` at rest (`.sidebar-item-actions`, `theme.css:1132`), and opacity on a parent makes a compositing group a child cannot escape, so a star there could never stay lit to *mark* a favorite. Because the menu is the row's only such affordance it carries the whole set — the favorites toggle, then `Rename…`, `New Workspace, Same Folders`, `Add Folder…`, then `Remove Workspace` — omitting any whose handler is absent and collapsing the separators that leaves behind (`tidy`). Each card owns its own menu state (`useContextMenu`), so `Rename…` reuses the inline name draft the row already holds instead of lifting it into `WorkspaceList`. `ContextMenu` itself is shared with the file tree from `components/common/ContextMenu.tsx` and portals to `document.body`, since a `position: fixed` menu inside a dockview panel is otherwise offset by `.dv-render-overlay`'s transform. **Favorites are workspace ids and nothing else** (`settings.favorites: string[]`): every sidebar root is a workspace, and a repo has no root row of its own to star. A favorited workspace still appears in the list below as well as in `FavoritesList` — the section is a stable address with a fixed ⌘1–9 key, while the list below keeps reshuffling by recency in the default sort mode (less of a difference once that list is switched to A–Z, where every row's position is already stable). Every folder row is also the disclosure for its **files** — see below.
   Initial creation has one extra grouping rule: `NewWorkspaceModal` marks selected
   empty one-folder home workspaces for absorption into the new combined workspace
   (`AppShell.tsx:314`). "New Workspace, Same Folders" remains a parallel checkout because its
@@ -636,13 +654,12 @@ scrolls, wherever the card sits.
 
 In `recency` the **selected workspace is pinned first**, so where you are working is always the top row —
 the one place you can find it without reading the list (`sortByRecency`,
-`sidebar-recency.ts:68`; `WorkspaceList.tsx:107`). It then **sticks** there while its own
-folders and files scroll under it, so going deep into a tree never costs you the label saying
-where you are; it needs an explicit background, since a row is transparent until hovered and
-the rows passing beneath would read straight through it
-(`.sidebar-workspace-card.sidebar-project-group--active > .sidebar-project-row`,
-`styles/theme.css:870`). Sticky is scoped to the card, so the header releases once you scroll
-past the active workspace's own content into the ones below.
+`sidebar-recency.ts:68`; `WorkspaceList.tsx:107`). It no longer **sticks** there while its
+folders scroll under it: the sticky header needed an opaque background composited onto
+`--bg-sidebar`, which only worked as one of three interlocking cascade rules tied to the
+active-card wash, and that whole cluster came out when selection became a single full-bleed
+row — VS Code's explorer roots do not stick either. The cost is real but small: scrolling deep
+into a tree no longer keeps the workspace label in view.
 
 Below the pinned row that mode's list is a most-recently-used stack, so **the workspace you just left
 is the second row** and going back is always one predictable click. The visit is recorded from

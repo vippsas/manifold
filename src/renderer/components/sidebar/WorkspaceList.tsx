@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
@@ -15,6 +15,10 @@ export interface WorkspaceListProps {
   sortMode: SidebarSortMode
   activeWorkspaceId: string | null
   activeProjectId?: string | null
+  /** Which workspaces are open. Owned by ProjectSidebar, whose header carries
+   *  the "Collapse All" that has to be able to empty it. */
+  expandedIds: ReadonlySet<string>
+  onToggleExpanded: (id: string) => void
   sessionsByWorkspace: Record<string, AgentSession[]>
   outputtingSessionIds?: Set<string>
   drafts: DraftChat[]
@@ -44,6 +48,8 @@ export function WorkspaceList({
   sortMode,
   activeWorkspaceId,
   activeProjectId,
+  expandedIds,
+  onToggleExpanded,
   sessionsByWorkspace,
   outputtingSessionIds,
   drafts,
@@ -61,9 +67,6 @@ export function WorkspaceList({
   onDiscardDraft,
   renderFolderFiles,
 }: WorkspaceListProps): React.JSX.Element {
-  // One workspace open at a time: the list reads as a column of names until you
-  // open one, and opening another closes the one before it.
-  const [expandedId, setExpandedId] = useState<string | null>(activeWorkspaceId)
   const { recency, touchProject } = useProjectRecency()
 
   // The visit is recorded from the workspace that ended up active, not from the
@@ -74,11 +77,6 @@ export function WorkspaceList({
   useEffect(() => {
     if (activeWorkspaceId) touchProject(activeWorkspaceId)
   }, [activeWorkspaceId, touchProject])
-
-  const toggleExpanded = useCallback(
-    (id: string): void => setExpandedId((current) => (current === id ? null : id)),
-    [],
-  )
 
   // Adapts the list's async remover to the card's void-returning prop. It no
   // longer tracks which row is in flight: that flag only ever disabled the row's
@@ -97,7 +95,7 @@ export function WorkspaceList({
   }
 
   return (
-    <div style={{ paddingTop: 4 }}>
+    <div>
       {sortWorkspaces(workspaces, sortMode, {
         recency,
         activeId: activeWorkspaceId,
@@ -108,8 +106,8 @@ export function WorkspaceList({
           workspace={workspace}
           projects={projects}
           isActive={workspace.id === activeWorkspaceId}
-          expanded={workspace.id === expandedId}
-          onToggleExpanded={() => toggleExpanded(workspace.id)}
+          expanded={expandedIds.has(workspace.id)}
+          onToggleExpanded={() => onToggleExpanded(workspace.id)}
           sessions={sessionsByWorkspace[workspace.id] ?? []}
           activeProjectId={activeProjectId}
           outputtingSessionIds={outputtingSessionIds}

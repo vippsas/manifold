@@ -4,16 +4,18 @@ export const favoritesStyles: Record<string, React.CSSProperties> = {
   section: {
     padding: '4px 0 2px',
   },
+  // The same 22px full-bleed row the workspaces below use — a favorite is a
+  // shortcut to one of them, so it has no business being taller or rounder.
   row: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    padding: '6px var(--space-sm)',
-    borderRadius: 'var(--radius-sm)',
+    gap: 6,
+    height: '22px',
+    padding: '0 var(--space-sm) 0 var(--sidebar-indent-workspace)',
     cursor: 'pointer',
     color: 'var(--text-secondary)',
-    fontSize: 'var(--type-ui-small)',
-    fontWeight: 600,
+    fontSize: 'var(--type-ui)',
+    fontWeight: 400,
   },
   rowDragging: {
     opacity: 0.5,
