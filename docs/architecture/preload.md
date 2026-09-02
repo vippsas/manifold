@@ -1,6 +1,6 @@
 ---
 description: The contextBridge preload that exposes a single whitelisted window.electronAPI surface to the renderer and keeps Node/fs out of the web context.
-covers: [src/preload]
+covers: [src/preload, src/shared/electron-api.d.ts]
 updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
@@ -88,5 +88,5 @@ non-localhost `src` (`src/main/app/window-factory.ts:77`).
 - **The `IpcRendererEvent` is intentionally hidden.** `on`'s wrapper forwards only `...args`, never the event (`src/preload/index.ts:214`), so the renderer cannot reach `event.sender`, `event.ports`, or other Electron internals.
 - **`homeDir` is a value, not a capability.** It is read from `homedir()` once and structured-cloned across the bridge (`src/preload/index.ts:230`); the renderer gets a string, never a handle into `node:os`.
 - **Types don't constrain channel names.** `ElectronAPI.invoke` takes `channel: string` (`src/shared/electron-api.d.ts:2`); only the literal-union types *inside* the preload (`src/preload/index.ts:173`) know the real names, and they never cross the bridge. A typo in a renderer channel string compiles fine and fails at runtime.
-- **`sandbox: false`, not `true`.** The renderer is unsandboxed (`src/main/app/window-factory.ts:72`); isolation here rests on `contextIsolation` + `nodeIntegration: false` plus this whitelist, not on the OS sandbox.
+- **`sandbox: false`, not `true`.** The renderer is unsandboxed (`src/main/app/window-factory.ts:74`); isolation here rests on `contextIsolation` + `nodeIntegration: false` plus this whitelist, not on the OS sandbox. The unsandboxed preload is also what lets it import `node:os` for the static `homeDir` value.
 - **One module, no exports.** `src/preload/index.ts` exposes its surface as a side effect of `exposeInMainWorld`; it exports nothing. The only importable artifact is the ambient `ElectronAPI`/`Window` declaration in `src/shared/electron-api.d.ts`.
