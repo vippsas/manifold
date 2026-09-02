@@ -4,9 +4,13 @@ import type { DockviewApi } from 'dockview'
 import type { AgentSession } from '../../../shared/types'
 import { siblingPanelId } from './agent-siblings'
 import { markAgentTabDismissed, resetDismissedAgentTabs } from './dismissed-agent-tabs'
+import { markAgentTabOpened, resetOpenedAgentTabs } from './opened-agent-tabs'
 import { useAgentSiblingDockTabs } from './useAgentSiblingDockTabs'
 
-beforeEach(() => resetDismissedAgentTabs())
+beforeEach(() => {
+  resetDismissedAgentTabs()
+  resetOpenedAgentTabs()
+})
 
 interface MockGroup {
   element: {
@@ -438,5 +442,75 @@ describe('useAgentSiblingDockTabs', () => {
     // Selecting the agent from the sidebar (makes it active) un-hides its tab.
     rerender({ ...props, activeSessionId: 'sibling-1' })
     expect(addPanel).toHaveBeenCalledWith(expect.objectContaining({ id: siblingPanelId('sibling-1') }))
+  })
+
+  describe('grouped worker tabs', () => {
+    function harness(sessions: AgentSession[]) {
+      const group: MockGroup = { element: { getBoundingClientRect: () => ({ top: 0, left: 0 }) }, panels: [] }
+      const agentPanel = buildPanel('agent', group)
+      const panels = new Map<string, MockPanel>([[agentPanel.id, agentPanel]])
+      const addPanel = vi.fn()
+      const api = {
+        getPanel: ((panelId: string) => panels.get(panelId)) as DockviewApi['getPanel'],
+        addPanel,
+        removePanel: vi.fn(),
+        onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+      } as unknown as DockviewApi
+      Object.defineProperty(api, 'panels', { get: () => Array.from(panels.values()) })
+
+      renderHook(() => useAgentSiblingDockTabs({
+        apiRef: { current: api },
+        layoutVersion: 1,
+        sessions,
+        activeWorktreePath: '/wt/base',
+        primarySessionId: 'viola',
+        activeSessionId: 'viola',
+        onSelectSession: vi.fn(),
+      }))
+      return { addPanel }
+    }
+
+    function worker(over: Partial<AgentSession> = {}): AgentSession {
+      return {
+        id: 'worker-1', projectId: 'p1', runtimeId: 'claude', branchName: 'manifold/task',
+        worktreePath: '/wt/task', status: 'running', pid: 3, additionalDirs: [],
+        groupId: 'viola-run-1', ...over,
+      } as AgentSession
+    }
+
+    const viola: AgentSession = {
+      id: 'viola', projectId: 'p1', runtimeId: 'viola', branchName: 'manifold/base',
+      worktreePath: '/wt/base', status: 'waiting', pid: null, additionalDirs: [],
+    } as AgentSession
+
+    it('does not auto-open a tab for a grouped worker nobody asked for', () => {
+      const { addPanel } = harness([viola, worker()])
+
+      // A four-task run would otherwise put eight worker tabs in the dock bar.
+      expect(addPanel).not.toHaveBeenCalled()
+    })
+
+    it('brings a worker tab back after a repo switch dropped its panel', () => {
+      // Switching repositories reloads the one window-wide layout and strips panels whose
+      // session is not in the new workspace, so returning must recreate what the user opened.
+      markAgentTabOpened('worker-1')
+
+      const { addPanel } = harness([viola, worker()])
+
+      expect(addPanel).toHaveBeenCalledWith(expect.objectContaining({
+        id: siblingPanelId('worker-1'),
+        component: 'agent',
+        title: 'Claude',
+      }))
+    })
+
+    it('still honours hiding a worker tab the user closed', () => {
+      markAgentTabOpened('worker-1')
+      markAgentTabDismissed('worker-1')
+
+      const { addPanel } = harness([viola, worker()])
+
+      expect(addPanel).not.toHaveBeenCalled()
+    })
   })
 })

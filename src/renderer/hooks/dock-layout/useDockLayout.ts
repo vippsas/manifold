@@ -13,6 +13,7 @@ import {
 } from './dock-layout-helpers'
 import { siblingPanelId } from '../agent-session/agent-siblings'
 import { clearAgentTabDismissed, markAgentTabDismissed } from '../agent-session/dismissed-agent-tabs'
+import { markAgentTabOpened } from '../agent-session/opened-agent-tabs'
 import type { AgentSession } from '../../../shared/types'
 import { applyDefaultLayout, syncEditorPanelIds } from './dock-layout-builders'
 import type { DockLayoutCtx } from './dock-layout-context'
@@ -173,8 +174,11 @@ export function useDockLayout(
   const openSiblingPanel = useCallback((sessionId: string, title?: string, _referencePanelId?: string): void => {
     const api = apiRef.current
     if (!api) return
-    // Reopening clears any earlier hide, so the auto-tab effect keeps it around.
+    // Reopening clears any earlier hide, so the auto-tab effect keeps it around. Recording the
+    // open also brings a *grouped* session's tab back after a repo switch reloads the layout —
+    // nothing else would recreate it.
     clearAgentTabDismissed(sessionId)
+    markAgentTabOpened(sessionId)
     const panelId = siblingPanelId(sessionId)
     let panel = api.getPanel(panelId)
     if (!panel) {
