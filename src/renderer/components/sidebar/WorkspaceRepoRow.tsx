@@ -118,7 +118,7 @@ export function WorkspaceRepoRow({
         <ContextMenu
           x={menu.position.x}
           y={menu.position.y}
-          items={buildRepoRowContextMenu(copyablePath)}
+          items={buildRepoRowContextMenu(copyablePath, window.electronAPI.homeDir)}
           onClose={menu.close}
         />
       )}

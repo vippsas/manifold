@@ -3,10 +3,15 @@ import type { Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
 import { WorkspaceRepoRow } from './WorkspaceRepoRow'
 
+// The screenshot harness stubs `window.electronAPI` before the bundle runs;
+// the fixture adds the static home the preload would carry, so Copy Relative
+// Path exercises real home ownership rather than a path-shape guess.
+window.electronAPI = { ...window.electronAPI, homeDir: '/Users/tester' }
+
 const project: Project = {
   id: 'p1',
   name: 'manifold-2',
-  path: '/Users/henrik/projects/manifold-2',
+  path: '/Users/tester/projects/manifold-2',
   baseBranch: 'main',
   addedAt: '2024-01-01',
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
 import {
   folderLabel,
@@ -23,15 +23,24 @@ function menuLabels(): string[] {
 
 describe('WorkspaceRepoRow context menu', () => {
   const writeText = vi.fn()
+  const originalClipboard = Object.getOwnPropertyDescriptor(window.navigator, 'clipboard')
 
   beforeEach(() => {
     installLocalStorage()
     installElectronApi()
+    // The row reads the preload's static home to tilde-shorten; the stub from
+    // installElectronApi carries none, so the tests establish one explicitly.
+    window.electronAPI.homeDir = '/Users/tester'
     writeText.mockReset()
     Object.defineProperty(window.navigator, 'clipboard', {
       value: { writeText },
       configurable: true,
     })
+  })
+
+  afterEach(() => {
+    if (originalClipboard) Object.defineProperty(window.navigator, 'clipboard', originalClipboard)
+    else delete (window.navigator as { clipboard?: unknown }).clipboard
   })
 
   it('opens on right-click with Copy Path then Copy Relative Path', () => {
@@ -58,7 +67,7 @@ describe('WorkspaceRepoRow context menu', () => {
     expect(screen.queryByText('Copy Path')).not.toBeInTheDocument()
   })
 
-  it('Copy Relative Path tilde-shortens a path under home', () => {
+  it('Copy Relative Path tilde-shortens a path under the preload-exposed home', () => {
     const homeProjects = [{ ...sampleProjects[0], path: '/Users/tester/repos/alpha' }]
     renderSidebar({ projects: homeProjects })
     fireEvent.contextMenu(folderRow())
@@ -73,6 +82,15 @@ describe('WorkspaceRepoRow context menu', () => {
     fireEvent.click(screen.getByText('Copy Relative Path'))
 
     expect(writeText).toHaveBeenCalledWith('/repos/alpha')
+  })
+
+  it('Copy Relative Path does not claim another user\'s home', () => {
+    const otherHomeProjects = [{ ...sampleProjects[0], path: '/Users/someoneelse/repos/alpha' }]
+    renderSidebar({ projects: otherHomeProjects })
+    fireEvent.contextMenu(folderRow())
+    fireEvent.click(screen.getByText('Copy Relative Path'))
+
+    expect(writeText).toHaveBeenCalledWith('/Users/someoneelse/repos/alpha')
   })
 
   it('copies the worktree checkout, not the registered clone, in a worktree workspace', () => {

@@ -1,14 +1,17 @@
 import type { MenuItem } from '../common/ContextMenu'
 
-/** `/Users/me/projects/x` → `~/projects/x`, for the row's "Copy Relative Path".
+/** `/Users/me/projects/x` → `~/projects/x` when `/Users/me` is `homeDir` — the
+ *  real home the preload captures once and exposes statically
+ *  (`window.electronAPI.homeDir`), so `~` never claims someone else's home.
  *
- *  The renderer cannot ask `os.homedir()` (contextIsolation, no node), and no
- *  preload channel carries it, so this recognises the two conventional home
- *  roots by shape instead. A path under nobody's home comes back unchanged. */
-export function tildePath(absolutePath: string): string {
-  const home = /^\/(?:Users|home)\/[^/]+(?=\/|$)/.exec(absolutePath)
+ *  The match is exact and boundary-safe: `/Users/median/x` is not under
+ *  `/Users/me`. A path outside home, or an absent home, comes back unchanged. */
+export function tildePath(absolutePath: string, homeDir: string | undefined): string {
+  const home = homeDir?.replace(/\/+$/, '')
   if (!home) return absolutePath
-  return `~${absolutePath.slice(home[0].length)}`
+  if (absolutePath === home) return '~'
+  if (absolutePath.startsWith(`${home}/`)) return `~${absolutePath.slice(home.length)}`
+  return absolutePath
 }
 
 /**
@@ -20,7 +23,10 @@ export function tildePath(absolutePath: string): string {
  * worktree for it) the items stay visible but disabled — copying the literal
  * projectId would only look like a path.
  */
-export function buildRepoRowContextMenu(folderPath: string | undefined): MenuItem[] {
+export function buildRepoRowContextMenu(
+  folderPath: string | undefined,
+  homeDir: string | undefined,
+): MenuItem[] {
   const copy = (text: string) => (): void => {
     void navigator.clipboard.writeText(text)
   }
@@ -33,6 +39,6 @@ export function buildRepoRowContextMenu(folderPath: string | undefined): MenuIte
   }
   return [
     { label: 'Copy Path', action: copy(folderPath) },
-    { label: 'Copy Relative Path', action: copy(tildePath(folderPath)) },
+    { label: 'Copy Relative Path', action: copy(tildePath(folderPath, homeDir)) },
   ]
 }
