@@ -416,4 +416,13 @@ describe('WorkspaceManager', () => {
       nonInteractive: true,
     }))
   })
+
+  it('forwards the native Viola runtime as a chat session', async () => {
+    const w = await manager.create({ name: 'auth', projectIds: ['api', 'web'] })
+    await manager.spawnAgent(w.id, { runtimeId: 'viola', nonInteractive: true })
+    expect(deps._createSession).toHaveBeenCalledWith(expect.objectContaining({
+      runtimeId: 'viola',
+      nonInteractive: true,
+    }))
+  })
 })

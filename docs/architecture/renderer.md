@@ -43,6 +43,15 @@ otherwise-presentational `AppShell`. `AppShell` short-circuits to `WelcomeDialog
 incomplete) or `OnboardingView` (no projects) before rendering the full workspace
 (`AppShell.tsx:87`, `:96`).
 
+**Viola is a native agent harness, not a plugin panel.** The runtime registry supplies its
+row beside the installed CLI agents; `AgentLaunchList` recognizes the orchestrator kind, opens it
+in chat mode, and explains the two-installed-harness precondition when unavailable
+(`components/modals/AgentLaunchList.tsx:116`, `:125`). `AgentPanel` sends every non-interactive
+session through the same `AgentChatView`; `runtimeId: 'viola'` only selects the goal-oriented
+empty state (`components/editor/editor-shell/dock-agent-panel.tsx:165`,
+`components/editor/editor-shell/AgentChatView.tsx:48`). Planning and worker orchestration stay in
+the main process, so no plugin view or activity-rail entry is involved.
+
 **UI scale.** `App` applies the `uiScale` setting in a layout effect that clamps the value with
 `clampUiScale`, sets the `--ui-scale` CSS variable on the document root, and dispatches a
 `manifold:ui-scale-changed` event (`App.tsx:50`–`:53`). The agent terminal follows it:

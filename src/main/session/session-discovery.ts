@@ -12,6 +12,16 @@ import type { VerdictRecorder } from './verdict-recorder'
 import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { isGitProject } from '../../shared/project-kind'
 
+function isLegacyViolaMeta(meta: unknown): boolean {
+  if (typeof meta !== 'object' || meta === null) return false
+  const legacy = meta as { conductor?: unknown; runtimeId?: unknown }
+  return legacy.conductor === true || legacy.runtimeId === 'conductor'
+}
+
+function migratedViolaDisplayName(meta: { displayName?: string } | null): string | undefined {
+  return meta?.displayName === 'Conductor' ? 'Viola' : meta?.displayName
+}
+
 export class SessionDiscovery {
   private discoveryInFlight = new Map<string, Promise<void>>()
   private verdictRecorder: VerdictRecorder | null = null
@@ -97,19 +107,20 @@ export class SessionDiscovery {
         }
 
         const meta = await readWorktreeMeta(wt.path)
+        const legacyViola = isLegacyViolaMeta(meta)
         const session: InternalSession = {
           // Restore the persisted session id so the re-adopted session matches its
           // verdict record and (for interactive Claude) its on-disk transcript.
           id: meta?.sessionId ?? uuidv4(),
           projectId,
-          runtimeId: meta?.runtimeId ?? '',
+          runtimeId: legacyViola ? 'viola' : meta?.runtimeId ?? '',
           branchName: wt.branch,
           worktreePath: wt.path,
           status: 'done',
           pid: null,
           ptyId: '',
           outputBuffer: '',
-          displayName: meta?.displayName,
+          displayName: legacyViola ? migratedViolaDisplayName(meta) : meta?.displayName,
           taskDescription: meta?.taskDescription,
           simpleTemplateTitle: meta?.simpleTemplateTitle,
           simplePromptInstructions: meta?.simplePromptInstructions,
@@ -117,7 +128,7 @@ export class SessionDiscovery {
           ollamaModel: meta?.ollamaModel,
           workspaceId: meta?.workspaceId,
           workspaceWorktreePaths: meta?.workspaceWorktreePaths,
-          nonInteractive: meta?.nonInteractive,
+          nonInteractive: legacyViola ? true : meta?.nonInteractive,
           codexThreadId: meta?.codexThreadId,
           locked: meta?.locked,
         }
@@ -143,23 +154,24 @@ export class SessionDiscovery {
         const branch = (await gitExec(['branch', '--show-current'], project.path)).trim()
         if (branch && branch !== project.baseBranch && !this.dismissedAgents?.has(projectId, branch)) {
           const meta = await readWorktreeMeta(project.path)
+          const legacyViola = isLegacyViolaMeta(meta)
           const session: InternalSession = {
             id: meta?.sessionId ?? uuidv4(),
             projectId,
-            runtimeId: meta?.runtimeId ?? '',
+            runtimeId: legacyViola ? 'viola' : meta?.runtimeId ?? '',
             branchName: branch,
             worktreePath: project.path,
             status: 'done',
             pid: null,
             ptyId: '',
             outputBuffer: '',
-            displayName: meta?.displayName,
+            displayName: legacyViola ? migratedViolaDisplayName(meta) : meta?.displayName,
             taskDescription: meta?.taskDescription,
             simpleTemplateTitle: meta?.simpleTemplateTitle ?? project.simpleTemplateTitle,
             simplePromptInstructions: meta?.simplePromptInstructions ?? project.simplePromptInstructions,
             additionalDirs: meta?.additionalDirs ?? [],
             noWorktree: true,
-            nonInteractive: meta?.nonInteractive ?? true,
+            nonInteractive: legacyViola ? true : meta?.nonInteractive ?? true,
             codexThreadId: meta?.codexThreadId,
             locked: meta?.locked,
           }
@@ -227,23 +239,24 @@ export class SessionDiscovery {
 
           if (branch && !this.dismissedAgents?.has(project.id, branch)) {
             const meta = await readWorktreeMeta(project.path)
+            const legacyViola = isLegacyViolaMeta(meta)
             const session: InternalSession = {
               id: meta?.sessionId ?? uuidv4(),
               projectId: project.id,
-              runtimeId: meta?.runtimeId ?? '',
+              runtimeId: legacyViola ? 'viola' : meta?.runtimeId ?? '',
               branchName: branch,
               worktreePath: project.path,
               status: 'done',
               pid: null,
               ptyId: '',
               outputBuffer: '',
-              displayName: meta?.displayName,
+              displayName: legacyViola ? migratedViolaDisplayName(meta) : meta?.displayName,
               taskDescription: meta?.taskDescription,
               simpleTemplateTitle: meta?.simpleTemplateTitle ?? project.simpleTemplateTitle,
               simplePromptInstructions: meta?.simplePromptInstructions ?? project.simplePromptInstructions,
               additionalDirs: meta?.additionalDirs ?? [],
               noWorktree: true,
-              nonInteractive: meta?.nonInteractive ?? true,
+              nonInteractive: legacyViola ? true : meta?.nonInteractive ?? true,
               locked: meta?.locked,
             }
             this.sessions.set(session.id, session)

@@ -10,6 +10,7 @@ import { NewAgentHero } from './NewAgentHero'
 const runtimes: AgentRuntime[] = [
   { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
   { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
+  { id: 'viola', name: 'Viola', binary: '', kind: 'orchestrator', installed: true },
 ]
 
 const dormantSession = {

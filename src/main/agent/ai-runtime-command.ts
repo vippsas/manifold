@@ -52,7 +52,7 @@ export function buildAiRuntimeCommand(
           ...baseArgs,
           ...globalArgs,
           'exec',
-          '--full-auto',
+          '--dangerously-bypass-approvals-and-sandbox',
           '--json',
           ...commandArgs,
           prompt,

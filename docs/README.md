@@ -56,6 +56,7 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | --- | --- | --- |
 | [Preload bridge](architecture/preload.md) | `src/preload` | The contextBridge whitelist exposing `window.electronAPI`; keeps Node/fs out of the renderer |
 | [Plugin API](architecture/plugin-api.md) | `src/shared/plugins` | The `manifold` runtime module contract — namespaces, manifest, capabilities, and contributes for plugins |
+| [Viola](architecture/viola.md) | `src/main/viola`, `src/main/agent/runtimes.ts` | Native multi-harness plan gate, isolated implementation fan-out, and independent cross-runtime review |
 | [Watch](architecture/watch.md) | `resources/plugins/manifold.watch` | The Watch plugin: video → ffmpeg frames + transcript → report, fanned out to sibling agents from a webview panel |
 | [On-disk data model](architecture/data-model.md) | `src/main/store`, `src/shared/defaults.ts` | Every file/dir Manifold persists under `~/.manifold`, and the config-home vs configurable storage-root split |
 

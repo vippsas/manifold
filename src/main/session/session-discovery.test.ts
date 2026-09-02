@@ -55,4 +55,27 @@ describe('SessionDiscovery session-id stability', () => {
     expect(session.id).toBeTruthy()
     expect(session.id).not.toBe('persisted-sid')
   })
+
+  it('migrates the rejected Conductor profile metadata to the Viola runtime', async () => {
+    const { discovery, sessions } = deps({ runtimeId: 'claude', conductor: true, displayName: 'Conductor' })
+
+    await discovery.discoverSessionsForProject('p1')
+
+    expect(Array.from(sessions.values())[0]).toMatchObject({
+      runtimeId: 'viola',
+      nonInteractive: true,
+      displayName: 'Viola',
+    })
+  })
+
+  it('migrates the temporary Conductor runtime id to Viola', async () => {
+    const { discovery, sessions } = deps({ runtimeId: 'conductor' })
+
+    await discovery.discoverSessionsForProject('p1')
+
+    expect(Array.from(sessions.values())[0]).toMatchObject({
+      runtimeId: 'viola',
+      nonInteractive: true,
+    })
+  })
 })

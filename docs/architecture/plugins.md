@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main process discovers, loads, gates, and tears down plugins — the host side that forks the extension-host utility process and enforces capabilities.
 covers: [src/main/plugins, src/plugin-host]
-updated: 2026-08-10
+updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -29,7 +29,7 @@ process (`src/plugin-host`) where that is where loading/gating actually executes
 - `src/main/plugins/extension-host.ts` — `ExtensionHost`: forks `plugin-host.js`, registers the main-side RPC services, owns disposal.
 - `src/main/plugins/command-registry.ts` / `host-commands-service.ts` — command ownership (`CommandRegistry`) and its RPC service.
 - `src/main/plugins/agent-control-service.ts` / `lm-service.ts` — the privileged main-side services behind `agent:control` / `lm`.
-- `src/main/plugins/agent-spawn-service.ts` — the privileged main-side service behind `agent:spawn`: spawn a sibling session next to a base session, raw PTY input (`sendText`), TUI-ready polling (`whenReady`), status/kill.
+- `src/main/plugins/agent-spawn-service.ts` — the privileged main-side service behind `agent:spawn`: spawn a same-runtime sibling beside a base session, plus raw PTY input (`sendText`), TUI-ready polling (`whenReady`), status/kill. Its native-only `spawnAgent` path lets core orchestrators choose another runtime and a fresh managed worktree without widening the plugin API.
 - `src/main/plugins/plugin-storage-store.ts` — per-plugin key/value JSON storage with path-escape defense.
 - `src/main/plugins/webview-protocol.ts` / `webview-content-store.ts` — the `manifold-webview://` scheme, nonce-CSP injection, and the HTML store.
 - `src/main/plugins/ui-broker.ts` — `UiRequestBroker`: bridges host UI prompts to the renderer and awaits the reply.
@@ -99,7 +99,7 @@ receives the declared capability set so each method re-checks its own capability
 (`gated-api.ts:48`, `plugin-host/agents-api.ts:30`). These namespaces are backed in the
 main process by `AgentControlService` (drives a session's agent for one turn,
 `agent-control-service.ts:110`), `AgentSpawnService` (sibling-session spawn + raw PTY
-input, `agent-spawn-service.ts:32`), `LmService` (one-shot generation via the active
+input, `agent-spawn-service.ts:39`), `LmService` (one-shot generation via the active
 session's runtime, `lm-service.ts:19`), and the transcription-settings resolver
 (`extension-host.ts:70`, set by `PluginManager` from the core settings store) — exactly
 the powers that warrant the restriction. The verdicts namespace is read/write split:
@@ -194,6 +194,7 @@ disabled plugin (`extension-host.ts`, `plugin-manager.ts:63`).
 
 - **Extension-host process** (`src/plugin-host`): the peer that actually runs plugin code. `index.ts` wires the require interceptor, the `Activator`, `buildGatedApi`, and the per-namespace API factories (`storage-api`, `workspace-api`, `config-api`, `agents-api`, `lm-api`, plus the `vscode-shim` for `kind: 'vscode'`). The two sides talk over `RpcEndpoint` (`shared/plugins/rpc.ts:32`) across the utility-process message channel.
 - **Session** (`src/main/session`): `AgentControlService` and `LmService` read live sessions via `SessionManager.getSession`/`getInternalSession`/`sendInput`; `setActiveContext` enriches the renderer's context with the session's `worktreePath` and `runtimeId` (`plugin-manager.ts:181`) — the latter lets a plugin pick a runtime-specific agent invocation (e.g. watch's `/watch:watch` vs Codex's `$watch`).
+- **Orchestrated siblings:** native Viola calls `spawnAgent(baseId, { runtimeId, newWorktree: true })`, which creates a child on the requested runtime in a managed worktree forked from the base session's committed `HEAD` and returns its runtime/worktree metadata (`agent-spawn-service.ts:52`). Plugin-facing `spawnSibling` keeps its existing base-runtime/base-checkout behavior, preserving Watch's contract.
 - **Git** (`src/main/git`): `LmService.sendRequest` calls `GitOperationsManager.aiGenerate` to do one-shot generation through the runtime (`lm-service.ts:37`); the verdict service injected by `PluginManager` uses `viewPullRequestStatus` when built-in plugins request PR verification (`plugin-manager.ts:110`).
 - **Settings store** (`src/main/store`): enable/disable lives in `settings.disabledPlugins`; per-plugin config overrides live in `settings.pluginConfig` and merge over manifest defaults (`plugin-manager.ts:59`, `:69`). Ids listed in `SETTINGS_HIDDEN_PLUGINS` (`src/shared/defaults.ts:22`) are filtered out of the Settings → Plugins list (`PluginSettingsSection.tsx:48`), so a default-disabled plugin such as `manifold.statistics` ships with no toggle at all.
 - **IPC** (`src/main/ipc/plugin-handlers.ts`): `plugins:list`, `plugins:list-contributions`, `plugins:set-enabled`, `plugins:activate`, `plugins:execute-command`, `plugins:open-view`/`open-tree-view`, `plugins:tree-get-children`, `plugins:webview-to-host`, `plugins:set-active-context`, `plugins:get-config`/`set-config`, `plugins:ui-response`. The manager pushes `plugins:webview-html`, `plugins:webview-message`, `plugins:tree-refresh`, `plugins:ui-request`, and `plugins:contributions-changed` to the renderer through `setMainWindow`'s `send` (`plugin-manager.ts:120`).

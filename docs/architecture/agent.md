@@ -1,14 +1,14 @@
 ---
 description: The AI runtimes layer and PTY pool — the runtime registry, command building (interactive vs print-mode), theme/ANSI sync, and the process boundary the session subsystem spawns into.
 covers: [src/main/agent]
-updated: 2026-08-11
+updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
 
 # Agent — AI runtimes and the PTY process boundary
 
-This subsystem is the seam between Manifold and the external agent CLIs (Claude Code,
-Codex, Copilot, Gemini, Ollama-backed variants). It owns the static **runtime registry**
+This subsystem is the seam between Manifold and agent harnesses: the external CLIs (Claude Code,
+Codex, Copilot, Gemini, Ollama-backed variants) plus native Viola. It owns the static **runtime registry**
 (binary + base args + status patterns per agent), the **command builders** that turn a
 runtime + prompt into a concrete `binary`/`args`/`env` for interactive or print mode, the
 theme/working-set arg helpers, and `PtyPool` — the thin wrapper over `node-pty` that every
@@ -35,12 +35,13 @@ calls into here; this layer holds no session state of its own and is pure given 
 **The registry.** `BUILT_IN_RUNTIMES` (`runtimes.ts:4`) is a frozen array of `AgentRuntime`
 (`src/shared/types.ts:1`) — each has an `id`, a `binary`, base `args`, an optional
 `aiModelArgs` (the small model used for non-chat helper prompts), an optional `waitingPattern`,
-and an optional `needsModel`. The six entries today: `claude`, `codex`, `copilot`, `gemini`,
-and the two `ollama-*` variants (`binary: 'ollama'`, `args: ['launch', …]`, `needsModel: true`).
-`getRuntimeById()` (`runtimes.ts:54`) is the single resolver everyone calls.
-`listRuntimesWithStatus()` (`runtimes.ts:70`) decorates each entry with `installed` by running
-`which <binary>` — that flag drives the settings UI and picks a usable runtime for memory
-compression.
+and optional `needsModel` / `kind`. The seven entries today are `claude`, `codex`, `copilot`,
+`gemini`, native `viola`, and the two `ollama-*` variants (`binary: 'ollama'`,
+`args: ['launch', …]`, `needsModel: true`). Viola has `kind: 'orchestrator'` and no binary;
+session routing owns it instead of `PtyPool` (`runtimes.ts:38`). `getRuntimeById()`
+(`runtimes.ts:63`) is the single resolver everyone calls. `listRuntimesWithStatus()`
+(`runtimes.ts:79`) runs `which <binary>` for CLI entries and marks Viola available only when
+at least two of Claude, Codex, Copilot, and Gemini are installed, preserving cross-harness review.
 
 **Command building has three shapes.** They differ by *who* consumes the output:
 
@@ -57,7 +58,7 @@ compression.
    of the prompt itself (`simple-runtime.ts:27`).
 3. *One-shot helper* — `buildAiRuntimeCommand(runtime, prompt, extraArgs)` (`ai-runtime-command.ts:20`),
    used by git/commit-message generation. Claude uses `--output-format text` (`'plain-text'`),
-   Codex uses `exec --full-auto --json` and splits `--search` into a *global* flag ahead of `exec`
+   Codex uses `exec --dangerously-bypass-approvals-and-sandbox --json` and splits `--search` into a *global* flag ahead of `exec`
    (`splitCodexExtraArgs`, `ai-runtime-command.ts:79`). Its companions
    `parseAiRuntimeOutput`/`parseAiRuntimeFailure` (`:94`, `:122`) walk the chosen output mode line by
    line, delegating to the extractors in `ai-runtime-output-parsers.ts`, dedupe, and return the last
@@ -102,8 +103,8 @@ rebuilt on every chunk (#511). Anything with no match is `'running'`.
 
 ## Key types and entry points
 
-- `AgentRuntime` — `src/shared/types.ts:1`. `{ id, name, binary, args?, aiModelArgs?, waitingPattern?, env?, installed?, needsModel? }`.
-- `getRuntimeById(id)` — `runtimes.ts:54`. The universal resolver; consumers across `session`, `git`, `search`, `memory`, `plugins` start here.
+- `AgentRuntime` — `src/shared/types.ts:1`. `{ id, name, binary, kind?, args?, aiModelArgs?, waitingPattern?, env?, installed?, needsModel? }`.
+- `getRuntimeById(id)` — `runtimes.ts:63`. The universal resolver; consumers across `session`, `git`, `search`, `memory`, `plugins` start here.
 - `PtyPool` — `pty-pool.ts:17`. Instantiated once in `src/main/app/index.ts:57`; handed to the session manager and dev-server manager.
 - `buildSimpleRuntimeCommand(runtimeId, prompt, additionalDirs?)` — `simple-runtime.ts:18`. Print-mode args (working-set flags included) + `SimpleRuntimeOutputMode`.
 - `buildAiRuntimeCommand(runtime, prompt, extraArgs)` — `ai-runtime-command.ts:20`. One-shot helper command; pair with `parseAiRuntimeOutput`/`parseAiRuntimeFailure`.

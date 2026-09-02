@@ -8,7 +8,10 @@ function fakeSm(overrides: Record<string, unknown> = {}): {
   getSession: ReturnType<typeof vi.fn>
 } {
   return {
-    createSession: vi.fn(async (opts: unknown) => ({ id: 'sib-1', ...(opts as object) })),
+    createSession: vi.fn(async (opts: unknown) => {
+      const options = opts as { existingWorktreePath?: string }
+      return { id: 'sib-1', worktreePath: options.existingWorktreePath, ...(opts as object) }
+    }),
     killSession: vi.fn(async () => undefined),
     sendInput: vi.fn(),
     getSession: vi.fn(() => ({
@@ -29,6 +32,27 @@ describe('createAgentSpawnService', () => {
       projectId: 'p1', runtimeId: 'claude', prompt: 'Watching: intro',
       existingWorktreePath: '/wt/base', groupId: 'run-1',
     })
+  })
+
+  it('spawnAgent can select another runtime in a fresh managed worktree', async () => {
+    const sm = fakeSm({
+      createSession: vi.fn(async () => ({
+        id: 'sib-2', runtimeId: 'codex', worktreePath: '/wt/task-2',
+      })),
+    })
+    const resolveHead = vi.fn(async () => 'base-sha')
+    const svc = createAgentSpawnService(sm as never, { resolveHead })
+
+    await expect(svc.spawnAgent('base-1', {
+      title: 'fix-auth', runtimeId: 'codex', newWorktree: true, nonInteractive: true,
+    })).resolves.toEqual({
+      sessionId: 'sib-2', runtimeId: 'codex', worktreePath: '/wt/task-2',
+    })
+    expect(sm.createSession).toHaveBeenCalledWith({
+      projectId: 'p1', runtimeId: 'codex', prompt: 'fix-auth',
+      existingWorktreePath: undefined, baseBranch: 'base-sha', groupId: undefined, nonInteractive: true,
+    })
+    expect(resolveHead).toHaveBeenCalledWith('/wt/base')
   })
 
   it('spawnSibling rejects when the base session does not exist', async () => {

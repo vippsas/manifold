@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../agent/runtimes', () => ({
-  getRuntimeById: vi.fn(() => ({
-    id: 'codex',
-    name: 'Codex',
-    binary: 'codex',
-    args: [],
-    env: undefined,
-  })),
+  getRuntimeById: vi.fn((id: string) => id === 'viola'
+    ? { id: 'viola', name: 'Viola', binary: '', kind: 'orchestrator' }
+    : {
+        id: 'codex',
+        name: 'Codex',
+        binary: 'codex',
+        args: [],
+        env: undefined,
+      }),
 }))
 
 vi.mock('../agent/agent-env', () => ({
@@ -99,6 +101,39 @@ describe('SessionCreator', () => {
         displayName: 'Persisted agent',
         runtimeId: 'codex',
       }),
+    )
+  })
+
+  it('creates a native Viola session without spawning a PTY', async () => {
+    vi.mocked(readWorktreeMeta).mockResolvedValueOnce({ runtimeId: 'viola' })
+    const ptyPool = createPtyPool()
+    const creator = new SessionCreator(
+      {} as WorktreeManager,
+      ptyPool,
+      createProjectRegistry(),
+      createStreamWirer(),
+      () => null,
+    )
+
+    const session = await creator.create({
+      projectId: 'proj-1',
+      runtimeId: 'viola',
+      prompt: '',
+      displayName: 'Viola',
+      existingWorktreePath: '/repo/.manifold/worktrees/manifold-oslo',
+    })
+
+    expect(session).toMatchObject({
+      runtimeId: 'viola',
+      displayName: 'Viola',
+      nonInteractive: true,
+      status: 'waiting',
+      pid: null,
+    })
+    expect(ptyPool.spawn).not.toHaveBeenCalled()
+    expect(writeWorktreeMeta).toHaveBeenCalledWith(
+      '/repo/.manifold/worktrees/manifold-oslo',
+      expect.objectContaining({ runtimeId: 'viola', nonInteractive: true }),
     )
   })
 

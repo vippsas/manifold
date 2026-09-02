@@ -22,7 +22,7 @@ export function createLmService(sm: SessionAccess, gitOps: GitAccess, getRuntime
     const session = sm.getSession(sessionId)
     if (!session) return null
     const runtime = getRuntime(session.runtimeId)
-    if (!runtime) return null
+    if (!runtime || runtime.kind === 'orchestrator') return null
     return { runtime, worktreePath: session.worktreePath }
   }
 

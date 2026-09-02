@@ -2,6 +2,8 @@ export interface AgentRuntime {
   id: string
   name: string
   binary: string
+  /** CLI runtimes own a PTY. Orchestrators are native Manifold harnesses. */
+  kind?: 'cli' | 'orchestrator'
   args?: string[]
   aiModelArgs?: string[]
   waitingPattern?: string
@@ -275,9 +277,9 @@ export interface SpawnAgentOptions {
   simplePromptInstructions?: string
   branchName?: string
   existingBranch?: string
-  /** No-worktree agents: the branch to work on / cut a new branch from, and the
-   *  agent's per-session base branch (diffs/PR/ahead-behind). Defaults to the
-   *  project's base branch when omitted. Set by the New Agent form's branch picker. */
+  /** Branch/ref a new worktree or no-worktree branch starts from. For no-worktree
+   *  agents it is also the session's diff/PR base. Defaults to the project's base
+   *  branch when omitted. Set by the New Agent form or a sibling orchestrator. */
   baseBranch?: string
   prIdentifier?: string
   noWorktree?: boolean

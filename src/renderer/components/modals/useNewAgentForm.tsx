@@ -40,7 +40,7 @@ export interface PendingLaunch {
 /**
  * Every piece of new-agent state and the launch itself, shared by the two
  * layouts that offer it: the compact dialog and the full-panel start view. Both
- * now present the same provider list, so `launch` takes the runtime and mode
+ * now present the same agent list, so `launch` takes the backing runtime and mode
  * explicitly from the clicked row rather than reading a single selection back
  * from state.
  */

@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process'
 import { AgentRuntime } from '../../shared/types'
 
+export const VIOLA_WORKER_RUNTIME_IDS = ['claude', 'codex', 'copilot', 'gemini'] as const
+
 export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
   {
     id: 'claude',
@@ -32,6 +34,13 @@ export const BUILT_IN_RUNTIMES: readonly AgentRuntime[] = [
     args: [],
     aiModelArgs: ['--model', 'gemini-2.0-flash'],
     waitingPattern: '❯|>>> '
+  },
+  {
+    id: 'viola',
+    name: 'Viola',
+    binary: '',
+    kind: 'orchestrator',
+    waitingPattern: 'native-orchestrator'
   },
   {
     id: 'ollama-claude',
@@ -68,11 +77,21 @@ function checkBinaryExists(binary: string): Promise<boolean> {
 }
 
 export async function listRuntimesWithStatus(): Promise<AgentRuntime[]> {
-  const results = await Promise.all(
-    BUILT_IN_RUNTIMES.map(async (rt) => ({
-      ...rt,
-      installed: await checkBinaryExists(rt.binary),
-    }))
+  const cliResults = await Promise.all(
+    BUILT_IN_RUNTIMES
+      .filter((runtime) => runtime.kind !== 'orchestrator')
+      .map(async (runtime) => ({
+        ...runtime,
+        installed: await checkBinaryExists(runtime.binary),
+      }))
   )
-  return results
+  const availableWorkers = cliResults.filter((runtime) => (
+    runtime.installed && VIOLA_WORKER_RUNTIME_IDS.includes(runtime.id as typeof VIOLA_WORKER_RUNTIME_IDS[number])
+  )).length
+  return BUILT_IN_RUNTIMES.map((runtime) => {
+    if (runtime.kind === 'orchestrator') {
+      return { ...runtime, installed: availableWorkers >= 2 }
+    }
+    return cliResults.find((candidate) => candidate.id === runtime.id)!
+  })
 }

@@ -9,6 +9,7 @@ import type { RegisteredPanel } from '../../plugins/contribution-registry'
 import type { DockPanelId } from '../../hooks/dock-layout/dock-layout-helpers'
 
 const RUNTIME_LABELS: Record<string, string> = {
+  viola: 'Viola',
   claude: 'Claude',
   codex: 'Codex',
   gemini: 'Gemini',
@@ -62,9 +63,13 @@ export function AgentSettingsModal({ visible, session, fallbackName, onSave, onC
   const handleSubmit = (event: React.FormEvent): void => {
     event.preventDefault()
     if (!trimmedName || saving) return
-    const update = { displayName: trimmedName, runtimeId, viewMode }
+    const update = {
+      displayName: trimmedName,
+      runtimeId,
+      viewMode: runtimeId === 'viola' ? 'chat' as const : viewMode,
+    }
     const replacesAgent = runtimeId !== session.runtimeId
-      || viewMode !== (session.nonInteractive ? 'chat' : 'terminal')
+      || (runtimeId !== 'viola' && viewMode !== (session.nonInteractive ? 'chat' : 'terminal'))
     if (replacesAgent) {
       setPendingSettings(update)
       return
@@ -72,7 +77,7 @@ export function AgentSettingsModal({ visible, session, fallbackName, onSave, onC
     saveSettings(update)
   }
 
-  const runtimeOptions = Array.from(new Set([session.runtimeId, 'claude', 'codex']))
+  const runtimeOptions = Array.from(new Set(['viola', session.runtimeId, 'claude', 'codex']))
 
   // Apps are per-worktree: they open panels in the active session's dock, so
   // the section only renders in the options of the agent that is active.
@@ -127,9 +132,10 @@ export function AgentSettingsModal({ visible, session, fallbackName, onSave, onC
               ))}
             </select>
           </label>
-          <fieldset style={styles.fieldset}>
-            <legend style={styles.legend}>View</legend>
-            <div style={styles.modeGrid}>
+          {runtimeId !== 'viola' && (
+            <fieldset style={styles.fieldset}>
+              <legend style={styles.legend}>View</legend>
+              <div style={styles.modeGrid}>
               <label style={{ ...styles.modeOption, ...(viewMode === 'chat' ? styles.modeOptionSelected : {}) }}>
                 <input
                   type="radio"
@@ -158,8 +164,9 @@ export function AgentSettingsModal({ visible, session, fallbackName, onSave, onC
                   <span style={styles.modeDescription}>Full interactive CLI</span>
                 </span>
               </label>
-            </div>
-          </fieldset>
+              </div>
+            </fieldset>
+          )}
           {showApps && (
             <fieldset style={styles.fieldset}>
               <legend style={styles.legend}>Apps</legend>

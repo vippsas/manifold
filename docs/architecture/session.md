@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-08-27
+updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -70,7 +70,10 @@ shapes the UI produces at all** — every launch goes through `workspace:spawn-a
 chooses between them from the workspace itself (`workspace-manager.ts:225`). The New Agent form
 sends no worktree, branch or PR option of its own, so both the trailing `createWorktree()`
 fallback (`session-creator.ts:113`) and the base-branch model below are left to direct
-IPC/plugin callers.
+IPC/plugin callers. The fresh-worktree fallback starts from `options.baseBranch` when supplied,
+otherwise from the project's base branch (`session-creator.ts:113`). Viola uses that direct
+path so every delegated worktree starts from its base agent's committed `HEAD` rather than
+silently falling back to the repository default.
 
 **No-worktree base-branch model** (no longer reachable from the UI; kept for IPC/plugin
 callers). The agent's base branch is `options.baseBranch` or the project's base branch. With a blank name
@@ -91,7 +94,13 @@ starts the process, the stream wirer attaches handlers, and `writeWorktreeMeta()
 the runtime/task/displayName so the session is rediscoverable. The name typed in the New Agent
 dialog arrives as `SpawnAgentOptions.displayName` and becomes exactly that — the agent's name and
 its tab title (`session-creator.ts:189`); it is no longer a branch hint, because the workspace
-owns the branch. Back in the lifecycle, the new
+owns the branch. A native orchestrator such as Viola deliberately uses this deferred shape
+permanently: `runtime.kind === 'orchestrator'` forces chat mode and prevents a PTY spawn, while
+`runtimeId: 'viola'` persists the harness identity. Lifecycle startup also skips the CLI
+slash-command probe for that runtime (`session-creator.ts:37`, `:126`,
+`session-lifecycle.ts:56`). `SessionManager` routes its input/interrupt/kill operations to the
+registered harness controller instead of the PTY I/O controller (`session-manager.ts:253`).
+Back in the lifecycle, the new
 session is added to the map, any dismissal recorded for that project + branch is lifted
 (`session-lifecycle.ts:84`), memory capture starts, and the renderer is told via
 `agent:sessions-changed`. Verdict creation also snapshots the optional agent display

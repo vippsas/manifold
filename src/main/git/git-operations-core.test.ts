@@ -254,7 +254,7 @@ describe('GitOperationsManager core', () => {
       expect(result).toBe('ai message')
       expect(mockSpawn).toHaveBeenCalledWith(
         '/usr/local/bin/codex',
-        ['exec', '--full-auto', '--json', '--model', 'o4-mini', 'prompt'],
+        ['exec', '--dangerously-bypass-approvals-and-sandbox', '--json', '--model', 'o4-mini', 'prompt'],
         { cwd: '/worktree', env: undefined, stdio: ['pipe', 'pipe', 'pipe'] },
       )
     })

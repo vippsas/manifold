@@ -69,6 +69,11 @@ describe('nextAgentName', () => {
     expect(nextAgentName('claude', [])).toBe('Claude')
   })
 
+  it('names orchestration agents Viola', () => {
+    expect(nextAgentName('viola', [])).toBe('Viola')
+    expect(nextAgentName('viola', named('Viola'))).toBe('Viola 2')
+  })
+
   it('numbers the second', () => {
     expect(nextAgentName('claude', named('Claude'))).toBe('Claude 2')
   })

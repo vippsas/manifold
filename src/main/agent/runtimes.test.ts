@@ -3,18 +3,19 @@ import { BUILT_IN_RUNTIMES, getRuntimeById, listRuntimes, listRuntimesWithStatus
 
 describe('runtimes', () => {
   describe('BUILT_IN_RUNTIMES', () => {
-    it('contains claude, codex, copilot, gemini, ollama-claude, and ollama-codex', () => {
+    it('contains the CLI harnesses and native Viola harness', () => {
       const ids = BUILT_IN_RUNTIMES.map((r) => r.id)
       expect(ids).toContain('claude')
       expect(ids).toContain('codex')
       expect(ids).toContain('copilot')
       expect(ids).toContain('gemini')
+      expect(ids).toContain('viola')
       expect(ids).toContain('ollama-claude')
       expect(ids).toContain('ollama-codex')
     })
 
-    it('has exactly 6 built-in runtimes', () => {
-      expect(BUILT_IN_RUNTIMES).toHaveLength(6)
+    it('has exactly 7 built-in runtimes', () => {
+      expect(BUILT_IN_RUNTIMES).toHaveLength(7)
     })
 
     it('copilot runtime has the expected binary and args', () => {
@@ -27,7 +28,8 @@ describe('runtimes', () => {
       for (const runtime of BUILT_IN_RUNTIMES) {
         expect(runtime.id).toBeTruthy()
         expect(runtime.name).toBeTruthy()
-        expect(runtime.binary).toBeTruthy()
+        if (runtime.kind === 'orchestrator') expect(runtime.binary).toBe('')
+        else expect(runtime.binary).toBeTruthy()
       }
     })
 
@@ -41,6 +43,11 @@ describe('runtimes', () => {
       const codex = BUILT_IN_RUNTIMES.find((r) => r.id === 'codex')
       expect(codex?.binary).toBe('codex')
       expect(codex?.aiModelArgs).toBeUndefined()
+    })
+
+    it('Viola is a native orchestrator with no CLI binary', () => {
+      const viola = BUILT_IN_RUNTIMES.find((r) => r.id === 'viola')
+      expect(viola).toMatchObject({ kind: 'orchestrator', binary: '' })
     })
 
     it('gemini runtime has the expected binary', () => {

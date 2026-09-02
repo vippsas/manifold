@@ -25,7 +25,7 @@ describe('buildAiRuntimeCommand', () => {
     )
     expect(cmd.outputMode).toBe('codex-jsonl')
     expect(cmd.args).toContain('exec')
-    expect(cmd.args).toContain('--full-auto')
+    expect(cmd.args).toContain('--dangerously-bypass-approvals-and-sandbox')
     expect(cmd.args).toContain('--json')
     expect(cmd.args).toContain('--model')
     expect(cmd.args).toContain('hello prompt')
@@ -38,7 +38,7 @@ describe('buildAiRuntimeCommand', () => {
       ['--search', '--model', 'o4-mini'],
     )
 
-    expect(cmd.args).toEqual(['--search', 'exec', '--full-auto', '--json', '--model', 'o4-mini', 'hello prompt'])
+    expect(cmd.args).toEqual(['--search', 'exec', '--dangerously-bypass-approvals-and-sandbox', '--json', '--model', 'o4-mini', 'hello prompt'])
   })
 
   it('keeps codex config overrides after exec while preserving global search flags', () => {
@@ -51,7 +51,7 @@ describe('buildAiRuntimeCommand', () => {
     expect(cmd.args).toEqual([
       '--search',
       'exec',
-      '--full-auto',
+      '--dangerously-bypass-approvals-and-sandbox',
       '--json',
       '--model',
       'gpt-5-codex',

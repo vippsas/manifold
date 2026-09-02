@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
 import { AgentSettingsModal } from './AgentSettingsModal'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
@@ -76,5 +76,28 @@ describe('AgentSettingsModal apps section', () => {
     mockContributions.mockReturnValue([])
     renderModal({})
     expect(screen.queryByText('Apps')).not.toBeInTheDocument()
+  })
+})
+
+describe('AgentSettingsModal Viola runtime', () => {
+  it('shows Viola as the agent and keeps its native runtime on save', async () => {
+    mockContributions.mockReturnValue([])
+    const onSave = vi.fn()
+    const violaSession = { ...session, runtimeId: 'viola', nonInteractive: true, displayName: 'Viola' }
+    render(
+      <DockStateContext.Provider value={{ sessionId: 's1' } as unknown as DockAppState}>
+        <AgentSettingsModal visible session={violaSession} fallbackName="Viola" onSave={onSave} onClose={vi.fn()} />
+      </DockStateContext.Provider>,
+    )
+
+    expect(screen.getByLabelText('Agent runtime')).toHaveValue('viola')
+    expect(screen.queryByText('View')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith({
+      displayName: 'Viola',
+      runtimeId: 'viola',
+      viewMode: 'chat',
+    }))
   })
 })

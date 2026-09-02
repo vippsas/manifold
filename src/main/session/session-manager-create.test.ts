@@ -13,6 +13,9 @@ vi.mock('../agent/runtimes', () => ({
     if (id === 'codex') {
       return { id: 'codex', name: 'Codex', binary: 'codex', args: [], env: undefined }
     }
+    if (id === 'viola') {
+      return { id: 'viola', name: 'Viola', binary: '', kind: 'orchestrator' }
+    }
     return undefined
   }),
 }))
@@ -110,6 +113,35 @@ describe('SessionManager — create / input / queries', () => {
       )
       expect(ptyPool.onData).toHaveBeenCalledWith('pty-1', expect.any(Function))
       expect(ptyPool.onExit).toHaveBeenCalledWith('pty-1', expect.any(Function))
+    })
+
+    it('can start a managed worktree from an explicit base ref', async () => {
+      await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'claude',
+        prompt: 'delegated task',
+        baseBranch: 'feature/base',
+      })
+
+      expect(worktreeManager.createWorktree).toHaveBeenCalledWith(
+        '/repo', 'feature/base', 'test', undefined, 'delegated task',
+      )
+    })
+
+    it('creates Viola as a native session without a runtime PTY or slash probe', async () => {
+      const session = await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'viola',
+        prompt: '',
+      })
+
+      expect(session).toMatchObject({
+        runtimeId: 'viola',
+        nonInteractive: true,
+        status: 'waiting',
+        pid: null,
+      })
+      expect(ptyPool.spawn).not.toHaveBeenCalled()
     })
 
     it('throws when project is not found', async () => {
@@ -279,6 +311,30 @@ describe('SessionManager — create / input / queries', () => {
   })
 
   describe('sendInput', () => {
+    it('routes native Viola input and interrupts to its harness', async () => {
+      const harness = {
+        send: vi.fn(),
+        interrupt: vi.fn(),
+        disposeSession: vi.fn(),
+      }
+      sessionManager.setViolaHarness(harness)
+      const session = await sessionManager.createSession({
+        projectId: 'proj-1',
+        runtimeId: 'viola',
+        prompt: '',
+      })
+
+      sessionManager.sendInput(session.id, '  plan the fix  ')
+      sessionManager.interruptSession(session.id)
+      sessionManager.killAllSessions()
+
+      expect(harness.send).toHaveBeenCalledWith(session.id, 'plan the fix')
+      expect(harness.interrupt).toHaveBeenCalledWith(session.id)
+      expect(harness.disposeSession).toHaveBeenCalledWith(session.id)
+      expect(memoryCapture.recordInput).toHaveBeenCalledWith(session.id, '  plan the fix  ')
+      expect(ptyPool.write).not.toHaveBeenCalled()
+    })
+
     it('writes input to the session pty', async () => {
       await sessionManager.createSession({
         projectId: 'proj-1',
