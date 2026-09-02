@@ -7,6 +7,7 @@ import { formatBranchLabel } from './components/sidebar/agent-labels'
 import { AgentSettingsModal } from './components/modals/AgentSettingsModal'
 import { PanelGlyph, type GlyphId } from './components/ActivityBar'
 import { ContextMenu, type MenuItem } from './components/common/ContextMenu'
+import { AgentTabUsage } from './components/AgentTabUsage'
 import { useContextMenu } from './hooks/useContextMenu'
 
 function EllipsisIcon(): React.JSX.Element {
@@ -101,6 +102,9 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
         <span className="dock-tab__label truncate">{title}</span>
         {session && state && (
           <>
+            {/* Claude is the only runtime whose transcript records per-model token
+                usage, so it is the only one that can be costed. */}
+            {session.runtimeId === 'claude' && <AgentTabUsage sessionId={session.id} />}
             <button
               type="button"
               onClick={(e) => {

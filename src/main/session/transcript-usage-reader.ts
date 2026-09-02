@@ -3,6 +3,7 @@ import * as fsSync from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import type { TokenUsage } from '../../shared/verdict-types'
+import { rateKey, type CostTokens } from './model-pricing'
 
 interface TranscriptLocator {
   claudeProjectsDir: string
@@ -13,6 +14,25 @@ interface TranscriptLocator {
 export interface SessionUsage {
   tokenUsage: TokenUsage
   turns: number
+}
+
+/**
+ * Claude usage, additionally bucketed for pricing. `tokenUsage` stays the flat
+ * total every existing caller reads; `byRate` splits the same tokens by model,
+ * speed, and cache-write duration, which is what `estimateCostUsd` needs.
+ */
+export interface ClaudeSessionUsage extends SessionUsage {
+  byRate: Record<string, CostTokens>
+}
+
+/** The subset of a transcript's `message.usage` that pricing reads. */
+interface RawUsage {
+  input_tokens?: number
+  output_tokens?: number
+  cache_read_input_tokens?: number
+  cache_creation_input_tokens?: number
+  cache_creation?: { ephemeral_5m_input_tokens?: number; ephemeral_1h_input_tokens?: number }
+  speed?: string
 }
 
 /** Default Claude transcript root: ~/.claude/projects. */
@@ -26,7 +46,7 @@ export function encodeClaudeProjectDir(absPath: string): string {
 }
 
 /** Read per-session token usage + turn count from Claude's on-disk JSONL transcript. */
-export async function readClaudeTranscriptUsage(opts: TranscriptLocator): Promise<SessionUsage | null> {
+export async function readClaudeTranscriptUsage(opts: TranscriptLocator): Promise<ClaudeSessionUsage | null> {
   const file = await locateClaudeTranscript(opts)
   if (!file) return null
   let raw: string
@@ -42,7 +62,7 @@ export async function readClaudeTranscriptUsage(opts: TranscriptLocator): Promis
  * Synchronous variant for the app-quit teardown path, where async work after the
  * first await is not guaranteed to run before the process exits.
  */
-export function readClaudeTranscriptUsageSync(opts: TranscriptLocator): SessionUsage | null {
+export function readClaudeTranscriptUsageSync(opts: TranscriptLocator): ClaudeSessionUsage | null {
   const file = locateClaudeTranscriptSync(opts)
   if (!file) return null
   try {
@@ -88,8 +108,9 @@ function locateClaudeTranscriptSync(opts: TranscriptLocator): string | null {
   return null
 }
 
-function parseTranscriptUsage(raw: string): SessionUsage {
+function parseTranscriptUsage(raw: string): ClaudeSessionUsage {
   const usage: TokenUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }
+  const byRate: Record<string, CostTokens> = {}
   const seen = new Set<string>()
   let turns = 0
   for (const lineText of raw.split('\n')) {
@@ -98,23 +119,50 @@ function parseTranscriptUsage(raw: string): SessionUsage {
     let e: Record<string, unknown>
     try { e = JSON.parse(trimmed) } catch { continue }
     if (e.type === 'assistant') {
-      const message = e.message as { id?: string; usage?: Record<string, number> } | undefined
+      const message = e.message as { id?: string; model?: string; usage?: RawUsage } | undefined
       const id = message?.id
       // Transcripts duplicate assistant entries by message.id — count usage once per id.
       if (id && seen.has(id)) continue
       if (id) seen.add(id)
       const u = message?.usage
       if (u) {
+        const write1h = u.cache_creation?.ephemeral_1h_input_tokens ?? 0
+        // Transcripts written before the duration split existed report one total;
+        // bill those as 5-minute writes, the cheaper and historically default TTL.
+        const write5m = u.cache_creation
+          ? u.cache_creation.ephemeral_5m_input_tokens ?? 0
+          : u.cache_creation_input_tokens ?? 0
+
         usage.inputTokens += u.input_tokens ?? 0
         usage.outputTokens += u.output_tokens ?? 0
         usage.cacheReadTokens += u.cache_read_input_tokens ?? 0
         usage.cacheCreationTokens += u.cache_creation_input_tokens ?? 0
+
+        // An entry with no model still cost something — bucket it so the estimate
+        // reports itself as incomplete rather than silently dropping the tokens.
+        const bucket = bucketFor(byRate, rateKey(message?.model ?? 'unknown', u.speed))
+        bucket.inputTokens += u.input_tokens ?? 0
+        bucket.outputTokens += u.output_tokens ?? 0
+        bucket.cacheReadTokens += u.cache_read_input_tokens ?? 0
+        bucket.cacheWrite5mTokens += write5m
+        bucket.cacheWrite1hTokens += write1h
       }
     } else if (e.type === 'user' && isHumanTurn(e)) {
       turns += 1
     }
   }
-  return { tokenUsage: usage, turns }
+  return { tokenUsage: usage, turns, byRate }
+}
+
+function bucketFor(byRate: Record<string, CostTokens>, key: string): CostTokens {
+  const existing = byRate[key]
+  if (existing) return existing
+  const fresh: CostTokens = {
+    inputTokens: 0, outputTokens: 0, cacheReadTokens: 0,
+    cacheWrite5mTokens: 0, cacheWrite1hTokens: 0,
+  }
+  byRate[key] = fresh
+  return fresh
 }
 
 /** A human turn: a user entry whose message.content is a string, excluding meta/sidechain rows. */

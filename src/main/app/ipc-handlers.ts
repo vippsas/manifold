@@ -6,6 +6,7 @@ import { autoUpdater } from 'electron-updater'
 import { checkForUpdates, clearUpdateLog, getReleaseNotes, getUpdateLogExcerpt, openReleaseNotesExternal } from './auto-updater'
 import { registerProjectHandlers } from '../ipc/project-handlers'
 import { registerAgentHandlers } from '../ipc/agent-handlers'
+import { registerUsageHandlers } from '../ipc/usage-handlers'
 import { registerChatImageHandlers } from '../ipc/chat-image-handlers'
 import { registerFileHandlers } from '../ipc/file-handlers'
 import { registerDiffHandler, registerPrHandler, registerGitHandlers } from '../ipc/git-handlers'
@@ -22,6 +23,7 @@ import { playNotificationSound } from './notification-sound'
 export function registerIpcHandlers(deps: IpcDependencies): void {
   registerProjectHandlers(deps)
   registerAgentHandlers(deps)
+  registerUsageHandlers(deps)
   registerChatImageHandlers(deps)
   registerFileHandlers(deps)
   registerDiffHandler(deps)

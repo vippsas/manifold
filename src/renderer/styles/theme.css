@@ -586,6 +586,11 @@ select:focus-visible {
   opacity: 1;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
+/* The cost coin reads the same as the action glyphs but does nothing on click —
+   it is an affordance for its tooltip, so it keeps the arrow cursor. */
+.dock-tab__usage {
+  cursor: default;
+}
 
 /* An editor pane's own actions sit at the right of its file tabs. They were a
    bordered input box, which read as a form control dropped into a strip of flat

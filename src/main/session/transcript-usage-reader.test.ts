@@ -15,6 +15,25 @@ function assistant(id: string, u: { input?: number; output?: number; cr?: number
 const humanTurn = (text: string): string => line({ type: 'user', message: { role: 'user', content: text } })
 const toolResult = (): string => line({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', content: 'x' }] } })
 
+/** An assistant entry carrying the model, speed, and 5m/1h cache-write split a real transcript records. */
+function pricedAssistant(
+  id: string,
+  model: string,
+  speed: string,
+  u: { input?: number; output?: number; cr?: number; w5m?: number; w1h?: number },
+): string {
+  const w5m = u.w5m ?? 0
+  const w1h = u.w1h ?? 0
+  return line({ type: 'assistant', message: { id, model, usage: {
+    input_tokens: u.input ?? 0, output_tokens: u.output ?? 0,
+    cache_read_input_tokens: u.cr ?? 0, cache_creation_input_tokens: w5m + w1h,
+    cache_creation: { ephemeral_5m_input_tokens: w5m, ephemeral_1h_input_tokens: w1h },
+    speed,
+  } } })
+}
+
+const NO_TOKENS = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWrite5mTokens: 0, cacheWrite1hTokens: 0 }
+
 describe('encodeClaudeProjectDir', () => {
   it('replaces slashes and dots with dashes', () => {
     expect(encodeClaudeProjectDir('/Users/sv/.manifold/wt/foo-3'))
@@ -48,6 +67,7 @@ describe('readClaudeTranscriptUsage', () => {
     expect(r).toEqual({
       tokenUsage: { inputTokens: 157, outputTokens: 33, cacheReadTokens: 6, cacheCreationTokens: 3 },
       turns: 2,
+      byRate: { unknown: { ...NO_TOKENS, inputTokens: 157, outputTokens: 33, cacheReadTokens: 6, cacheWrite5mTokens: 3 } },
     })
   })
 
@@ -55,7 +75,35 @@ describe('readClaudeTranscriptUsage', () => {
     const wt = '/Users/sv/wt/bar'
     await writeTranscript(wt, 'sid-2', ['not json', humanTurn('hi')])
     const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-2' })
-    expect(r).toEqual({ tokenUsage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }, turns: 1 })
+    expect(r).toEqual({ tokenUsage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }, turns: 1, byRate: {} })
+  })
+
+  it('buckets usage by model and speed, splitting 5m from 1h cache writes', async () => {
+    const wt = '/Users/sv/wt/split'
+    await writeTranscript(wt, 'sid-split', [
+      humanTurn('hi'),
+      pricedAssistant('a1', 'claude-opus-5', 'standard', { input: 10, output: 5, cr: 3, w1h: 100 }),
+      pricedAssistant('a1', 'claude-opus-5', 'standard', { input: 10, output: 5, cr: 3, w1h: 100 }), // duplicate id
+      pricedAssistant('a2', 'claude-opus-5', 'standard', { input: 1, output: 2, w5m: 7 }),
+      pricedAssistant('a3', 'claude-haiku-4-5-20251001', 'standard', { input: 4, output: 2 }),
+      pricedAssistant('a4', 'claude-opus-5', 'fast', { input: 6, output: 8 }),
+    ])
+    const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-split' })
+    expect(r?.byRate).toEqual({
+      'claude-opus-5': { ...NO_TOKENS, inputTokens: 11, outputTokens: 7, cacheReadTokens: 3, cacheWrite5mTokens: 7, cacheWrite1hTokens: 100 },
+      'claude-haiku-4-5-20251001': { ...NO_TOKENS, inputTokens: 4, outputTokens: 2 },
+      'claude-opus-5#fast': { ...NO_TOKENS, inputTokens: 6, outputTokens: 8 },
+    })
+    // The flat totals stay the sum of every bucket.
+    expect(r?.tokenUsage).toEqual({ inputTokens: 21, outputTokens: 17, cacheReadTokens: 3, cacheCreationTokens: 107 })
+  })
+
+  it('treats cache writes as 5-minute when a transcript omits the duration split', async () => {
+    const wt = '/Users/sv/wt/nosplit'
+    await writeTranscript(wt, 'sid-nosplit', [assistant('a1', { input: 1, cc: 40 })])
+    const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-nosplit' })
+    expect(r?.byRate['']).toBeUndefined()
+    expect(r?.byRate['unknown']).toEqual({ ...NO_TOKENS, inputTokens: 1, cacheWrite5mTokens: 40 })
   })
 
   it('returns null when no transcript exists for the session id', async () => {
@@ -79,6 +127,7 @@ describe('readClaudeTranscriptUsage', () => {
     expect(r).toEqual({
       tokenUsage: { inputTokens: 42, outputTokens: 8, cacheReadTokens: 0, cacheCreationTokens: 0 },
       turns: 1,
+      byRate: { unknown: { ...NO_TOKENS, inputTokens: 42, outputTokens: 8 } },
     })
   })
 

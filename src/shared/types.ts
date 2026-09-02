@@ -352,3 +352,19 @@ export interface FetchResult {
   currentRef: string
   commitCount: number
 }
+
+/**
+ * A live session's usage plus an estimated dollar cost.
+ *
+ * `costUsd` is derived from Anthropic's published API rates (Claude records
+ * tokens, never prices), so it is an estimate — and on a subscription plan it is
+ * what the API *would* have charged rather than money spent. It is null when no
+ * model in the session could be priced; `unpricedModels` names the models that
+ * are missing from the price table, so a partial total can say so.
+ */
+export interface SessionCostSummary {
+  tokenUsage: import('./verdict-types').TokenUsage
+  turns: number
+  costUsd: number | null
+  unpricedModels: string[]
+}
