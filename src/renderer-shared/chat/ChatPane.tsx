@@ -22,6 +22,9 @@ interface Props {
   onSend: (text: string, images?: PastedImage[]) => void
   onInterrupt?: () => void
   isThinking?: boolean
+  /** Rendered in place of the generic thinking phrases while thinking. Lets an orchestrator
+   *  show what its workers are actually doing instead of a rotating joke. */
+  activity?: React.ReactNode
   durationMs?: number | null
   placeholder?: React.ReactNode
   acceptImages?: boolean
@@ -35,7 +38,7 @@ interface Props {
   collapsibleUserMessages?: boolean
 }
 
-export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs, placeholder, acceptImages = false, mentionPaths, slashCommands, fileDrop, collapsibleUserMessages }: Props): React.JSX.Element {
+export function ChatPane({ messages, onSend, onInterrupt, isThinking, activity, durationMs, placeholder, acceptImages = false, mentionPaths, slashCommands, fileDrop, collapsibleUserMessages }: Props): React.JSX.Element {
   const [input, setInput] = useState('')
   const [dismissedOptions, setDismissedOptions] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -177,7 +180,7 @@ export function ChatPane({ messages, onSend, onInterrupt, isThinking, durationMs
             connectBelow={msg.role !== 'user' && messages[i + 1] != null && messages[i + 1].role !== 'user'}
           />
         ))}
-        {isThinking && <ThinkingIndicator />}
+        {isThinking && (activity ?? <ThinkingIndicator />)}
         {!isThinking && durationMs != null && durationMs > 0 && <DurationBadge durationMs={durationMs} />}
         <div ref={messagesEndRef} />
       </div>

@@ -42,6 +42,8 @@ export interface ViolaReview {
 
 export interface ViolaTaskRun extends ViolaTaskPlan {
   state: ViolaTaskState
+  /** When the task entered `state`, so a live view can show how long the step has run. */
+  stateSince: number
   runtimeId?: ViolaWorkerId
   reviewRuntimeId?: ViolaWorkerId
   sessionId?: string

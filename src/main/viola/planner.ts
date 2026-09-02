@@ -1,6 +1,6 @@
 import { MAX_TASKS } from './prompts'
-import type { ViolaPlan, ViolaReview, ViolaTaskPlan, ViolaWorkerId } from './types'
-import { isViolaTaskPurpose, isViolaWorker } from './types'
+import type { ViolaPlan, ViolaReview, ViolaTaskPlan, ViolaWorkerId } from '../../shared/viola'
+import { isViolaTaskPurpose, isViolaWorker } from '../../shared/viola'
 
 export function parsePlanResponse(text: string): ViolaPlan | { error: string } {
   const parsed = parseJsonObject(text)

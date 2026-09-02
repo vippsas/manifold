@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { ViolaRun } from './types'
+import type { ViolaRun } from '../../shared/viola'
 
 export interface ViolaStore {
   get(sessionId: string): Promise<ViolaRun | null>

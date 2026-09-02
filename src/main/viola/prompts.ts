@@ -1,4 +1,4 @@
-import type { ViolaTaskPlan, ViolaWorkerId } from './types'
+import type { ViolaTaskPlan, ViolaWorkerId } from '../../shared/viola'
 
 export const MAX_TASKS = 4
 /** Diffs above this size are not inlined; the reviewer reads them from its own worktree instead. */

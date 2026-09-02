@@ -7,12 +7,13 @@ import {
   buildImplementationPrompt,
   buildReviewPrompt,
 } from './prompts'
-import type { ViolaReview, ViolaRun, ViolaTaskRun, ViolaTaskState, ViolaWorkerId } from './types'
+import type { ViolaReview, ViolaRun, ViolaTaskRun, ViolaTaskState, ViolaWorkerId } from '../../shared/viola'
 
 export interface PipelineContext {
   deps: Pick<ViolaEngineDeps, 'spawn' | 'git' | 'gates'>
   /** Viola's own checkout, used to detect a worker that was not given its own worktree. */
   basePath: string
+  now(): number
   publish(run: ViolaRun): Promise<void>
 }
 
@@ -30,7 +31,7 @@ export async function runTaskPipeline(
     if (task.purpose === 'explore') await explore(ctx, run, task, runtimeId, signal)
     else await implement(ctx, run, task, runtimeId, signal)
   } catch (error) {
-    task.state = signal.aborted ? 'needs_attention' : 'error'
+    mark(ctx, task, signal.aborted ? 'needs_attention' : 'error')
     task.error = error instanceof Error ? error.message : String(error)
   }
   await ctx.publish(run)
@@ -49,7 +50,7 @@ async function explore(
   const agent = await spawnWorker(ctx, run, task, task.title, runtimeId, false)
   await setState(ctx, run, task, 'exploring')
   task.report = await turn(agent, buildExplorePrompt(task), signal, 'Exploration')
-  task.state = 'done'
+  mark(ctx, task, 'done')
 }
 
 async function implement(
@@ -70,7 +71,7 @@ async function implement(
 
   const reviewRuntimeId = run.availableRuntimes.find((runtime) => runtime !== runtimeId)
   if (!reviewRuntimeId) {
-    task.state = 'needs_attention'
+    mark(ctx, task, 'needs_attention')
     task.error = 'No independent worker harness was available to review this task.'
     return
   }
@@ -86,11 +87,11 @@ async function implement(
 
   task.review = verdict
   if (verdict.passed) {
-    task.state = 'done'
+    mark(ctx, task, 'done')
     task.prUrl = await ctx.deps.git.pullRequestUrl(agent.worktreePath)
     return
   }
-  task.state = 'needs_attention'
+  mark(ctx, task, 'needs_attention')
   task.error = verdict.blocking.length > 0
     ? `Review still has ${verdict.blocking.length} blocking finding${verdict.blocking.length === 1 ? '' : 's'}.`
     : 'Review did not pass.'
@@ -117,7 +118,7 @@ async function passGates(
       result = await ctx.deps.gates.run(agent.worktreePath, command, signal)
     }
     if (!result.ok) {
-      task.state = 'needs_attention'
+      mark(ctx, task, 'needs_attention')
       task.error = `Gate still failing: ${command}`
       return false
     }
@@ -188,6 +189,12 @@ async function turn(agent: ViolaAgent, prompt: string, signal: AbortSignal, labe
 }
 
 async function setState(ctx: PipelineContext, run: ViolaRun, task: ViolaTaskRun, state: ViolaTaskState): Promise<void> {
-  task.state = state
+  mark(ctx, task, state)
   await ctx.publish(run)
+}
+
+/** Every transition goes through here so `stateSince` can never drift from `state`. */
+function mark(ctx: PipelineContext, task: ViolaTaskRun, state: ViolaTaskState): void {
+  task.state = state
+  task.stateSince = ctx.now()
 }

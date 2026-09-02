@@ -15,6 +15,7 @@ const PLAN_JSON = JSON.stringify({
 
 function setup(options: { preferredRuntime?: string; planResponse?: string; projectKind?: 'git' | 'folder' } = {}) {
   const statuses: string[] = []
+  const sent: { channel: string; payload: unknown }[] = []
   const sessions = {
     getSession: vi.fn((id: string) => (id === 'viola-1' ? {
       id: 'viola-1',
@@ -68,6 +69,7 @@ function setup(options: { preferredRuntime?: string; planResponse?: string; proj
       storageRoot: '/tmp',
       getPreferredRuntime: () => options.preferredRuntime ?? 'codex',
       getProject: () => ({ kind: options.projectKind ?? 'git' }),
+      sendToRenderer: (channel, payload) => sent.push({ channel, payload }),
       listRuntimes: async () => [
         { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
         { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
@@ -79,7 +81,7 @@ function setup(options: { preferredRuntime?: string; planResponse?: string; proj
       gates,
     },
   )
-  return { harness, chat, aiGenerate, spawnService, controlService, git, gates, statuses }
+  return { harness, chat, aiGenerate, spawnService, controlService, git, gates, statuses, sent }
 }
 
 function texts(chat: ChatAdapter, sessionId: string): string[] {
@@ -135,20 +137,30 @@ describe('ViolaHarness', () => {
     )
   })
 
-  it('narrates each task step while the run is live and summarizes the result', async () => {
-    const { harness, chat, spawnService, git, gates } = setup()
+  it('streams every task step to the run board and keeps only milestones in the chat log', async () => {
+    const { harness, chat, spawnService, git, gates, sent } = setup()
     harness.send('viola-1', 'Add validation')
     await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
 
     harness.send('viola-1', 'Start plan')
 
     await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run complete'))
+
+    // The board sees the whole sequence, including states that never reach the chat.
+    const boardStates = sent
+      .filter((event) => event.channel === 'viola:run')
+      .map((event) => (event.payload as { run: { tasks: { state: string }[] } }).run.tasks[0].state)
+    expect(new Set(boardStates)).toEqual(new Set(['planned', 'spawning', 'implementing', 'gating', 'reviewing', 'done']))
+    for (const event of sent) {
+      expect(event.payload).toMatchObject({ sessionId: 'viola-1' })
+    }
+
+    // The chat log keeps the start line, the milestone, and the summary — not every transition.
     const lines = texts(chat, 'viola-1')
-    expect(lines.some((line) => /Validation.*implementing on claude/.test(line))).toBe(true)
-    expect(lines.some((line) => /Validation.*running gates/.test(line))).toBe(true)
-    expect(lines.some((line) => /Validation.*reviewing on codex/.test(line))).toBe(true)
+    expect(lines.some((line) => /implementing on claude/.test(line))).toBe(false)
+    expect(lines.some((line) => /running gates/.test(line))).toBe(false)
+    expect(lines.some((line) => /\*\*Validation\*\* · done/.test(line))).toBe(true)
     expect(lines.at(-1)).toContain('https://example.test/pr/1')
-    expect(lines.at(-1)).toContain('Viola did not merge')
 
     expect(spawnService.spawnAgent).toHaveBeenCalledWith('viola-1', expect.objectContaining({
       title: 'Validation', runtimeId: 'claude', newWorktree: true, nonInteractive: true,

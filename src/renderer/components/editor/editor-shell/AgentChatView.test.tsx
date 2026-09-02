@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import React from 'react'
 import { AgentChatView } from './AgentChatView'
 
 const mockInvoke = vi.fn()
-const mockOn = vi.fn(() => vi.fn())
+// Recorded file-wide and never cleared: the Viola run store attaches its IPC listener once per
+// module instance, so whichever test renders first is the one that registers it.
+const ipcHandlers = new Map<string, (payload: unknown) => void>()
+const mockOn = vi.fn((channel: string, cb: (payload: unknown) => void) => {
+  ipcHandlers.set(channel, cb)
+  return vi.fn()
+})
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -49,6 +55,51 @@ describe('AgentChatView', () => {
     expect(await screen.findByText('Give Viola a goal')).toBeInTheDocument()
     expect(screen.getByText('Viola proposes a plan before starting workers')).toBeInTheDocument()
     expect(screen.getByRole('textbox')).toBeInTheDocument()
+  })
+
+  it('shows the live Viola run board in place of the generic thinking phrases', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'simple:chat-messages') return Promise.resolve([])
+      if (channel === 'simple:get-agent-status') return Promise.resolve('running')
+      return Promise.resolve(undefined)
+    })
+
+    render(<AgentChatView sessionId="viola-1" runtimeId="viola" />)
+    await waitFor(() => expect(ipcHandlers.has('viola:run')).toBe(true))
+
+    act(() => {
+      ipcHandlers.get('viola:run')!({
+        sessionId: 'viola-1',
+        run: {
+          id: 'viola-1', baseSessionId: 'viola-1', goal: 'g', summary: 's', state: 'running',
+          availableRuntimes: ['claude', 'codex'], createdAt: Date.now(),
+          tasks: [{
+            id: 'api', title: 'API tests', description: 'd', acceptance: ['a'],
+            purpose: 'implement', gates: [], state: 'implementing',
+            stateSince: Date.now(), runtimeId: 'claude', sessionId: 'child-1',
+          }],
+        },
+      })
+    })
+
+    expect(await screen.findByText('API tests')).toBeInTheDocument()
+    expect(screen.getByText('implementing')).toBeInTheDocument()
+    expect(screen.queryByTestId('thinking-phrase')).not.toBeInTheDocument()
+  })
+
+  it('keeps a thinking indicator while Viola is still planning and has no live run', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'simple:chat-messages') {
+        return Promise.resolve([{ id: 'm1', sessionId: 'viola-2', role: 'user', text: 'Add validation', timestamp: 1 }])
+      }
+      if (channel === 'simple:get-agent-status') return Promise.resolve('running')
+      return Promise.resolve(undefined)
+    })
+
+    render(<AgentChatView sessionId="viola-2" runtimeId="viola" />)
+
+    // Planning can take minutes; an empty board would look like nothing is happening at all.
+    expect(await screen.findByTestId('thinking-phrase')).toBeInTheDocument()
   })
 
   it('renders image references from existing non-interactive chat messages', async () => {

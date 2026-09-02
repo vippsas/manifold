@@ -7,7 +7,7 @@ import {
   buildPlanPrompt,
   buildReviewPrompt,
 } from './prompts'
-import type { ViolaTaskPlan } from './types'
+import type { ViolaTaskPlan } from '../../shared/viola'
 
 const TASK: ViolaTaskPlan = {
   id: 'api',

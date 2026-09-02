@@ -1,6 +1,6 @@
 ---
-description: How the native Viola harness plans a goal, runs each task as its own pipeline (chat-mode worker, gates, cross-harness review) and narrates progress.
-covers: [src/main/viola, src/main/agent/runtimes.ts]
+description: How the native Viola harness plans a goal, runs each task as its own pipeline (chat-mode worker, gates, cross-harness review), and reports progress through a live run board.
+covers: [src/main/viola, src/main/agent/runtimes.ts, src/shared/viola.ts, src/renderer/components/viola]
 updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
@@ -108,12 +108,35 @@ Workers are told to test, commit, optionally push/open a PR, and never merge. A 
 records a discoverable PR URL, but local-only work is valid and remains visible through its
 branch/worktree.
 
-## Progress and results
+## Progress: a live board, not a rotating phrase
 
-The engine publishes every state change; the harness turns each task transition into one chat
-line (implementing, running gates, reviewing, fixing, done, needs attention) so a long run is
-never silent (`src/main/viola/harness.ts:88`, `:178`, `src/main/viola/format.ts:41`). The
-final summary lists each task's route, PR or error, and quotes explore reports inline
+A worker turn has a thirty-minute budget, so a run can sit in one state for a long time. The chat
+pane's default indicator only cycles random phrases from a 600-item list, and its elapsed badge
+renders solely once the agent has *stopped*, so a long step looked indistinguishable from a hang.
+
+The engine publishes a full run snapshot on every state change. The harness splits that stream in
+two (`src/main/viola/harness.ts:192`):
+
+- **The live board** gets every snapshot, pushed to the renderer on `viola:run`
+  (allow-listed in `src/preload/index.ts:169`). Each task carries `stateSince`, stamped by the one
+  helper every transition goes through, so the clock can never drift from the state
+  (`src/shared/viola.ts:46`, `src/main/viola/task-pipeline.ts:197`).
+- **The chat log** gets milestones only — done, needs attention, failed
+  (`src/main/viola/format.ts:42`). Repeating in-flight states in a transcript that only grows
+  buries the outcomes; the board updates in place instead.
+
+On the renderer side a module-level store owns the subscription
+(`src/renderer/components/viola/viola-run-store.ts`). It attaches on first use rather than at
+import, and never detaches: a per-component listener would go deaf whenever the user switched
+tabs, so returning to a Viola tab mid-run would show a board several states stale. `ViolaRunBoard`
+renders one row per task — title, step, harness, and a clock that ticks every second, which is
+what distinguishes a slow step from a dead one. A row opens its worker's own session through the
+dock's `onOpenSibling`, since Viola's children are ordinary visible sessions. A fixing row names
+the blocking finding it is addressing, the one detail that used to reach the chat log. The board
+is passed to `ChatPane` as its `activity` slot, so it replaces the phrases for Viola only and
+every other runtime is untouched (`src/renderer-shared/chat/ChatPane.tsx:183`).
+
+The final summary still lists each task's route, PR or error, and quotes explore reports inline
 (`src/main/viola/format.ts:28`).
 
 ## Guardrails
@@ -148,6 +171,10 @@ re-reviews remain explicit task errors or `needs_attention`; healthy siblings st
 - `harness.test.ts` pins the default-model planner call, live progress lines, and the summary.
 - `git.test.ts` and `gates.test.ts` run real git and real shell commands in temp repos, including
   a linked-worktree apply and the refusal to touch a main checkout.
+- `ViolaRunBoard.test.tsx` pins the row contents, the ticking clock, the click-through, and the
+  states that render nothing; `viola-run-store.test.ts` pins snapshot caching across remounts and
+  malformed-payload tolerance; `ChatPane.test.tsx` pins the activity slot replacing the phrases.
+  `ViolaRunBoard.fixture.tsx` backs `npm run screenshot:component ViolaRunBoard`.
 - `engine.test.ts` and `harness.test.ts` pin both preconditions and the non-isolated-spawn abort.
 - Session, renderer, and chooser tests pin native runtime creation, harness routing,
   `orchestratedBy` persistence, and the guarded Claude turn.

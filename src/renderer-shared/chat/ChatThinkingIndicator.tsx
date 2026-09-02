@@ -47,6 +47,7 @@ export function ThinkingIndicator(): React.JSX.Element {
           />
         ))}
         <span
+          data-testid="thinking-phrase"
           style={{
             fontSize: 14,
             fontWeight: 500,

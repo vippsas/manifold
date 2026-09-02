@@ -166,6 +166,7 @@ const ALLOWED_LISTEN_CHANNELS = [
   'app:auto-spawn',
   'workspace:list-changed',
   'simple:chat-message',
+  'viola:run',
   'plugins:webview-html',
   'plugins:webview-message',
   'plugins:tree-refresh',
