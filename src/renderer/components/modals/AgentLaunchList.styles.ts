@@ -74,21 +74,4 @@ export const launchListStyles: Record<string, React.CSSProperties> = {
     color: 'var(--btn-text)',
     opacity: 0.75,
   },
-  chevron: {
-    color: 'var(--text-muted)',
-    transition: 'transform 0.1s ease',
-  },
-  // The chat provider picker slides in indented under the Chat row, reading as
-  // its children rather than more peers.
-  chatPanel: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-xs)',
-    paddingLeft: 'var(--space-lg)',
-  },
-  chatPanelLabel: {
-    fontSize: 'var(--type-ui-caption)',
-    color: 'var(--text-muted)',
-    padding: '0 var(--space-xs)',
-  },
 }
