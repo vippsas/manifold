@@ -8,6 +8,11 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
   // Track active chat subscriptions per window+session to prevent duplicate listeners.
   // Key: `${webContentsId}:${sessionId}`, Value: unsubscribe function.
   const chatSubscriptions = new Map<string, () => void>()
+  // Windows whose teardown is already wired. One 'destroyed' listener per window, not per
+  // subscription: a window subscribes once per session it shows — a Viola run alone spawns
+  // several — and re-subscribes on every remount, so registering per call walks straight past
+  // Electron's ten-listener warning on the WebContents emitter.
+  const teardownWired = new Set<number>()
 
   ipcMain.handle('simple:chat-messages', (_event, sessionId: string) => {
     const messages = chatAdapter.getMessages(sessionId)
@@ -49,7 +54,8 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('simple:subscribe-chat', (event, sessionId: string) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender)
-    const key = `${event.sender.id}:${sessionId}`
+    const senderId = event.sender.id
+    const key = `${senderId}:${sessionId}`
 
     // Ensure session→storage mapping is set for new messages to be persisted
     const session = sessionManager.getSession(sessionId)
@@ -77,11 +83,19 @@ export function registerSimpleHandlers(deps: IpcDependencies): void {
     })
     chatSubscriptions.set(key, unsub)
 
-    // Clean up when the sender window is destroyed so the entry doesn't linger
-    event.sender.once('destroyed', () => {
-      chatSubscriptions.get(key)?.()
-      chatSubscriptions.delete(key)
-    })
+    // Clean up every subscription this window held once it is destroyed.
+    if (!teardownWired.has(senderId)) {
+      teardownWired.add(senderId)
+      event.sender.once('destroyed', () => {
+        const prefix = `${senderId}:`
+        for (const [entryKey, unsubscribe] of chatSubscriptions) {
+          if (!entryKey.startsWith(prefix)) continue
+          unsubscribe()
+          chatSubscriptions.delete(entryKey)
+        }
+        teardownWired.delete(senderId)
+      })
+    }
 
     return true
   })
