@@ -1,12 +1,15 @@
 // Screenshot fixture for the dock tab's agent overflow menu and chip styling.
 // `npm run screenshot:component DockTab`.
 //
-// Tabs are wrapped in mock `.dv-tab` / `.dv-active-tab` elements under the
-// dockview theme class so the chip fills (active accent, inactive elevated,
-// hover) render exactly as in the real dock. The middle tab's one overflow
-// button is opened after mount; its worded menu includes every former glyph.
+// Tabs are wrapped in mock `.dv-groupview.dv-active-group` /
+// `.dv-tabs-and-actions-container` / `.dv-tab` elements under the dockview theme
+// class so the pill fills (active accent, hover, at-rest) render exactly as in
+// the real dock. The middle tab's one overflow button is opened after mount; its
+// worded menu includes every former glyph.
 import React, { useEffect, useRef } from 'react'
 import type { IDockviewPanelHeaderProps } from 'dockview'
+import 'dockview/dist/styles/dockview.css'
+import './styles/dockview-theme.css'
 import { DockTab } from './DockTab'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
@@ -35,11 +38,10 @@ const state = {
   onClosePanel: () => {},
 } as unknown as DockAppState
 
-const tabWrap: React.CSSProperties = { display: 'flex', alignItems: 'stretch' }
-const strip: React.CSSProperties = {
-  display: 'flex', alignItems: 'stretch', height: 'var(--chrome-tab-height)',
-  padding: '0 4px', background: 'var(--bg-primary)', border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: 'var(--radius-lg)', width: 520,
+const tabWrap: React.CSSProperties = { display: 'flex', alignItems: 'center' }
+const card: React.CSSProperties = {
+  borderRadius: 'var(--radius-lg)', overflow: 'hidden', width: 520,
+  background: 'var(--bg-primary)',
 }
 
 function Fixture(): React.JSX.Element {
@@ -52,18 +54,26 @@ function Fixture(): React.JSX.Element {
     <div ref={rootRef} className="dockview-theme-dark dockview-theme-manifold">
       <DockStateContext.Provider value={state}>
         <div style={{ padding: 24, background: 'var(--dock-canvas)', minHeight: 220 }}>
-          <div style={strip}>
-            <div className="dv-tab dv-active-tab" style={tabWrap}>
-              <DockTab {...headerProps('agent', 'Claude')} />
+          <div className="dv-groupview dv-active-group" style={card}>
+            <div className="dv-tabs-and-actions-container">
+              <div className="dv-tabs-container">
+                <div className="dv-tab dv-active-tab" style={tabWrap}>
+                  <DockTab {...headerProps('agent', 'Claude')} />
+                </div>
+                <div className="dv-tab force-hover" style={tabWrap}>
+                  <DockTab {...headerProps(siblingPanelId('child-1'), 'Review')} />
+                </div>
+                <div className="dv-tab" style={tabWrap}>
+                  <DockTab {...headerProps(siblingPanelId('child-2'), 'Release')} />
+                </div>
+              </div>
             </div>
-            <div className="dv-tab force-hover" style={tabWrap}>
-              <DockTab {...headerProps(siblingPanelId('child-1'), 'Review')} />
-            </div>
-            <div className="dv-tab" style={tabWrap}>
-              <DockTab {...headerProps(siblingPanelId('child-2'), 'Release')} />
-            </div>
+            <div style={{ height: 60 }} />
           </div>
-          <style>{'.force-hover .dock-tab__action { opacity: 1 }'}</style>
+          <style>{`
+            .force-hover .dock-tab__action { opacity: 1 }
+            .dockview-theme-manifold .dv-tab.force-hover .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) { background: var(--list-hover-bg); color: var(--text-primary) }
+          `}</style>
         </div>
       </DockStateContext.Provider>
     </div>
