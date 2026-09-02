@@ -832,7 +832,6 @@ select:focus-visible {
   border-color: transparent;
   padding: 0 var(--space-xs);
   font-size: var(--type-ui-caption);
-  font-family: var(--font-mono);
 }
 
 .statusbar-sync-button:disabled {
@@ -847,12 +846,10 @@ select:focus-visible {
 .statusbar-sync-count {
   display: inline-flex;
   align-items: center;
-  gap: 1px;
   line-height: 1;
 }
 
-.statusbar-sync-icon,
-.statusbar-sync-arrow {
+.statusbar-sync-icon {
   display: block;
   flex-shrink: 0;
 }

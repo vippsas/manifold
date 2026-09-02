@@ -92,12 +92,12 @@ export function StatusBar({
                 ? <span className="spinner" aria-hidden="true" />
                 : <SyncGlyph />}
               <span className="statusbar-sync-count">
-                <ArrowGlyph direction="down" />
                 {branchTarget.upstreamAheadBehind.behind}
+                <span aria-hidden="true">↓</span>
               </span>
               <span className="statusbar-sync-count">
-                <ArrowGlyph direction="up" />
                 {branchTarget.upstreamAheadBehind.ahead}
+                <span aria-hidden="true">↑</span>
               </span>
             </button>
           )}
@@ -176,41 +176,13 @@ function SyncGlyph(): React.JSX.Element {
   return (
     <svg
       className="statusbar-sync-icon"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
       aria-hidden
     >
-      <path d="M20 7h-5V2" />
-      <path d="M4 17h5v5" />
-      <path d="M5.1 9a8 8 0 0 1 13.2-3L20 7" />
-      <path d="M18.9 15a8 8 0 0 1-13.2 3L4 17" />
-    </svg>
-  )
-}
-
-function ArrowGlyph({ direction }: { direction: 'up' | 'down' }): React.JSX.Element {
-  return (
-    <svg
-      className="statusbar-sync-arrow"
-      width="10"
-      height="10"
-      viewBox="0 0 12 12"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      {direction === 'down'
-        ? <path d="M6 1.5v9m0 0L2.5 7M6 10.5 9.5 7" />
-        : <path d="M6 10.5v-9m0 0L2.5 5M6 1.5 9.5 5" />}
+      <path d="M14 3.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1h2.08A5 5 0 0 0 3.19 6.64a.5.5 0 0 1-.96-.28A6 6 0 0 1 13 4.69V3.5a.5.5 0 0 1 1 0Zm-.58 5.52a.5.5 0 0 0-.62.35 5 5 0 0 1-9.39.64h2.08a.5.5 0 0 0 0-1h-3a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 1 0v-1.19A6 6 0 0 0 13.76 9.65a.5.5 0 0 0-.34-.63Z" />
     </svg>
   )
 }

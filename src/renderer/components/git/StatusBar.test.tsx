@@ -74,7 +74,8 @@ describe('StatusBar', () => {
     )
 
     const syncButton = screen.getByRole('button', { name: 'Sync changes: 2 behind, 3 ahead' })
-    expect(syncButton).toHaveTextContent('23')
+    expect(syncButton).toHaveTextContent('2↓3↑')
+    expect(syncButton.querySelector('.statusbar-sync-icon')).toHaveAttribute('viewBox', '0 0 16 16')
     fireEvent.click(syncButton)
     await waitFor(() => expect(onSync).toHaveBeenCalledTimes(1))
 
