@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { homedir } from 'node:os'
 
 const ALLOWED_INVOKE_CHANNELS = [
   'projects:list',
@@ -222,6 +223,11 @@ const electronAPI = {
   getPathForFile(file: File): string {
     return webUtils.getPathForFile(file)
   },
+
+  // The user's home directory, captured once at preload time. A static value,
+  // not a method: the renderer only needs it to tilde-shorten paths for
+  // display/copy, which should not cost an IPC round-trip.
+  homeDir: homedir(),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

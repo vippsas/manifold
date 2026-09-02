@@ -2,6 +2,9 @@ import React from 'react'
 import type { Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
 import { isGitProject } from '../../../shared/project-kind'
+import { ContextMenu } from '../common/ContextMenu'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { buildRepoRowContextMenu } from './repo-row-context-menu'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { FilesChevronGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
 import { RepoFetchButton } from './RepoFetchButton'
@@ -45,6 +48,10 @@ export function WorkspaceRepoRow({
   // In a worktree workspace this row is the workspace's own checkout of the
   // repo, not the clone — that is where its agents' edits land.
   const folderPath = workspace.worktreePaths?.[projectId] ?? repo?.path ?? projectId
+  // The copyable path drops folderPath's projectId fallback: that stand-in
+  // names the row when the repo is unknown, but it is not a path to copy.
+  const copyablePath = workspace.worktreePaths?.[projectId] ?? repo?.path
+  const menu = useContextMenu()
   const fetch = useFetchProject(projectId, onFetched)
   const selectAndDisclose = (): void => {
     onSelectRepo?.(workspace.id, projectId)
@@ -61,6 +68,7 @@ export function WorkspaceRepoRow({
         tabIndex={0}
         aria-expanded={filesOpen}
         onClick={selectAndDisclose}
+        onContextMenu={menu.open}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectAndDisclose() } }}
       >
         <span
@@ -106,6 +114,14 @@ export function WorkspaceRepoRow({
           )}
         </div>
       </div>
+      {menu.position && (
+        <ContextMenu
+          x={menu.position.x}
+          y={menu.position.y}
+          items={buildRepoRowContextMenu(copyablePath, window.electronAPI.homeDir)}
+          onClose={menu.close}
+        />
+      )}
       {(fetch.result || fetch.error) && (
         <div style={sidebarStyles.fetchMessage}>
           {fetch.error ?? (fetch.result!.commitCount > 0
