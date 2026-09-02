@@ -24,6 +24,8 @@ export interface ViolaSpawnOptions {
   runtimeId: ViolaWorkerId
   newWorktree: boolean
   nonInteractive?: boolean
+  /** The run every worker of one goal shares, so the dock bar stays clean. */
+  groupId?: string
 }
 
 export interface ViolaEngineDeps {

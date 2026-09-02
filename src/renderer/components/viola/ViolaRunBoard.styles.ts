@@ -9,6 +9,9 @@ export const runBoardStyles: Record<string, React.CSSProperties> = {
     padding: 0,
     listStyle: 'none',
   },
+  rowItem: {
+    display: 'block',
+  },
   row: {
     display: 'flex',
     alignItems: 'baseline',
@@ -18,6 +21,22 @@ export const runBoardStyles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border)',
     borderRadius: 'var(--radius-sm)',
     fontSize: 'var(--type-ui-small)',
+  },
+  // Same row layout, as a full-width control: the whole row opens the worker's tab.
+  rowButton: {
+    all: 'unset',
+    boxSizing: 'border-box',
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 'var(--space-sm)',
+    width: '100%',
+    padding: 'var(--space-xs) var(--space-sm)',
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: 'var(--type-ui-small)',
+    cursor: 'pointer',
+    transition: 'background 150ms ease',
   },
   // The status colour is the row's only decoration, and it carries state.
   marker: {
@@ -30,15 +49,6 @@ export const runBoardStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-primary)',
     fontWeight: 500,
     flexShrink: 0,
-  },
-  openButton: {
-    all: 'unset',
-    color: 'var(--text-primary)',
-    fontWeight: 500,
-    fontSize: 'var(--type-ui-small)',
-    cursor: 'pointer',
-    borderRadius: 'var(--radius-xs)',
-    transition: 'color 150ms ease',
   },
   step: {
     color: 'var(--text-secondary)',

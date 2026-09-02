@@ -23,8 +23,10 @@ describe('ViolaEngine', () => {
     expect(result.tasks.map((task) => task.report)).toEqual(['Implemented.', 'Implemented.'])
     expect(spawn).toHaveBeenCalledTimes(4)
     // Every worker is a visible terminal the human can watch or take over; only Viola is chat.
+    // They share the run's group id, which keeps eight worker tabs out of the dock bar — the
+    // board opens one on demand instead.
     for (const [, options] of spawn.mock.calls) {
-      expect(options).toMatchObject({ newWorktree: true, nonInteractive: false })
+      expect(options).toMatchObject({ newWorktree: true, nonInteractive: false, groupId: 'viola-100' })
     }
     expect(git.apply).toHaveBeenCalledWith('/wt/codex-3', 'diff --git a/file b/file')
     expect(git.apply).toHaveBeenCalledWith('/wt/claude-4', 'diff --git a/file b/file')

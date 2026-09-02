@@ -69,10 +69,11 @@ describe('ViolaRunBoard', () => {
     expect(screen.getByRole('listitem').textContent).toContain('3s')
   })
 
-  it('opens a worker\'s own session when its row is clicked', () => {
+  it('opens a worker\'s own session when any part of its row is clicked', () => {
     const { onOpenSibling } = renderBoard(run([task()]))
 
-    fireEvent.click(screen.getByRole('listitem').querySelector('button')!)
+    // The whole row is the target: the step label reads as the live thing to click.
+    fireEvent.click(screen.getByText('implementing'))
 
     expect(onOpenSibling).toHaveBeenCalledWith('child-1', 'API tests')
   })
@@ -82,6 +83,7 @@ describe('ViolaRunBoard', () => {
 
     expect(screen.getByRole('listitem').querySelector('button')).toBeNull()
     expect(screen.getByRole('listitem').textContent).toContain('starting')
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
   it('says what a fixing task is fixing, since that no longer appears in the chat log', () => {

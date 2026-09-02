@@ -32,40 +32,49 @@ const STEP_COLORS: Record<ViolaTaskRun['state'], string> = {
 
 /** A live view of one Viola run: one row per task, updating in place.
  *
- *  Rendered where the chat's thinking indicator would go, so a long run shows what its workers
- *  are doing instead of a rotating phrase. The elapsed clock ticks every second, which is what
- *  distinguishes a slow step from a hung one. */
+ *  Rendered above the chat's thinking indicator, so a long run shows what its workers are doing
+ *  while the animation underneath carries liveness. The elapsed clock ticks every second, which is
+ *  what distinguishes a slow step from a hung one. Each row opens its worker's own terminal. */
 export function ViolaRunBoard({ run }: { run: ViolaRun | undefined }): React.JSX.Element | null {
   const dock = React.useContext(DockStateContext)
   const elapsedNow = useTicker(run?.state === 'running')
 
   if (!run || run.state !== 'running') return null
+  const open = dock?.onOpenSibling
 
   return (
     <ul style={s.board} aria-label="Viola run progress">
       {run.tasks.map((task) => {
         const color = STEP_COLORS[task.state]
-        // While reviewing or fixing, the harness on the hook is the reviewer, not the implementer.
+        // While reviewing, the harness on the hook is the reviewer, not the implementer.
         const worker = task.state === 'reviewing' ? task.reviewRuntimeId : task.runtimeId
-        return (
-          <li key={task.id} style={s.row}>
+        const detail = detailFor(task)
+        const body = (
+          <>
             <span style={{ ...s.marker, background: color }} aria-hidden="true" />
-            {task.sessionId && dock?.onOpenSibling ? (
-              <button
-                type="button"
-                style={s.openButton}
-                title="Open this worker's session"
-                onClick={() => dock.onOpenSibling(task.sessionId!, task.title)}
-              >
-                {task.title}
-              </button>
-            ) : (
-              <span style={s.title}>{task.title}</span>
-            )}
+            <span style={s.title}>{task.title}</span>
             <span style={{ ...s.step, color }}>{STEP_LABELS[task.state]}</span>
             {worker && <span style={s.worker}>{worker}</span>}
-            {detailFor(task) && <span style={s.detail}>{detailFor(task)}</span>}
+            {detail && <span style={s.detail}>{detail}</span>}
             <span style={s.elapsed}>{formatElapsed(elapsedNow - task.stateSince)}</span>
+          </>
+        )
+        return (
+          <li key={task.id} style={s.rowItem}>
+            {task.sessionId && open ? (
+              // The whole row is the target: the step label is the live-looking part, so making
+              // only the title clickable reads as nothing happening.
+              <button
+                type="button"
+                style={s.rowButton}
+                title={`Open ${task.title} in its own tab`}
+                onClick={() => open(task.sessionId!, task.title)}
+              >
+                {body}
+              </button>
+            ) : (
+              <div style={s.row}>{body}</div>
+            )}
           </li>
         )
       })}

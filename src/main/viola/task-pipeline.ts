@@ -168,8 +168,11 @@ async function spawnWorker(
   newWorktree: boolean,
 ): Promise<ViolaAgent> {
   // Workers run as real terminals so the human can watch one or take it over. Only Viola itself
-  // is a chat session.
-  const agent = await ctx.deps.spawn(run.baseSessionId, { title, runtimeId, newWorktree, nonInteractive: false })
+  // is a chat session. They share the run's group id: a four-task run would otherwise auto-open
+  // eight tabs, so the board opens one on demand instead.
+  const agent = await ctx.deps.spawn(run.baseSessionId, {
+    title, runtimeId, newWorktree, nonInteractive: false, groupId: run.id,
+  })
   // A project added as a plain folder always works in place, so it hands back Viola's own
   // checkout however loudly we ask for a worktree. Every implement guarantee depends on the
   // isolation, and reviewing there would reset a real working copy, so stop before any work.
