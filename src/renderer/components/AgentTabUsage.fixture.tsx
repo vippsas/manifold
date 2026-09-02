@@ -20,19 +20,19 @@ import type { DockAppState } from './editor/editor-shell/dock-panel-types'
 import { siblingPanelId } from '../hooks/agent-session/agent-siblings'
 import type { SessionCostSummary } from '../../shared/types'
 
-// Real numbers from a two-model session (Haiku 4.5, /model, Sonnet 5): three
-// typed prompts across three requests. Note the gap the tooltip has to explain —
-// 103.9k billed but only 42.5k in context, because every request re-reads the
-// cached prefix and the /model switch re-wrote it under the new model.
+// Real numbers from transcript d15e6bb9 (Sonnet 5, /model, Haiku 4.5): two typed
+// prompts, two requests. Note that the rounded cells do not visibly reconcile —
+// 22,823 + 16,738 shows as 22.8k + 16.7k but totals 39.6k — which is what the
+// Total row is for.
 const PRICED: SessionCostSummary = {
-  tokenUsage: { inputTokens: 22, outputTokens: 652, cacheReadTokens: 69_630, cacheCreationTokens: 33_547 },
-  turns: 3,
-  costUsd: 0.1189633,
-  contextTokens: 42_455,
+  tokenUsage: { inputTokens: 12, outputTokens: 138, cacheReadTokens: 39_561, cacheCreationTokens: 39_062 },
+  turns: 2,
+  costUsd: 0.1299084,
+  contextTokens: 33_454,
   unpricedModels: [],
   byModel: [
-    { model: 'Sonnet 5', inputTokens: 2, outputTokens: 16, cacheReadTokens: 22_823, cacheWriteTokens: 19_630, costUsd: 0.0832486 },
-    { model: 'Haiku 4.5', inputTokens: 20, outputTokens: 636, cacheReadTokens: 46_807, cacheWriteTokens: 13_917, costUsd: 0.0357147 },
+    { model: 'Sonnet 5', inputTokens: 2, outputTokens: 26, cacheReadTokens: 22_823, cacheWriteTokens: 22_356, costUsd: 0.0942526 },
+    { model: 'Haiku 4.5', inputTokens: 10, outputTokens: 112, cacheReadTokens: 16_738, cacheWriteTokens: 16_706, costUsd: 0.0356558 },
   ],
 }
 const UNPRICED: SessionCostSummary = {

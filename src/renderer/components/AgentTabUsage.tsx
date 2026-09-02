@@ -64,7 +64,34 @@ function Breakdown({ rows }: { rows: SessionCostRow[] }): React.JSX.Element {
           <span style={styles.cost}>{rowUsd(r.costUsd)}</span>
         </React.Fragment>
       ))}
+      {/* With one model the row already is the total; a second identical line
+          would be noise. */}
+      {rows.length > 1 && <Totals rows={rows} />}
     </div>
+  )
+}
+
+/**
+ * Column sums, computed from the exact figures.
+ *
+ * Each cell above is rounded to fit the width, so adding the visible numbers
+ * does not reconcile — 22,823 and 16,738 read as `22.8k` and `16.7k`, whose sum
+ * is 39.5k against a true 39.6k. This row does the addition properly.
+ */
+function Totals({ rows }: { rows: SessionCostRow[] }): React.JSX.Element {
+  const sum = (pick: (r: SessionCostRow) => number): number => rows.reduce((n, r) => n + pick(r), 0)
+  const priced = rows.filter((r) => r.costUsd !== null)
+  const cost = priced.length > 0 ? priced.reduce((n, r) => n + (r.costUsd ?? 0), 0) : null
+
+  return (
+    <>
+      <span style={styles.totalLabel}>Total</span>
+      <span style={styles.totalNum}>{formatTokens(sum((r) => r.inputTokens))}</span>
+      <span style={styles.totalNum}>{formatTokens(sum((r) => r.outputTokens))}</span>
+      <span style={styles.totalNum}>{formatTokens(sum((r) => r.cacheReadTokens))}</span>
+      <span style={styles.totalNum}>{formatTokens(sum((r) => r.cacheWriteTokens))}</span>
+      <span style={styles.totalCost}>{rowUsd(cost)}</span>
+    </>
   )
 }
 

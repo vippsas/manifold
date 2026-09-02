@@ -97,6 +97,55 @@ describe('AgentTabUsage', () => {
     expect(tip.textContent).toContain('3 turns')
   })
 
+  it('totals the breakdown so the columns can be checked without adding cells by eye', async () => {
+    // Cells are rounded for width, so summing what you see does not reconcile.
+    // The total row restates the sums from the exact figures.
+    invoke.mockResolvedValue(summary({
+      byModel: [
+        { model: 'Sonnet 5', inputTokens: 2, outputTokens: 26, cacheReadTokens: 22_823, cacheWriteTokens: 22_356, costUsd: 0.0943 },
+        { model: 'Haiku 4.5', inputTokens: 10, outputTokens: 112, cacheReadTokens: 16_738, cacheWriteTokens: 16_706, costUsd: 0.0357 },
+      ],
+    }))
+    render(<AgentTabUsage sessionId="s1" />)
+
+    fireEvent.pointerEnter(icon())
+
+    const tip = await bubble()
+    await waitFor(() => expect(tip.textContent).toContain('Total'))
+    expect(tip.textContent).toContain('39.6k')  // 22,823 + 16,738 exact, then rounded
+    expect(tip.textContent).toContain('39.1k')  // 22,356 + 16,706
+    expect(tip.textContent).toContain('$0.13')  // 0.0943 + 0.0357
+  })
+
+  it('skips the total row when one model is already the whole session', async () => {
+    invoke.mockResolvedValue(summary())
+    render(<AgentTabUsage sessionId="s1" />)
+
+    fireEvent.pointerEnter(icon())
+
+    const tip = await bubble()
+    await waitFor(() => expect(tip.textContent).toContain('Opus 5'))
+    expect(tip.textContent).not.toContain('Total')
+  })
+
+  it('leaves the total cost blank when nothing could be priced', async () => {
+    invoke.mockResolvedValue(summary({
+      costUsd: null,
+      unpricedModels: ['mystery-a', 'mystery-b'],
+      byModel: [
+        { model: 'mystery-a', inputTokens: 1, outputTokens: 2, cacheReadTokens: 3, cacheWriteTokens: 4, costUsd: null },
+        { model: 'mystery-b', inputTokens: 5, outputTokens: 6, cacheReadTokens: 7, cacheWriteTokens: 8, costUsd: null },
+      ],
+    }))
+    render(<AgentTabUsage sessionId="s1" />)
+
+    fireEvent.pointerEnter(icon())
+
+    const tip = await bubble()
+    await waitFor(() => expect(tip.textContent).toContain('Total'))
+    expect(tip.textContent).not.toContain('$')
+  })
+
   it('labels the breakdown columns so the numbers are not bare', async () => {
     invoke.mockResolvedValue(summary())
     render(<AgentTabUsage sessionId="s1" />)

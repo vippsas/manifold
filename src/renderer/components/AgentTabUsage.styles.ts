@@ -50,6 +50,32 @@ export const agentTabUsageStyles: Record<string, React.CSSProperties> = {
     fontVariantNumeric: 'tabular-nums',
     whiteSpace: 'nowrap',
   },
+  // A rule separates the sums from the rows they sum, the way a ledger does.
+  totalLabel: {
+    color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+    borderTop: '1px solid var(--divider)',
+    paddingTop: '3px',
+    marginTop: '1px',
+  },
+  totalNum: {
+    color: 'var(--text-muted)',
+    textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums',
+    whiteSpace: 'nowrap',
+    borderTop: '1px solid var(--divider)',
+    paddingTop: '3px',
+    marginTop: '1px',
+  },
+  totalCost: {
+    color: 'var(--text-primary)',
+    textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums',
+    whiteSpace: 'nowrap',
+    borderTop: '1px solid var(--divider)',
+    paddingTop: '3px',
+    marginTop: '1px',
+  },
   note: {
     fontSize: 'var(--type-ui-micro)',
     color: 'var(--text-muted)',
