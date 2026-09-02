@@ -56,6 +56,37 @@ describe('createAgentSpawnService', () => {
     expect(resolveHead).toHaveBeenCalledWith('/wt/base')
   })
 
+  it('places a spawned agent in the base session\'s workspace so the dock knows it', async () => {
+    // A session with no workspaceId is grouped only into *home* workspaces holding its project,
+    // so a child of an agent in a worktree workspace would belong to none: the dock would not
+    // list it, and would prune any tab opened for it.
+    const sm = fakeSm({
+      getSession: vi.fn(() => ({
+        id: 'base-1', projectId: 'p1', runtimeId: 'claude', worktreePath: '/wt/base',
+        status: 'waiting', workspaceId: 'ws-7',
+      })),
+      createSession: vi.fn(async () => ({ id: 'sib-3', runtimeId: 'codex', worktreePath: '/wt/task' })),
+    })
+    const svc = createAgentSpawnService(sm as never, { resolveHead: vi.fn(async () => 'base-sha') })
+
+    await svc.spawnAgent('base-1', {
+      title: 'fix-auth', runtimeId: 'codex', newWorktree: true, nonInteractive: false, groupId: 'viola-1',
+    })
+
+    expect(sm.createSession).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: 'ws-7', groupId: 'viola-1',
+    }))
+  })
+
+  it('omits the workspace when the base session has none', async () => {
+    const sm = fakeSm()
+    const svc = createAgentSpawnService(sm as never)
+
+    await svc.spawnSibling('base-1', { title: 'Watching: intro' })
+
+    expect(sm.createSession).toHaveBeenCalledWith(expect.not.objectContaining({ workspaceId: expect.anything() }))
+  })
+
   it('spawnSibling rejects when the base session does not exist', async () => {
     const sm = fakeSm({ getSession: vi.fn(() => undefined) })
     const svc = createAgentSpawnService(sm as never)

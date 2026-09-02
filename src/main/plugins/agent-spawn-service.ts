@@ -72,6 +72,10 @@ export function createAgentSpawnService(sm: SessionAccess, options: AgentSpawnSe
       existingWorktreePath: opts.newWorktree ? undefined : base.worktreePath,
       ...(opts.newWorktree ? { baseBranch: baseRef } : {}),
       groupId: opts.groupId,
+      // An agent naming no workspace is grouped only into *home* workspaces holding its project,
+      // so a child of an agent in a worktree workspace would belong to none: the dock would not
+      // list it and would prune any tab opened for it.
+      ...(base.workspaceId ? { workspaceId: base.workspaceId } : {}),
       ...(opts.nonInteractive !== undefined ? { nonInteractive: opts.nonInteractive } : {}),
       ...(opts.orchestratedBy ? { orchestratedBy: opts.orchestratedBy } : {}),
     })

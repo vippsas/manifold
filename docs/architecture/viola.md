@@ -146,8 +146,15 @@ On the renderer side a module-level store owns the subscription
 import, and never detaches: a per-component listener would go deaf whenever the user switched
 tabs, so returning to a Viola tab mid-run would show a board several states stale. `ViolaRunBoard`
 renders one row per task — title, step, harness, and a clock that ticks every second, which is
-what distinguishes a slow step from a dead one. A row opens its worker's own session through the
-dock's `onOpenSibling`, since Viola's children are ordinary visible sessions. A fixing row names
+what distinguishes a slow step from a dead one. Each row is a full-width control that opens its worker's own tab through the dock's
+`onOpenSibling` — the whole row, not just the title, since the step label is the live-looking part
+someone reaches for. Two things make that tab stick. Workers inherit the base session's
+`workspaceId` (`src/main/plugins/agent-spawn-service.ts:78`): a session naming no workspace is
+grouped only into *home* workspaces holding its project, so a child of an agent in a worktree
+workspace would belong to none, and `useAgentSiblingDockTabs` prunes any panel whose session it
+does not know. Workers also share the run's `groupId` (`src/main/viola/task-pipeline.ts:174`),
+which keeps them out of the auto-tab set — a four-task run would otherwise open eight tabs — so
+the board is what opens one, on demand. A fixing row names
 the blocking finding it is addressing, the one detail that used to reach the chat log. The board
 is passed to `ChatPane` as its `activity` slot, so it replaces the phrases for Viola only and
 every other runtime is untouched (`src/renderer-shared/chat/ChatPane.tsx:183`).
