@@ -28,11 +28,12 @@ export async function readSessionCost(opts: SessionCostLocator): Promise<Session
     sessionId: opts.sessionId,
   })
   if (!usage) return null
-  const { usd, unpricedModels } = estimateCostUsd(usage.byRate)
+  const { usd, unpricedModels, rows } = estimateCostUsd(usage.byRate)
   return {
     tokenUsage: usage.tokenUsage,
     turns: usage.turns,
     costUsd: usd,
     unpricedModels,
+    byModel: rows,
   }
 }

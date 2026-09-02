@@ -60,3 +60,25 @@ describe('readSessionCost', () => {
     expect(r?.unpricedModels).toEqual(['claude-mystery-9'])
   })
 })
+
+describe('readSessionCost breakdown', () => {
+  let dir: string
+  beforeEach(async () => { dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cost2-')) })
+  afterEach(async () => { await fs.rm(dir, { recursive: true, force: true }) })
+
+  it('splits a model-switching session per model, dearest first', async () => {
+    const wt = '/Users/sv/wt/switch'
+    const projDir = path.join(dir, encodeClaudeProjectDir(wt))
+    await fs.mkdir(projDir, { recursive: true })
+    await fs.writeFile(path.join(projDir, 'sid-mix.jsonl'), [
+      humanTurn('hei'),
+      assistantLine('claude-opus-5', { input: 2, output: 43 }),
+      assistantLine('claude-haiku-4-5-20251001', { input: 10, output: 127 }),
+    ].join('\n') + '\n')
+
+    const r = await readSessionCost({ runtimeId: 'claude', worktreePath: wt, sessionId: 'sid-mix', claudeProjectsDir: dir })
+    expect(r?.byModel.map(m => m.model)).toEqual(['Opus 5', 'Haiku 4.5'])
+    expect(r?.byModel[0]).toMatchObject({ inputTokens: 2, outputTokens: 43 })
+    expect(r?.byModel[1]).toMatchObject({ inputTokens: 10, outputTokens: 127 })
+  })
+})

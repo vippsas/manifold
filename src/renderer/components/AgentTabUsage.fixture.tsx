@@ -20,19 +20,27 @@ import type { DockAppState } from './editor/editor-shell/dock-panel-types'
 import { siblingPanelId } from '../hooks/agent-session/agent-siblings'
 import type { SessionCostSummary } from '../../shared/types'
 
-// Real numbers from a one-word ("hei") Opus 5 session: 2 tokens in, 170 out, the
-// rest the cached context. The shape that made the total look like a bug.
+// Real numbers from a two-model ("hei", /model, "hei") session: 4 turns, a
+// switch from Opus 5 to Haiku 4.5, and the cache re-written under the new model
+// because caches are model-scoped. The shape that made the total look wrong.
 const PRICED: SessionCostSummary = {
-  tokenUsage: { inputTokens: 2, outputTokens: 170, cacheReadTokens: 14_299, cacheCreationTokens: 15_896 },
-  turns: 1,
-  costUsd: 0.1704,
+  tokenUsage: { inputTokens: 12, outputTokens: 170, cacheReadTokens: 14_299, cacheCreationTokens: 47_357 },
+  turns: 4,
+  costUsd: 0.2308,
   unpricedModels: [],
+  byModel: [
+    { model: 'Opus 5', inputTokens: 2, outputTokens: 43, cacheReadTokens: 14_299, cacheWriteTokens: 15_901, costUsd: 0.1672 },
+    { model: 'Haiku 4.5', inputTokens: 10, outputTokens: 127, cacheReadTokens: 0, cacheWriteTokens: 31_456, costUsd: 0.0636 },
+  ],
 }
 const UNPRICED: SessionCostSummary = {
   tokenUsage: { inputTokens: 12_000, outputTokens: 4_300, cacheReadTokens: 88_000, cacheCreationTokens: 9_000 },
   turns: 6,
   costUsd: null,
   unpricedModels: ['claude-mystery-9'],
+  byModel: [
+    { model: 'claude-mystery-9', inputTokens: 12_000, outputTokens: 4_300, cacheReadTokens: 88_000, cacheWriteTokens: 9_000, costUsd: null },
+  ],
 }
 
 const USAGE: Record<string, SessionCostSummary | null> = {

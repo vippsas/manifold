@@ -26,6 +26,20 @@ export interface CostEstimate {
   usd: number | null
   /** Model ids that carried tokens but are absent from the price table. */
   unpricedModels: string[]
+  /** Per-model breakdown, most expensive first. */
+  rows: RateBreakdown[]
+}
+
+/** One model's share of a session, as the tooltip shows it. */
+export interface RateBreakdown {
+  /** "Opus 5", "Opus 5 (fast)", or the raw id when the model is unknown. */
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  /** 5-minute and 1-hour writes summed: the split matters for price, not for reading. */
+  cacheWriteTokens: number
+  costUsd: number | null
 }
 
 /** USD per million tokens. */
@@ -69,6 +83,21 @@ const STANDARD: Record<string, Rates> = {
   'claude-haiku-4-5': rates(1, 5),
 }
 
+/** What each model is called in the UI. The raw id is precise but unreadable in a tooltip. */
+const DISPLAY_NAMES: Record<string, string> = {
+  'claude-fable-5-1': 'Fable 5.1',
+  'claude-fable-5': 'Fable 5',
+  'claude-opus-5': 'Opus 5',
+  'claude-opus-4-8': 'Opus 4.8',
+  'claude-opus-4-7': 'Opus 4.7',
+  'claude-opus-4-6': 'Opus 4.6',
+  'claude-opus-4-5': 'Opus 4.5',
+  'claude-sonnet-5': 'Sonnet 5',
+  'claude-sonnet-4-6': 'Sonnet 4.6',
+  'claude-sonnet-4-5': 'Sonnet 4.5',
+  'claude-haiku-4-5': 'Haiku 4.5',
+}
+
 /** Fast mode is a premium tier on the Opus 5 / 4.8 pair only. */
 const FAST: Record<string, Rates> = {
   'claude-opus-5': FABLE,
@@ -108,6 +137,7 @@ function bucketCost(t: CostTokens, r: Rates): number {
 /** Estimate a session's cost from its per-model, per-speed token buckets. */
 export function estimateCostUsd(byRate: Record<string, CostTokens>): CostEstimate {
   const unpriced = new Set<string>()
+  const rows: RateBreakdown[] = []
   let usd = 0
   let priced = false
 
@@ -118,13 +148,32 @@ export function estimateCostUsd(byRate: Record<string, CostTokens>): CostEstimat
     const fast = key.endsWith(FAST_SUFFIX)
     const model = fast ? key.slice(0, -FAST_SUFFIX.length) : key
     const r = (fast ? FAST : STANDARD)[undated(model)]
-    if (!r) {
-      unpriced.add(model)
-      continue
+    if (!r) unpriced.add(model)
+    const cost = r ? bucketCost(t, r) : null
+    if (cost !== null) {
+      usd += cost
+      priced = true
     }
-    usd += bucketCost(t, r)
-    priced = true
+    rows.push({
+      model: displayName(model, fast, Boolean(r)),
+      inputTokens: t.inputTokens,
+      outputTokens: t.outputTokens,
+      cacheReadTokens: t.cacheReadTokens,
+      cacheWriteTokens: t.cacheWrite5mTokens + t.cacheWrite1hTokens,
+      costUsd: cost,
+    })
   }
 
-  return { usd: priced ? usd : null, unpricedModels: [...unpriced] }
+  // Biggest spender first: the point of the breakdown is to show what drove the
+  // bill. An unpriced row has no figure to rank on, so it sorts last.
+  rows.sort((a, b) => (b.costUsd ?? -1) - (a.costUsd ?? -1))
+  return { usd: priced ? usd : null, unpricedModels: [...unpriced], rows }
+}
+
+function displayName(model: string, fast: boolean, known: boolean): string {
+  // An unknown id stays raw: inventing a friendly name for a model we cannot
+  // price would imply we recognise it.
+  if (!known) return model
+  const name = DISPLAY_NAMES[undated(model)] ?? model
+  return fast ? `${name} (fast)` : name
 }

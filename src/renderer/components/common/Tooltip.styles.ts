@@ -27,6 +27,11 @@ export const tooltipStyles: Record<string, React.CSSProperties> = {
     // itself — hovering it would otherwise re-trigger the trigger's leave.
     pointerEvents: 'none',
   },
+  // A breakdown table needs more room than a sentence; 250px would wrap every
+  // column onto its own line.
+  bubbleWide: {
+    maxWidth: '340px',
+  },
   label: {
     fontSize: 'var(--type-ui-small)',
     color: 'var(--text-primary)',

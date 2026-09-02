@@ -21,6 +21,9 @@ export interface TooltipProps {
   label: string
   /** Optional second line: what the action gets you, or what it will not touch. */
   detail?: string
+  /** Rich body rendered under the label instead of `detail` — for tabular content
+   *  a sentence cannot carry, like a per-model cost breakdown. */
+  body?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -36,7 +39,7 @@ export interface TooltipProps {
  * Triggers must keep their own `aria-label`; the bubble is decorative for
  * assistive tech, which reads the label instead.
  */
-export function Tooltip({ label, detail, children }: TooltipProps): React.JSX.Element {
+export function Tooltip({ label, detail, body, children }: TooltipProps): React.JSX.Element {
   const wrapRef = useRef<HTMLSpanElement>(null)
   const bubbleRef = useRef<HTMLDivElement>(null)
   const timer = useRef<number | null>(null)
@@ -103,9 +106,13 @@ export function Tooltip({ label, detail, children }: TooltipProps): React.JSX.El
     >
       {children}
       {anchor && createPortal(
-        <div ref={bubbleRef} role="tooltip" style={tooltipStyles.bubble}>
+        <div
+          ref={bubbleRef}
+          role="tooltip"
+          style={body ? { ...tooltipStyles.bubble, ...tooltipStyles.bubbleWide } : tooltipStyles.bubble}
+        >
           <span style={tooltipStyles.label}>{label}</span>
-          {detail && <span style={tooltipStyles.detail}>{detail}</span>}
+          {body ?? (detail && <span style={tooltipStyles.detail}>{detail}</span>)}
         </div>,
         document.body,
       )}

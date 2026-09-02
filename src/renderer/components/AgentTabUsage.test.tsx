@@ -12,6 +12,7 @@ function summary(over: Partial<SessionCostSummary> = {}): SessionCostSummary {
     turns: 47,
     costUsd: 3.41,
     unpricedModels: [],
+    byModel: [{ model: 'Opus 5', inputTokens: 1_000_000, outputTokens: 200_000, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: 3.41 }],
     ...over,
   }
 }
@@ -51,32 +52,58 @@ describe('AgentTabUsage', () => {
     expect(tip.textContent).toContain('47 turns')
   })
 
-  it('says how much of the total is cached context, not what you typed', async () => {
-    // A one-word prompt still bills the whole system prompt + CLAUDE.md + tool
-    // defs as cache traffic. Without this the total reads like a counting bug.
+  it('breaks the session down per model, with where each one spent its tokens', async () => {
+    // The real shape that made a one-word prompt look like a counting bug: two
+    // tokens typed, and tens of thousands of cache traffic behind them.
     invoke.mockResolvedValue(summary({
-      tokenUsage: { inputTokens: 2, outputTokens: 170, cacheReadTokens: 14_299, cacheCreationTokens: 15_896 },
-      turns: 1,
-      costUsd: 0.17,
+      tokenUsage: { inputTokens: 12, outputTokens: 170, cacheReadTokens: 14_299, cacheCreationTokens: 47_357 },
+      turns: 4,
+      costUsd: 0.2308,
+      byModel: [
+        { model: 'Opus 5', inputTokens: 2, outputTokens: 43, cacheReadTokens: 14_299, cacheWriteTokens: 15_901, costUsd: 0.1672 },
+        { model: 'Haiku 4.5', inputTokens: 10, outputTokens: 127, cacheReadTokens: 0, cacheWriteTokens: 31_456, costUsd: 0.0636 },
+      ],
     }))
     render(<AgentTabUsage sessionId="s1" />)
 
     fireEvent.pointerEnter(icon())
 
     const tip = await bubble()
-    await waitFor(() => expect(tip.textContent).toContain('30.4k tokens (30.2k context)'))
-    expect(tip.textContent).toContain('1 turn')
+    await waitFor(() => expect(tip.textContent).toContain('Opus 5'))
+    expect(tip.textContent).toContain('Haiku 4.5')
+    // Each row shows the four billing categories, so a big total explains itself.
+    expect(tip.textContent).toContain('14.3k')   // Opus cache read
+    expect(tip.textContent).toContain('31.5k')   // Haiku cache write
+    expect(tip.textContent).toContain('$0.17')   // per-model cost
+    expect(tip.textContent).toContain('$0.06')
   })
 
-  it('omits the context note when nothing was cached', async () => {
+  it('labels the breakdown columns so the numbers are not bare', async () => {
     invoke.mockResolvedValue(summary())
     render(<AgentTabUsage sessionId="s1" />)
 
     fireEvent.pointerEnter(icon())
 
     const tip = await bubble()
-    await waitFor(() => expect(tip.textContent).toContain('1.2M tokens'))
-    expect(tip.textContent).not.toContain('context')
+    await waitFor(() => expect(tip.textContent).toContain('In'))
+    expect(tip.textContent).toContain('Out')
+    expect(tip.textContent).toContain('Cache r')
+    expect(tip.textContent).toContain('Cache w')
+  })
+
+  it('shows a dash rather than a price for a model it cannot price', async () => {
+    invoke.mockResolvedValue(summary({
+      costUsd: null,
+      unpricedModels: ['claude-mystery-9'],
+      byModel: [{ model: 'claude-mystery-9', inputTokens: 5, outputTokens: 500, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: null }],
+    }))
+    render(<AgentTabUsage sessionId="s1" />)
+
+    fireEvent.pointerEnter(icon())
+
+    const tip = await bubble()
+    await waitFor(() => expect(tip.textContent).toContain('claude-mystery-9'))
+    expect(tip.textContent).toContain('Cost unavailable')
   })
 
   it('marks the figure as an estimate at API rates rather than money spent', async () => {
@@ -90,7 +117,11 @@ describe('AgentTabUsage', () => {
   })
 
   it('says the cost is unavailable rather than inventing one for an unknown model', async () => {
-    invoke.mockResolvedValue(summary({ costUsd: null, unpricedModels: ['claude-mystery-9'] }))
+    invoke.mockResolvedValue(summary({
+      costUsd: null,
+      unpricedModels: ['claude-mystery-9'],
+      byModel: [{ model: 'claude-mystery-9', inputTokens: 5, outputTokens: 500, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: null }],
+    }))
     render(<AgentTabUsage sessionId="s1" />)
 
     fireEvent.pointerEnter(icon())
@@ -98,6 +129,7 @@ describe('AgentTabUsage', () => {
     const tip = await bubble()
     await waitFor(() => expect(tip.textContent).toContain('Cost unavailable'))
     expect(tip.textContent).toContain('claude-mystery-9')
+    // Nothing anywhere in the bubble may read as a price when none is known.
     expect(tip.textContent).not.toContain('$')
   })
 

@@ -367,4 +367,16 @@ export interface SessionCostSummary {
   turns: number
   costUsd: number | null
   unpricedModels: string[]
+  /** Per-model rows, most expensive first, for the tooltip's breakdown table. */
+  byModel: SessionCostRow[]
+}
+
+/** One model's share of a session: where its tokens went and what they cost. */
+export interface SessionCostRow {
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  costUsd: number | null
 }

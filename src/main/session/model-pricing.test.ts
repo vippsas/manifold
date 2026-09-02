@@ -102,6 +102,64 @@ describe('estimateCostUsd', () => {
   })
 
   it('has nothing to price for an empty session', () => {
-    expect(estimateCostUsd({})).toEqual({ usd: null, unpricedModels: [] })
+    expect(estimateCostUsd({})).toEqual({ usd: null, unpricedModels: [], rows: [] })
+  })
+})
+
+describe('estimateCostUsd rows', () => {
+  it('returns one row per bucket, with a readable model name', () => {
+    const { rows } = estimateCostUsd({
+      'claude-opus-5': tokens({ inputTokens: 2, outputTokens: 43, cacheReadTokens: 14_299, cacheWrite1hTokens: 15_901 }),
+    })
+    expect(rows).toEqual([{
+      model: 'Opus 5',
+      inputTokens: 2,
+      outputTokens: 43,
+      cacheReadTokens: 14_299,
+      cacheWriteTokens: 15_901,
+      costUsd: expect.closeTo(0.1672445, 9),
+    }])
+  })
+
+  it('names a dated snapshot by its family, not its raw id', () => {
+    const { rows } = estimateCostUsd({ 'claude-haiku-4-5-20251001': tokens({ outputTokens: 127 }) })
+    expect(rows[0].model).toBe('Haiku 4.5')
+  })
+
+  it('marks a fast-mode bucket so it is not confused with the standard rate', () => {
+    const { rows } = estimateCostUsd({ 'claude-opus-5#fast': tokens({ outputTokens: 100 }) })
+    expect(rows[0].model).toBe('Opus 5 (fast)')
+  })
+
+  it('keeps an unknown model as a row, with tokens but no cost', () => {
+    const { rows } = estimateCostUsd({ 'claude-mystery-9': tokens({ outputTokens: 500 }) })
+    expect(rows).toEqual([{
+      model: 'claude-mystery-9',
+      inputTokens: 0,
+      outputTokens: 500,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costUsd: null,
+    }])
+  })
+
+  it('sums 5m and 1h writes into one cache-write figure for display', () => {
+    const { rows } = estimateCostUsd({
+      'claude-opus-5': tokens({ cacheWrite5mTokens: 7, cacheWrite1hTokens: 100 }),
+    })
+    expect(rows[0].cacheWriteTokens).toBe(107)
+  })
+
+  it('puts the most expensive model first so the cost driver leads', () => {
+    const { rows } = estimateCostUsd({
+      'claude-haiku-4-5': tokens({ outputTokens: 1_000_000 }),  // $5
+      'claude-opus-5': tokens({ outputTokens: 1_000_000 }),     // $25
+      'claude-mystery-9': tokens({ outputTokens: 10 }),         // unpriced
+    })
+    expect(rows.map(r => r.model)).toEqual(['Opus 5', 'Haiku 4.5', 'claude-mystery-9'])
+  })
+
+  it('has no rows for an empty session', () => {
+    expect(estimateCostUsd({}).rows).toEqual([])
   })
 })

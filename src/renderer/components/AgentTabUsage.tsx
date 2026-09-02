@@ -1,6 +1,7 @@
 import React from 'react'
 import { Tooltip } from './common/Tooltip'
-import type { SessionCostSummary } from '../../shared/types'
+import { agentTabUsageStyles as styles } from './AgentTabUsage.styles'
+import type { SessionCostRow, SessionCostSummary } from '../../shared/types'
 
 type Usage =
   | { kind: 'idle' }
@@ -32,32 +33,66 @@ function formatUsd(n: number): string {
   return `~$${n.toFixed(2)}`
 }
 
-function describeSummary(s: SessionCostSummary): { label: string; detail: string } {
+/** Row prices drop the tilde — the headline already says the whole thing is an estimate. */
+function rowUsd(n: number | null): string {
+  if (n === null) return '—'
+  if (n > 0 && n < 0.01) return '<$0.01'
+  return `$${n.toFixed(2)}`
+}
+
+/**
+ * Where each model's tokens went. This is the answer to "why is the total so
+ * big?": cache traffic dwarfs anything typed, and a model switch re-writes the
+ * whole prefix under the new model because caches are model-scoped.
+ */
+function Breakdown({ rows }: { rows: SessionCostRow[] }): React.JSX.Element {
+  return (
+    <div style={styles.table}>
+      <span style={styles.headModel}>Model</span>
+      <span style={styles.head}>In</span>
+      <span style={styles.head}>Out</span>
+      <span style={styles.head}>Cache r</span>
+      <span style={styles.head}>Cache w</span>
+      <span style={styles.head}>Cost</span>
+      {rows.map((r) => (
+        <React.Fragment key={r.model}>
+          <span style={styles.model}>{r.model}</span>
+          <span style={styles.num}>{formatTokens(r.inputTokens)}</span>
+          <span style={styles.num}>{formatTokens(r.outputTokens)}</span>
+          <span style={styles.num}>{formatTokens(r.cacheReadTokens)}</span>
+          <span style={styles.num}>{formatTokens(r.cacheWriteTokens)}</span>
+          <span style={styles.cost}>{rowUsd(r.costUsd)}</span>
+        </React.Fragment>
+      ))}
+    </div>
+  )
+}
+
+function describeSummary(s: SessionCostSummary): { label: string; body: React.ReactNode } {
   const { inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens } = s.tokenUsage
   const total = inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens
-  // Cache traffic is the conversation's context — system prompt, CLAUDE.md, tool
-  // definitions, prior turns — written once and re-read every turn. It dwarfs
-  // what anyone types (a one-word prompt still bills ~30k), so the total reads
-  // like a counting bug unless the tooltip says where it came from. This figure
-  // is what Claude Code's own status line calls `Ctx`.
-  const context = cacheReadTokens + cacheCreationTokens
-  const contextNote = context > 0 ? ` (${formatTokens(context)} context)` : ''
-  const facts = `${formatTokens(total)} tokens${contextNote} · ${s.turns} ${s.turns === 1 ? 'turn' : 'turns'}`
-  const missing = s.unpricedModels.join(', ')
-
-  if (s.costUsd === null) {
-    return { label: 'Cost unavailable', detail: `${facts} · no published price for ${missing}` }
-  }
   const partial = s.unpricedModels.length > 0
+  const label = s.costUsd === null
+    ? 'Cost unavailable'
+    : `${formatUsd(s.costUsd)}${partial ? '+' : ''}`
+
   return {
-    label: `${formatUsd(s.costUsd)}${partial ? '+' : ''}`,
-    detail: partial
-      ? `${facts} · est. at API rates, excludes ${missing}`
-      : `${facts} · est. at API rates`,
+    label,
+    body: (
+      <div style={styles.body}>
+        <span style={styles.summary}>
+          {`${formatTokens(total)} tokens · ${s.turns} ${s.turns === 1 ? 'turn' : 'turns'} · est. at API rates`}
+        </span>
+        <Breakdown rows={s.byModel} />
+        {partial && (
+          <span style={styles.note}>{`No published price for ${s.unpricedModels.join(', ')}.`}</span>
+        )}
+      </div>
+    ),
   }
 }
 
-function describe(usage: Usage): { label: string; detail?: string } {
+function describe(usage: Usage): { label: string; detail?: string; body?: React.ReactNode } {
   switch (usage.kind) {
     case 'idle':
     case 'loading':
@@ -102,10 +137,10 @@ export function AgentTabUsage({ sessionId }: { sessionId: string }): React.JSX.E
       .finally(() => { inFlight.current = false })
   }, [sessionId])
 
-  const { label, detail } = describe(usage)
+  const { label, detail, body } = describe(usage)
 
   return (
-    <Tooltip label={label} detail={detail}>
+    <Tooltip label={label} detail={detail} body={body}>
       <span
         className="dock-tab__action dock-tab__usage"
         role="note"
