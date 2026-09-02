@@ -20,10 +20,12 @@ import type { DockAppState } from './editor/editor-shell/dock-panel-types'
 import { siblingPanelId } from '../hooks/agent-session/agent-siblings'
 import type { SessionCostSummary } from '../../shared/types'
 
+// Real numbers from a one-word ("hei") Opus 5 session: 2 tokens in, 170 out, the
+// rest the cached context. The shape that made the total look like a bug.
 const PRICED: SessionCostSummary = {
-  tokenUsage: { inputTokens: 41_000, outputTokens: 96_000, cacheReadTokens: 2_100_000, cacheCreationTokens: 480_000 },
-  turns: 47,
-  costUsd: 3.41,
+  tokenUsage: { inputTokens: 2, outputTokens: 170, cacheReadTokens: 14_299, cacheCreationTokens: 15_896 },
+  turns: 1,
+  costUsd: 0.1704,
   unpricedModels: [],
 }
 const UNPRICED: SessionCostSummary = {

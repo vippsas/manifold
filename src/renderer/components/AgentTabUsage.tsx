@@ -35,7 +35,14 @@ function formatUsd(n: number): string {
 function describeSummary(s: SessionCostSummary): { label: string; detail: string } {
   const { inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens } = s.tokenUsage
   const total = inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens
-  const facts = `${formatTokens(total)} tokens · ${s.turns} ${s.turns === 1 ? 'turn' : 'turns'}`
+  // Cache traffic is the conversation's context — system prompt, CLAUDE.md, tool
+  // definitions, prior turns — written once and re-read every turn. It dwarfs
+  // what anyone types (a one-word prompt still bills ~30k), so the total reads
+  // like a counting bug unless the tooltip says where it came from. This figure
+  // is what Claude Code's own status line calls `Ctx`.
+  const context = cacheReadTokens + cacheCreationTokens
+  const contextNote = context > 0 ? ` (${formatTokens(context)} context)` : ''
+  const facts = `${formatTokens(total)} tokens${contextNote} · ${s.turns} ${s.turns === 1 ? 'turn' : 'turns'}`
   const missing = s.unpricedModels.join(', ')
 
   if (s.costUsd === null) {

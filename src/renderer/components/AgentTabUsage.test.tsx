@@ -51,6 +51,34 @@ describe('AgentTabUsage', () => {
     expect(tip.textContent).toContain('47 turns')
   })
 
+  it('says how much of the total is cached context, not what you typed', async () => {
+    // A one-word prompt still bills the whole system prompt + CLAUDE.md + tool
+    // defs as cache traffic. Without this the total reads like a counting bug.
+    invoke.mockResolvedValue(summary({
+      tokenUsage: { inputTokens: 2, outputTokens: 170, cacheReadTokens: 14_299, cacheCreationTokens: 15_896 },
+      turns: 1,
+      costUsd: 0.17,
+    }))
+    render(<AgentTabUsage sessionId="s1" />)
+
+    fireEvent.pointerEnter(icon())
+
+    const tip = await bubble()
+    await waitFor(() => expect(tip.textContent).toContain('30.4k tokens (30.2k context)'))
+    expect(tip.textContent).toContain('1 turn')
+  })
+
+  it('omits the context note when nothing was cached', async () => {
+    invoke.mockResolvedValue(summary())
+    render(<AgentTabUsage sessionId="s1" />)
+
+    fireEvent.pointerEnter(icon())
+
+    const tip = await bubble()
+    await waitFor(() => expect(tip.textContent).toContain('1.2M tokens'))
+    expect(tip.textContent).not.toContain('context')
+  })
+
   it('marks the figure as an estimate at API rates rather than money spent', async () => {
     invoke.mockResolvedValue(summary())
     render(<AgentTabUsage sessionId="s1" />)
