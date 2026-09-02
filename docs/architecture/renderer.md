@@ -278,20 +278,24 @@ as a rounded-cornered surface floating on the recessed `--dock-canvas` (a darken
 `--bg-primary`, `styles/theme.css`). Groups carry **no outline of their own** — a hairline
 around every panel boxes the workspace in; the sash between two groups is the divider
 instead, so each boundary is drawn once rather than twice. Text tabs (agent, shell, module
-panels) are **pills on a flat strip**, the shape the icon tabs already took: the strip is one
-sheet of `--bg-chrome` with no gradient, no seams and no rule under it, and each tab is a 24px
-pill centered in the 30px row (`.dock-tab:not(.dock-tab--icon)`, `styles/theme.css:516`). At
-rest a pill draws nothing — only the tab you are in is a filled shape, `--sidebar-active-bg`
-behind a 1px `--sidebar-active-border` ring, with the label at full contrast; hover fills
-`--list-hover-bg`, and a group that does not hold focus states its current tab in the fainter
-`--list-inactive-bg` instead of competing with the focused card (all scoped to `.dv-active-tab`
-in `styles/dockview-theme.css:280`). The predecessor filled the strip edge to edge — idle tabs
-in `--bg-chrome`, the active one carrying `--bg-chrome-active` under an accent rule fading at
-both ends — which read as a row of abutting grey blocks separated by seams. dockview pads
-`.dv-tab` by `0.25rem 0.5rem` and wraps the custom tab in a block-level `.dv-react-part`, so
-the pill's box needs that padding cut to 1px per side (the 2px between pills) and flex boxes on
-both wrappers: `height` on the pill resolves against a flex item, where `height: 100%` would
-give `auto`. Icon and headless tabs (sidebar/editor) keep their own accent-square treatment. Each resize
+panels) are **underline tabs**: the strip is `--bg-chrome` closed by a hairline along its
+bottom edge (an inset shadow, not a border, so it cannot add to the strip's fixed
+`--chrome-tab-height`), each tab fills that height flush against its neighbours, and an idle
+tab draws no fill at all — nothing to seam against the strip, nothing to mistake for a control
+(`.dock-tab:not(.dock-tab--icon)`, `styles/theme.css:518`). The tab you are in is its label at
+full contrast over a solid 2px accent line inset along its bottom edge, where the strip meets
+the panel; an unfocused group states its tab in `--text-muted` instead, and hover fills
+`--list-hover-bg` (all scoped to `.dv-active-tab` in `styles/dockview-theme.css:280`). Two
+earlier shapes are worth knowing, because both were tried and reverted: a tab filled edge to
+edge in `--bg-chrome` over a `--bg-chrome-hi` gradient strip made each tab a block with a
+visible seam, and an inset rounded pill (`--sidebar-active-bg` behind a 1px ring) read as a
+*button sitting inside the tab* — form-control language, and the only outlined thing in a strip
+whose real controls (`+`, `×`) are flat. dockview pads `.dv-tab` by `0.25rem 0.5rem` and wraps
+the custom tab in a block-level `.dv-react-part`, so filling the strip takes dropping that
+padding entirely (the gap between labels is `.dock-tab`'s own, which keeps the hover fill and
+the underline spanning the whole tab) and stretching the wrapper with flex boxes — `height:
+100%` there resolves to `auto` against a flex item. Icon and headless tabs (sidebar/editor)
+keep their own accent-square treatment. Each resize
 sash is a 1px line centered in the gap, carrying five 3px grip dots — stacked for a
 vertical divider, in a row for a horizontal one. Hovering brightens the dots from
 `--text-muted` to `--accent`; the line itself holds `--divider` throughout
@@ -358,13 +362,15 @@ tree uses for the same file, the name in the UI font — not the editor's monosp
 the strip like code — and, only when two open files share a basename, the disambiguating folder
 as a muted description beside it (`CodeViewerTabs.tsx:218`, `CodeViewer.styles.ts:62`;
 `file-tree/FileTypeIcon.tsx:10`). The strip and its tabs carry the dock text tabs' treatment, so
-the file tabs and the agent tabs one panel over read as one row of tabs: the strip is the same
-flat `--bg-chrome` sheet with no rule under it (`CodeViewer.styles.ts:24`), and each tab is the
-same 24px pill — nothing at rest, `--list-hover-bg` under the pointer, and the active one
-`--sidebar-active-bg` behind a 1px `--sidebar-active-border` ring with its label at full
-contrast (`.code-tab`, `styles/theme.css:674`). Tabs carry no divider between them: the pill is
-the shape, so a seam per tab was the noise the pills removed. A tab's `×` is reserved space but shows only on hover and on the active
-tab — one per tab, always on, was a row of noise beside the names (`styles/theme.css:703`).
+the file tabs and the agent tabs one panel over read as one row of tabs: the same flat
+`--bg-chrome` strip closed by a hairline (`CodeViewer.styles.ts:24`), tabs filling its 30px
+height and drawing nothing at rest, `--list-hover-bg` under the pointer, and the file you are in
+marked by its label at full contrast over the same 2px accent underline (`.code-tab`,
+`styles/theme.css:665`). A tab whose context menu is open says so the same way — both states set
+the one `box-shadow`, since they can co-occur and the later rule would otherwise win outright
+(`CodeViewerTabs.tsx:233`). Tabs carry no divider between them: an idle tab draws nothing, so
+there is no edge for a seam to separate. A tab's `×` is reserved space but shows only on hover and on the active
+tab — one per tab, always on, was a row of noise beside the names (`styles/theme.css:693`).
 Geometry follows VS Code too — 10px before the icon, the close action in a slot of its own, and
 "shrink" sizing (content width, 80px floor) so short names do not make a ragged strip
 (`CodeViewer.styles.ts:62`, `:112`). Two numbers deliberately differ, because this pane is a
@@ -387,8 +393,8 @@ all**: it is alone in its column, so a tab there switched nothing and its glyph 
 repeated the activity-bar icon that selects its view — the strip is left to its `×`
 (`HEADLESS_TAB_PANELS`, `DockTab.tsx:16`; `styles/dockview-theme.css:226`). Each sits in a 24px pill centered in the 30px
 strip rather than stretching to fill it, so the active tab's tint clears the card's top edge
-(`styles/theme.css:649`). **Every control in a header strip takes that same pill** — a text
-tab's `×`, the icon-tab group's `×` (`styles/theme.css:531`) and the shell's `+`, which is
+(`styles/theme.css:639`). **Every control in a header strip takes that same pill** — a text
+tab's `×`, the icon-tab group's `×` (`styles/theme.css:529`) and the shell's `+`, which is
 styled inline and so repeats the numbers (`components/terminal/ShellTabs.styles.ts:37`) — at one
 glyph size and colour, so a header reads as a row of matching controls rather than a tiny
 glyph beside a full-height button with a divider rule. Centering uses `margin-block`, not an
@@ -685,7 +691,7 @@ input lives in `TreeChildren`, which an expanded directory and the flattened roo
 left a create at top level with nowhere to draw — the menu item looked dead
 (regression test `FileTree.test.tsx:88`). Depth is carried by indentation alone —
 no rule down the left of a tree, no rounded row fills, and no focus glow: at sidebar density
-those read as clutter (`ProjectSidebar.styles.ts:68`, `styles/theme.css:703`). The whole
+those read as clutter (`ProjectSidebar.styles.ts:68`, `styles/theme.css:693`). The whole
 sidebar is one ladder in the file tree's own 8px per-depth step, so each disclosure chevron
 sits exactly one step right of its parent's: the workspace header, then its folder rows, then
 a folder's files (`ProjectSidebar.styles.ts:69`, `:72`). The tree paints no
