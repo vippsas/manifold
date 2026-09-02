@@ -300,6 +300,22 @@ sash is a 1px line centered in the gap, carrying five 3px grip dots — stacked 
 vertical divider, in a row for a horizontal one. Hovering brightens the dots from
 `--text-muted` to `--accent`; the line itself holds `--divider` throughout
 (`styles/dockview-theme.css:48`). That steady color is set through dockview's own
+panels) are modelled on VS Code's editor tabs: the strip is chrome
+(`--bg-chrome-hi` → `--bg-chrome`) and each tab fills it edge to edge, idle ones sitting in
+`--bg-chrome` while the active one carries the content background (`--bg-chrome-active`)
+and an accent rule that fades at both ends along its top edge — so the active tab reads as
+the surface below pulled up into the strip (`.dock-tab:not(.dock-tab--icon)` in
+`styles/theme.css`, strip/active/accent scoped to `.dv-active-tab` in
+`styles/dockview-theme.css:267`). That fill needs `padding-block: 0` and a flex stretch on
+dockview's `.dv-react-part` wrapper: the library pads `.dv-tab` by `0.25rem 0.5rem`, and
+`height: 100%` on the wrapper resolves to `auto` against a flex item. Icon and headless tabs
+(sidebar/editor) keep their own accent-square treatment. Each resize
+sash is a 1px `--divider` line centered in the gap with a 12px invisible grab zone, and
+carries no ornament at rest. Hovering (or dragging) paints a 3px `--accent` bar down the whole
+length of that boundary, so what you are about to drag is unmistakable; the resize cursor comes
+from dockview's own `.dv-enabled` rules (`ew-resize` / `ns-resize`)
+(`styles/dockview-theme.css:48`). It replaces five grip dots per divider, which read as clutter
+on every boundary at all times. The line's steady color is set through dockview's own
 `--dv-sash-color`/`--dv-active-sash-color` (`:30`) rather than a `background` of ours,
 because the library's `.dv-sash:not(.disabled):hover` rule ties us on specificity and wins
 on source order — it would blank a hardcoded background the moment the pointer arrives.
