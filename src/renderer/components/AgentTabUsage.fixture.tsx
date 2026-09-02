@@ -5,7 +5,8 @@
 // different shape: a fully priced session, one whose model has no published
 // price, and one that has not recorded a turn yet. Tabs are wrapped in the same
 // mock dockview elements DockTab.fixture uses so the coin sits where it really
-// sits, and `force-hover` keeps the tab-hover-revealed glyphs visible.
+// sits. Every row is at rest: the coin and the `…` must both be visible without
+// a hover, and the Codex tab beside each must show no coin at all.
 //
 // The bubbles only appear once something hovers a coin — see
 // scripts/ in docs/architecture/renderer-verification.md for driving it.
@@ -83,10 +84,10 @@ function Row({ panelId, title }: { panelId: string; title: string }): React.JSX.
     <div className="dv-groupview dv-active-group" style={card}>
       <div className="dv-tabs-and-actions-container">
         <div className="dv-tabs-container">
-          <div className="dv-tab dv-active-tab force-hover" style={tabWrap}>
+          <div className="dv-tab dv-active-tab" style={tabWrap}>
             <DockTab {...headerProps(panelId, title)} />
           </div>
-          <div className="dv-tab force-hover" style={tabWrap}>
+          <div className="dv-tab" style={tabWrap}>
             <DockTab {...headerProps(siblingPanelId('child-3'), 'Codex')} />
           </div>
         </div>
@@ -104,10 +105,6 @@ function Fixture(): React.JSX.Element {
           <Row panelId="agent" title="Priced" />
           <Row panelId={siblingPanelId('child-1')} title="Unpriced" />
           <Row panelId={siblingPanelId('child-2')} title="No usage" />
-          <style>{`
-            .force-hover .dock-tab__action { opacity: 1 }
-            .dockview-theme-manifold .dv-tab.force-hover .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) { background: var(--list-hover-bg); color: var(--text-primary) }
-          `}</style>
         </div>
       </DockStateContext.Provider>
     </div>

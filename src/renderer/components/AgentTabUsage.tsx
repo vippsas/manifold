@@ -68,6 +68,10 @@ function describe(usage: Usage): { label: string; detail?: string } {
  * The agent tab's cost affordance: a coin that answers "what has this session
  * cost?" on hover.
  *
+ * The coin is visible at rest, like the tab's other controls — you should not
+ * have to already suspect a cost to discover there is one. Only the figure waits
+ * for a hover.
+ *
  * Reads on hover rather than on a timer — an idle tab costs nothing, and the
  * number is current whenever it is actually on screen. The figure is an estimate
  * derived from published API rates (Claude records tokens, not prices), which
