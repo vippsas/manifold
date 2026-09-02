@@ -73,6 +73,8 @@ function TerminalHarness(): React.JSX.Element {
   return <div ref={containerRef as React.RefObject<HTMLDivElement>} />
 }
 
+const resizeObserverCallbacks: Array<() => void> = []
+
 function getCustomKeyHandler(): (event: KeyboardEvent) => boolean {
   const terminal = terminalMockState.instances[0]
   const handler = terminal.attachCustomKeyEventHandler.mock.calls[0]?.[0]
@@ -91,7 +93,11 @@ describe('useTerminal', () => {
       on: vi.fn(() => () => {}),
       getPathForFile: vi.fn(),
     }
+    resizeObserverCallbacks.length = 0
     ;(window as unknown as Record<string, unknown>).ResizeObserver = class {
+      constructor(callback: () => void) {
+        resizeObserverCallbacks.push(callback)
+      }
       observe = vi.fn()
       disconnect = vi.fn()
     }
@@ -159,6 +165,27 @@ describe('useTerminal', () => {
 
     expect(handleKey(new KeyboardEvent('keyup', { key: 'Backspace', metaKey: true }))).toBe(true)
     expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('agent:input', 'shell-1', '\x15')
+  })
+
+  // Every dock tab switch re-attaches the pane and fires its ResizeObserver.
+  // The fit is a no-op when the size hasn't changed, but resizing the PTY
+  // anyway sends a SIGWINCH, and an agent TUI answers that with a full
+  // repaint — a flash and a burst of output on every switch.
+  it('only resizes the PTY when the fitted size actually changed', () => {
+    render(<TerminalHarness />)
+
+    act(() => { vi.advanceTimersByTime(16) })
+
+    const resizeCalls = (): number => vi.mocked(window.electronAPI.invoke).mock.calls
+      .filter((call) => call[0] === 'agent:resize').length
+    expect(resizeCalls()).toBe(1)
+
+    act(() => {
+      for (const callback of resizeObserverCallbacks) callback()
+      vi.advanceTimersByTime(16)
+    })
+
+    expect(resizeCalls()).toBe(1)
   })
 
   it('opens OSC 8 hyperlinks via window.open instead of xterm’s confirm dialog', () => {
