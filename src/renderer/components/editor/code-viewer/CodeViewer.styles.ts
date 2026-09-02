@@ -22,17 +22,17 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
   },
   // The same chrome the dock's tab strips carry, so the editor's file tabs and
-  // the agent tabs one panel over read as one row of tabs rather than two: one
-  // flat sheet with no rule under it, the tabs riding it as pills.
+  // the agent tabs one panel over read as one row of tabs rather than two: flat
+  // chrome closed by a hairline, with the tabs filling its height.
   tabBar: {
     display: 'flex',
     alignItems: 'flex-start',
+    borderBottom: '1px solid var(--border)',
     background: 'var(--bg-chrome)',
     flexShrink: 0,
     minWidth: 0,
   },
   tabStrip: {
-    padding: '0 4px',
     display: 'flex',
     alignItems: 'stretch',
     alignContent: 'flex-start',
@@ -62,19 +62,17 @@ export const viewerStyles: Record<string, React.CSSProperties> = {
   // two-letter name still makes a tab you can hit and the strip is not ragged.
   // Two numbers are ours, because this pane is a ~330px sidebar rather than VS
   // Code's full-width editor area and the strip wraps instead of scrolling: the
-  // row is 30px like the header above it — a 24px pill plus its 3px margins, the
-  // same shape every dock tab takes (35px would stack to 70px the moment a third
-  // file opened) — and a tab is capped so one long name cannot push every other
-  // tab onto a row of its own.
+  // row is 30px like the header strips beside it (35px would stack to 70px the
+  // moment a third file opened), and a tab is capped so one long name cannot push
+  // every other tab onto a row of its own. A tab carries no divider of its own:
+  // it draws nothing at rest, so there is no edge for a seam to separate.
   tab: {
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-xs)',
-    height: '24px',
-    margin: '3px 1px',
-    padding: '0 0 0 8px',
+    height: '30px',
+    padding: '0 0 0 10px',
     fontSize: 'inherit',
-    borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
     whiteSpace: 'nowrap' as const,
     flex: '0 1 auto',

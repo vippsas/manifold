@@ -277,37 +277,43 @@
   background: var(--accent-subtle);
 }
 
-/* Text tabs (agent and its siblings, module panels): the strip is one flat sheet
-   of chrome and each tab is a pill floating on it — the same active language the
-   icon tabs above use, so a card's header reads as one row of pills whatever it
-   holds. Nothing is drawn for a tab at rest: the strip carries no seams between
-   full-height blocks, and the tab you are in is the only filled shape in the
-   row. */
+/* Text tabs (agent and its siblings, module panels): underline tabs. The strip
+   is chrome closed by a hairline along its bottom edge, so it reads as a header
+   strip and not as a void the tabs float in; each tab fills that strip's full
+   height, flush with its neighbours, and draws no shape of its own. The tab you
+   are in is marked by its label at full contrast over a solid 2px accent line
+   along its bottom edge — the line sits exactly where the strip meets the panel,
+   so it ties the tab to the surface below it.
+   Two shapes were tried here and both failed. A tab filled edge to edge in
+   `--bg-chrome` on a gradient strip made every tab a block with a visible seam
+   between it and the strip. An inset rounded pill with a tinted fill and a 1px
+   ring read as a *button* sitting inside the tab — the language of a form
+   control, and the only outlined thing in a strip whose real buttons (`+`, `×`)
+   are flat. An idle tab therefore fills nothing at all: no fill, no seam, no
+   box. */
 .dockview-theme-manifold .dv-tabs-and-actions-container:has(.dock-tab:not(.dock-tab--icon):not(.dock-tab--headless)) {
   background: var(--bg-chrome);
-}
-
-/* Inset the strip so the first pill clears the card's rounded corner, matching
-   the icon-tab strip above. */
-.dockview-theme-manifold .dv-tabs-container:has(.dock-tab:not(.dock-tab--icon):not(.dock-tab--headless)) {
-  padding-inline: 4px;
+  /* Inset, not a border: a real border would add to the strip's fixed
+     `--chrome-tab-height` and push the tabs a pixel off the header's grid. */
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 
 /* dockview pads `.dv-tab` by `0.25rem 0.5rem` and wraps the custom tab in a
-   block-level `.dv-react-part` sized to its content. The pill is now the tab's
-   own box (see `.dock-tab` in theme.css), so this wrapper only has to get out of
-   its way: no padding of its own, and a flex box so the pill's height applies
-   (`.dv-tab` is a flex item with `height: auto`, against which a percentage
-   would resolve to auto). 1px of padding per side is all that is left, so the
-   pills sit 2px apart and a hover fill tracks the label rather than a block. */
+   block-level `.dv-react-part` sized to its content. Both have to get out of the
+   way for a tab to fill the strip: the padding goes entirely (the gap between
+   labels is `.dock-tab`'s own padding, so a hover fill and the active underline
+   span the whole tab rather than stopping 8px short of it), and the wrapper
+   stretches. Stretching takes flex boxes, not `height: 100%`: `.dv-tab` is a
+   flex item with `height: auto`, against which a percentage resolves to auto.
+   Icon tabs want the opposite — a pill inset in the strip — and are left alone. */
 .dockview-theme-manifold .dv-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless)) {
-  padding: 0 1px;
+  padding: 0;
 }
 
 .dockview-theme-manifold .dv-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless)),
 .dockview-theme-manifold .dv-tab:has(.dock-tab):not(:has(.dock-tab--icon)):not(:has(.dock-tab--headless)) > .dv-react-part {
   display: flex;
-  align-items: center;
+  align-items: stretch;
 }
 
 .dockview-theme-manifold .dv-tab:hover .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
@@ -315,18 +321,17 @@
   color: var(--text-primary);
 }
 
-/* The tab you are in: the accent-tinted pill the icon tabs and the sidebar's
-   active row already use. An unfocused group states its current tab in the
-   fainter inactive-selection tint instead, so "which agent am I in" survives
-   without competing with the focused card. */
+/* The underline marks the tab you are in; the accent metal is spent on it only
+   while the group holds focus, and an unfocused group states its tab in muted
+   grey instead. `inset` keeps the line inside the tab's box, so it lands on the
+   strip's bottom edge and needs no pseudo-element. */
 .dockview-theme-manifold .dv-active-tab .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
-  background: var(--list-inactive-bg);
-  color: var(--text-secondary);
+  box-shadow: inset 0 -2px 0 var(--text-muted);
+  color: var(--text-primary);
 }
 
 .dockview-theme-manifold .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-active-tab .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) {
-  background: var(--sidebar-active-bg);
-  box-shadow: inset 0 0 0 1px var(--sidebar-active-border);
+  box-shadow: inset 0 -2px 0 var(--accent);
   color: var(--text-primary);
 }
 
