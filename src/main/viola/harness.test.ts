@@ -19,7 +19,9 @@ function setup(options: {
   projectKind?: 'git' | 'folder'
   /** Replaces the default chat-writing worker turn (an interactive worker writes no chat). */
   workerTurn?: (sessionId: string, prompt: string) => Promise<'ended'>
-  internalSessions?: { outputBuffer: string }
+  internalSessions?: { outputBuffer: string; nonInteractive?: boolean }
+  /** Decides how each turn completes, keyed by the file it was waiting for. */
+  doneOutcome?: (path: string) => 'done' | 'timeout' | 'aborted'
 } = {}) {
   const statuses: string[] = []
   const sent: { channel: string; payload: unknown }[] = []
@@ -31,6 +33,7 @@ function setup(options: {
       worktreePath: '/wt/base',
     } : undefined)),
     getInternalSession: vi.fn(() => options.internalSessions),
+    sendInput: vi.fn(),
     setHarnessStatus: vi.fn((_sessionId: string, status: string) => statuses.push(status)),
     interruptSession: vi.fn(),
   }
@@ -48,19 +51,17 @@ function setup(options: {
     getStatus: vi.fn(),
     kill: vi.fn(),
   }
-  const controlService = {
-    runTurn: vi.fn(async (sessionId: string, prompt: string) => {
-      if (options.workerTurn) return options.workerTurn(sessionId, prompt)
-      chat.addAgentMessage(
-        sessionId,
-        prompt.startsWith('You are an independent code reviewer')
-          ? '{"passed":true,"blocking":[],"nonBlocking":["Consider a shared helper."]}'
-          : 'Added the validator and ran the gate.',
-      )
-      return 'ended' as const
-    }),
-    cancelTurn: vi.fn(),
-  }
+  // A worker's reply now arrives through the chat store as its turn runs, not from a driver call.
+  sessions.sendInput = vi.fn((sessionId: string, text: string) => {
+    if (text === '\r' || options.workerTurn) return
+    chat.addAgentMessage(
+      sessionId,
+      text.startsWith('You are an independent code reviewer')
+        ? '{"passed":true,"blocking":[],"nonBlocking":["Consider a shared helper."]}'
+        : 'Added the validator and ran the gate.',
+    )
+  })
+  const controlService = { runTurn: vi.fn(), cancelTurn: vi.fn() }
   const git = {
     head: vi.fn(async () => 'base-sha'),
     diff: vi.fn(async () => 'diff --git a/v b/v'),
@@ -69,6 +70,12 @@ function setup(options: {
     pullRequestUrl: vi.fn(async () => 'https://example.test/pr/1'),
   }
   const gates = { run: vi.fn(async () => ({ ok: true, output: '1 passed' })) }
+  // Stands in for the file a worker writes when it is genuinely finished.
+  const done = {
+    donePath: vi.fn((worktreePath: string) => `${worktreePath}/.viola/done`),
+    clear: vi.fn(async () => undefined),
+    wait: vi.fn(async (path: string) => options.doneOutcome?.(path) ?? ('done' as const)),
+  }
   const harness = new ViolaHarness(
     sessions as never,
     chat,
@@ -87,9 +94,10 @@ function setup(options: {
       store: new MemoryViolaStore(),
       git,
       gates,
+      done,
     },
   )
-  return { harness, chat, aiGenerate, spawnService, controlService, git, gates, statuses, sent, sessions }
+  return { harness, chat, aiGenerate, spawnService, controlService, git, gates, statuses, sent, sessions, done }
 }
 
 function texts(chat: ChatAdapter, sessionId: string): string[] {
@@ -180,7 +188,7 @@ describe('ViolaHarness', () => {
   it('reads an interactive worker\'s report from its terminal, stripped of escape codes', async () => {
     const noisy = '\u001b[2K\u001b[1;36m> \u001b[0mAdded the validator.\r\n'
       + '\u001b[38;5;246mRan npm test -- src/validation: 4 passed.\u001b[0m\r\n'
-    const { harness, chat, controlService, sessions } = setup({
+    const { harness, chat, sessions } = setup({
       // An interactive worker writes to its PTY, never to the chat store.
       workerTurn: async () => 'ended',
       internalSessions: { outputBuffer: noisy },
@@ -191,13 +199,53 @@ describe('ViolaHarness', () => {
     harness.send('viola-1', 'Start plan')
     await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
 
-    const reviewPrompt = controlService.runTurn.mock.calls
-      .map(([, prompt]) => prompt as string)
-      .find((prompt) => prompt.startsWith('You are an independent code reviewer'))!
+    const reviewPrompt = vi.mocked(sessions.sendInput).mock.calls
+      .map(([, text]) => text as string)
+      .find((text) => text.startsWith('You are an independent code reviewer'))!
     expect(reviewPrompt).toContain('Added the validator.')
     expect(reviewPrompt).toContain('4 passed.')
     expect(reviewPrompt).not.toContain('\u001b')
     expect(sessions.getInternalSession).toHaveBeenCalled()
+  })
+
+  it('waits for the worker\'s completion file instead of an idle-looking terminal', async () => {
+    // The bug this pins: a TUI keeps its prompt glyph on screen while it works, so the shared
+    // turn-end heuristic called a paused worker finished, and Viola reviewed an untouched tree.
+    const { harness, chat, done, sessions, git } = setup({
+      workerTurn: async () => 'ended',
+      internalSessions: { outputBuffer: 'still working, esc to interrupt' },
+      doneOutcome: (path) => (path.endsWith('/.viola/done') ? 'timeout' : 'done'),
+    })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run needs attention'))
+
+    // It waited on the implementer's marker, and reported a timeout rather than a phantom result.
+    expect(done.wait).toHaveBeenCalledWith(
+      expect.stringContaining('/.viola/done'),
+      expect.objectContaining({ timeoutMs: 30 * 60 * 1000 }),
+    )
+    expect(texts(chat, 'viola-1').at(-1)).toContain('Implementation timeout')
+    // No diff was taken and no reviewer was spawned off a turn that never finished.
+    expect(git.diff).not.toHaveBeenCalled()
+    // The stalled worker is interrupted rather than left running.
+    expect(vi.mocked(sessions.interruptSession)).toHaveBeenCalled()
+  })
+
+  it('clears a stale completion file before each turn', async () => {
+    const { harness, chat, done } = setup()
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
+
+    // Otherwise a turn inherits the previous turn's completion and returns instantly.
+    for (const [path] of done.wait.mock.calls) {
+      expect(done.clear).toHaveBeenCalledWith(path)
+    }
   })
 
   it('reports an explore task\'s answer in the summary', async () => {

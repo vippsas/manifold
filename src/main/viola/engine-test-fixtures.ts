@@ -35,13 +35,14 @@ export function setup(options: SetupOptions = {}) {
       runtimeId: spawnOptions.runtimeId,
       worktreePath: `/wt/${sessionId}`,
       whenReady: vi.fn(async () => true),
-      runTurn: vi.fn(async (prompt: string): Promise<ViolaTurn> => {
+      runTurn: vi.fn(async ({ prompt }: { prompt: string }): Promise<ViolaTurn> => {
         if (prompt.startsWith('You are an independent code reviewer')) {
           const verdict = verdicts.shift() ?? PASS
           if (options.verdictViaFile) {
             // Behave like a real reviewer: write the file it was told to write, and leave only
             // terminal noise behind, so a verdict read from output would be wrong.
-            const path = /output alone is not read:\n(.+)/.exec(prompt)?.[1]?.trim()
+            // Match the path itself, so a reworded prompt cannot silently break this fixture.
+            const path = /(\S*\/\.viola\/review-\S+\.json)/.exec(prompt)?.[1]
             if (path) verdictFiles.set(path, JSON.stringify(verdict))
             return { outcome: 'ended', response: '\u001b[2K> wrote the verdict {ok}' }
           }
@@ -62,6 +63,11 @@ export function setup(options: SetupOptions = {}) {
     pullRequestUrl: vi.fn(async (path: string) => `https://example.test${path}`),
   }
   const gates = { run: vi.fn(async () => ({ ok: true, output: '' })) }
+  const done = {
+    donePath: vi.fn((worktreePath: string) => `${worktreePath}/.viola/done`),
+    clear: vi.fn(async () => undefined),
+    wait: vi.fn(async () => 'done' as const),
+  }
   // Stands in for the files reviewers write, keyed by path exactly as the real store is.
   const verdictFiles = new Map<string, string>()
   const verdictPath = (wt: string, taskId: string): string => `${wt}/.viola/review-${taskId}.json`
@@ -80,10 +86,11 @@ export function setup(options: SetupOptions = {}) {
     gates,
     store: new MemoryViolaStore(),
     verdicts: verdicts_,
+    done,
     now: () => 100,
     ...options.deps,
   }
-  return { engine: new ViolaEngine(deps), deps, spawn, git, gates, turns, verdicts: verdicts_, verdictFiles }
+  return { engine: new ViolaEngine(deps), deps, spawn, git, gates, turns, verdicts: verdicts_, verdictFiles, done }
 }
 
 export function reviewerSpawns(spawn: ReturnType<typeof vi.fn>) {

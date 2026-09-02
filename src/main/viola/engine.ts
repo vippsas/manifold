@@ -1,5 +1,6 @@
 import type { ViolaGates } from './gates'
 import type { ViolaGit } from './git'
+import type { ViolaDoneSignal } from './done-signal'
 import type { ViolaStore } from './store'
 import type { ViolaVerdictStore } from './verdict-store'
 import { runTaskPipeline } from './task-pipeline'
@@ -11,12 +12,20 @@ export interface ViolaTurn {
   response: string
 }
 
+export interface ViolaTurnRequest {
+  prompt: string
+  /** Viola waits for this file: the worker writing it is how a turn reports being over. Reading
+   *  the terminal instead cannot be made reliable — see done-signal.ts. */
+  completionFile: string
+  signal: AbortSignal
+}
+
 export interface ViolaAgent {
   sessionId: string
   runtimeId: ViolaWorkerId
   worktreePath: string
   whenReady(timeoutMs?: number): Promise<boolean>
-  runTurn(prompt: string, signal: AbortSignal): Promise<ViolaTurn>
+  runTurn(request: ViolaTurnRequest): Promise<ViolaTurn>
 }
 
 export interface ViolaSpawnOptions {
@@ -39,6 +48,7 @@ export interface ViolaEngineDeps {
   git: ViolaGit
   gates: ViolaGates
   verdicts: ViolaVerdictStore
+  done: ViolaDoneSignal
   store: ViolaStore
   emit?: (run: ViolaRun) => void
   now?: () => number

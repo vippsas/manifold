@@ -1,6 +1,6 @@
 ---
 description: How the native Viola harness plans a goal, runs each task as its own pipeline (chat-mode worker, gates, cross-harness review), and reports progress through a live run board.
-covers: [src/main/viola, src/main/agent/runtimes.ts, src/main/agent/orchestrated-args.ts, src/shared/viola.ts, src/renderer/components/viola]
+covers: [src/main/viola, src/main/agent/runtimes.ts, src/main/agent/orchestrated-args.ts, src/main/agent/status-detector.ts, src/shared/viola.ts, src/renderer/components/viola]
 updated: 2026-09-02
 owner: see .github/CODEOWNERS
 ---
@@ -62,6 +62,25 @@ The plan appears as an ordinary assistant message with the route and gates per t
 revision is planned again and Start is the explicit execution gate
 (`src/main/viola/harness.ts:31`, `src/main/viola/engine.ts:90`).
 
+## How a turn ends
+
+Every worker turn is driven the same way (`src/main/viola/harness.ts:240`): clear the completion
+file, send the prompt, submit it if the runtime is interactive, then wait for that file to appear.
+Nothing about the terminal's appearance is consulted.
+
+- An implement, fix, gate-fix, or explore turn writes a **done marker** in its own worktree,
+  `.viola/done` (`src/main/viola/done-signal.ts:36`). Every worker prompt ends with the instruction
+  naming that exact path and says plainly that nothing else counts as finished
+  (`src/main/viola/prompts.ts:34`).
+- A **review** turn waits for the verdict file it has to write anyway
+  (`src/main/viola/task-pipeline.ts:155`). Asking for a second marker would only add a way to
+  finish and be missed.
+
+The file is cleared before each turn, so a turn can never inherit the previous turn's completion.
+The wait is bounded by the worker's 30-minute budget; a timeout interrupts the worker and fails the
+task with a timeout, which is the honest outcome — far better than reviewing work that is still in
+progress.
+
 ## Task pipelines
 
 `start` runs every task as its own pipeline and awaits them concurrently, so a finished task is
@@ -84,7 +103,15 @@ than assumed away:
   launched interactive sessions are untouched and keep prompting.
 - **A terminal has no chat messages to read.** A worker's report is the tail of its PTY, so it is
   stripped of escape codes and bounded before it reaches a prompt or a summary
-  (`src/main/viola/harness.ts:260`).
+  (`src/main/viola/harness.ts:284`).
+- **A terminal cannot say when it is finished.** `detectStatus` returns its first matching pattern
+  and Claude's first is `/❯/` — the prompt glyph its TUI keeps on screen *while it works*
+  (`src/main/agent/status-detector.ts:17`, `:92`). So the shared turn-end heuristic sees "idle"
+  almost immediately and needs only four seconds of output silence to call a turn over
+  (`src/main/plugins/agent-control-service.ts:85`). A worker pausing on a long tool call was
+  declared finished, and Viola then reviewed an untouched tree and reported "no diff to review"
+  while the worker was still going. Viola therefore does not infer completion at all: it waits for
+  a file (see below).
 
 Each spawn is verified rather than trusted. A worker that asked for a worktree but came back on
 Viola's own checkout means isolation was unavailable after all, and the task fails there, before
@@ -97,7 +124,7 @@ error (`src/main/viola/task-pipeline.ts:188`).
   (`src/main/viola/task-pipeline.ts:37`, `src/main/viola/prompts.ts:46`).
 - **Implement tasks** get a fresh managed worktree forked from the Viola session's committed
   `HEAD`, and their prompt ends with a request for a file:line report and the exact verification
-  commands (`src/main/viola/task-pipeline.ts:53`, `src/main/viola/prompts.ts:33`).
+  commands (`src/main/viola/task-pipeline.ts:53`, `src/main/viola/prompts.ts:34`).
 - **Gates** run from the worktree root through a shell with a fifteen-minute cap and a bounded
   output tail (`src/main/viola/gates.ts:13`). One red gate earns one fix turn that carries the
   command output verbatim; a gate that stays red ends in `needs_attention` without spending a
@@ -192,6 +219,9 @@ re-reviews remain explicit task errors or `needs_attention`; healthy siblings st
 - `engine.test.ts` pins the two-harness precondition, plan gate, chat-mode fan-out, per-task
   pipelining, gates before review, explore reports, worker routing, and the bounded fix loop.
 - `harness.test.ts` pins the default-model planner call, live progress lines, and the summary.
+- `done-signal.test.ts` pins the wait with real files: it resolves on the write, reports a timeout
+  rather than claiming completion, stops on abort, and ignores a stale marker. `harness.test.ts`
+  pins that a quiet worker is *not* declared finished and that each turn clears the file first.
 - `git.test.ts`, `gates.test.ts`, and `verdict-store.test.ts` run real git, real shell commands,
   and real files in temp repos, including a linked-worktree apply, the refusal to touch a main
   checkout, and the clear-before-review that prevents a stale verdict.

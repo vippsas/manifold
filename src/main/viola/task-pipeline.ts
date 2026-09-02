@@ -10,7 +10,7 @@ import {
 import type { ViolaReview, ViolaRun, ViolaTaskRun, ViolaTaskState, ViolaWorkerId } from '../../shared/viola'
 
 export interface PipelineContext {
-  deps: Pick<ViolaEngineDeps, 'spawn' | 'git' | 'gates' | 'verdicts'>
+  deps: Pick<ViolaEngineDeps, 'spawn' | 'git' | 'gates' | 'verdicts' | 'done'>
   /** Viola's own checkout, used to detect a worker that was not given its own worktree. */
   basePath: string
   now(): number
@@ -49,7 +49,7 @@ async function explore(
   // Read-only work shares Viola's own checkout instead of paying for a worktree.
   const agent = await spawnWorker(ctx, run, task, task.title, runtimeId, false)
   await setState(ctx, run, task, 'exploring')
-  task.report = await turn(agent, buildExplorePrompt(task), signal, 'Exploration')
+  task.report = await turn(ctx, agent, buildExplorePrompt(task, doneFile(ctx, agent)), signal, 'Exploration')
   mark(ctx, task, 'done')
 }
 
@@ -65,7 +65,7 @@ async function implement(
   const agent = await spawnWorker(ctx, run, task, task.title, runtimeId, true)
   const baseSha = await ctx.deps.git.head(agent.worktreePath)
   await setState(ctx, run, task, 'implementing')
-  task.report = await turn(agent, buildImplementationPrompt(task), signal, 'Implementation')
+  task.report = await turn(ctx, agent, buildImplementationPrompt(task, doneFile(ctx, agent)), signal, 'Implementation')
 
   if (!(await passGates(ctx, run, task, agent, signal))) return
 
@@ -81,7 +81,7 @@ async function implement(
   let verdict = await review(ctx, run, task, agent, reviewer, baseSha, signal)
   if (!verdict.passed && verdict.blocking.length > 0 && !signal.aborted) {
     await setState(ctx, run, task, 'fixing')
-    task.report = await turn(agent, buildFixPrompt(task, verdict.blocking), signal, 'Fix turn')
+    task.report = await turn(ctx, agent, buildFixPrompt(task, verdict.blocking, doneFile(ctx, agent)), signal, 'Fix turn')
     verdict = await review(ctx, run, task, agent, reviewer, baseSha, signal)
   }
 
@@ -113,7 +113,7 @@ async function passGates(
     if (!result.ok && !fixSpent && !signal.aborted) {
       fixSpent = true
       await setState(ctx, run, task, 'fixing')
-      task.report = await turn(agent, buildGateFixPrompt(task, command, result.output), signal, 'Gate fix turn')
+      task.report = await turn(ctx, agent, buildGateFixPrompt(task, command, result.output, doneFile(ctx, agent)), signal, 'Gate fix turn')
       await setState(ctx, run, task, 'gating')
       result = await ctx.deps.gates.run(agent.worktreePath, command, signal)
     }
@@ -144,11 +144,15 @@ async function review(
   // Clear first: a re-review that read the previous verdict would pass on stale findings.
   await ctx.deps.verdicts.clear(reviewer.worktreePath, task.id)
   const verdictPath = ctx.deps.verdicts.path(reviewer.worktreePath, task.id)
+  // The verdict file is the reviewer's completion signal: it is the artifact Viola needs anyway,
+  // so asking for a second marker would only add a way to finish and be missed.
   const response = await turn(
+    ctx,
     reviewer,
     buildReviewPrompt(task, { diff, stat, report: task.report ?? '', verdictPath }),
     signal,
     'Review',
+    verdictPath,
   )
   // The file is exact; the reply is a fallback for a reviewer that answered inline.
   const written = await ctx.deps.verdicts.read(reviewer.worktreePath, task.id)
@@ -157,6 +161,10 @@ async function review(
   task.review = parsed
   await ctx.publish(run)
   return parsed
+}
+
+function doneFile(ctx: PipelineContext, agent: ViolaAgent): string {
+  return ctx.deps.done.donePath(agent.worktreePath)
 }
 
 async function spawnWorker(
@@ -193,8 +201,17 @@ async function spawnWorker(
   return agent
 }
 
-async function turn(agent: ViolaAgent, prompt: string, signal: AbortSignal, label: string): Promise<string> {
-  const result = await agent.runTurn(prompt, signal)
+/** Runs one turn and waits for the artifact that proves it finished — the done marker, or for a
+ *  review the verdict file it has to write anyway. */
+async function turn(
+  ctx: PipelineContext,
+  agent: ViolaAgent,
+  prompt: string,
+  signal: AbortSignal,
+  label: string,
+  completionFile = ctx.deps.done.donePath(agent.worktreePath),
+): Promise<string> {
+  const result = await agent.runTurn({ prompt, completionFile, signal })
   if (result.outcome !== 'ended') throw new Error(`${label} ${result.outcome}.`)
   return result.response
 }
