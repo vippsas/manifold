@@ -23,7 +23,7 @@
      across the rounded card corners below. The sash line is the divider. */
   --dv-separator-border: transparent;
   /* The divider line lives on the sash, and holds one steady color: hovering
-     is answered by the grip dots alone. Drive it through dockview's own
+     is answered by the accent highlight below. Drive it through dockview's own
      variables rather than our own `background` — the library's
      `.dv-sash:not(.disabled):hover` rule ties ours on specificity and wins on
      source order, so a hardcoded background would survive at rest but be wiped
@@ -48,10 +48,6 @@
 /* Resize handles — with no outline around a group, the sash carries the
    structure: one 1px line per boundary (not a box per panel), centered in the
    group gap and colored by --dv-sash-color above. Widened grab zone below. */
-.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash,
-.dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-  --grip-color: var(--text-muted);
-}
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
   width: 1px;
 }
@@ -59,29 +55,38 @@
   height: 1px;
 }
 
-/* Grip dots — five subtle dots centered on the divider as a discoverable resize
-   affordance, so the gap between two cards reads as grabbable. */
-.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after,
+/* Hover/drag highlight — instead of a permanent grip ornament, the divider
+   itself lights up: the full length of the boundary turns accent under the
+   pointer and stays lit through the drag, while dockview's own `.dv-enabled`
+   rules supply the ew-/ns-resize cursor. Together they say what is grabbable
+   without leaving anything on screen at rest. */
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-sash--edge-left):not(.dv-sash--edge-right)::after,
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
   content: '';
   position: absolute;
-  top: 50%;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-premium);
+}
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-sash--edge-left):not(.dv-sash--edge-right)::after {
+  top: 0;
+  bottom: 0;
   left: 50%;
   width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--grip-color);
-  transform: translate(-50%, -50%);
-  transition: background var(--duration-normal) var(--ease-premium),
-    box-shadow var(--duration-normal) var(--ease-premium);
+  transform: translateX(-50%);
 }
-/* Vertical divider → dots stacked vertically */
-.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash::after {
-  box-shadow: 0 -12px 0 var(--grip-color), 0 -6px 0 var(--grip-color), 0 6px 0 var(--grip-color), 0 12px 0 var(--grip-color);
-}
-/* Horizontal divider → dots laid out in a row */
 .dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash::after {
-  box-shadow: -12px 0 0 var(--grip-color), -6px 0 0 var(--grip-color), 6px 0 0 var(--grip-color), 12px 0 0 var(--grip-color);
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  transform: translateY(-50%);
+}
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-sash--edge-left):not(.dv-sash--edge-right):hover::after,
+.dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-sash--edge-left):not(.dv-sash--edge-right):active::after,
+.dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash:hover::after,
+.dockview-theme-manifold .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash:active::after {
+  opacity: 1;
 }
 
 /* Widen the invisible grab area to 12px centered on the line for an easy drag target */
@@ -130,15 +135,15 @@
   border-left: 1px solid var(--border);
 }
 
-/* Swap the faint grip dots for a single inward-pointing chevron on the collapsed
-   rail, so it clearly reads as "reopen this sidebar" rather than a vanished line. */
+/* A single inward-pointing chevron on the collapsed rail, so it clearly reads as
+   "reopen this sidebar" rather than a vanished line. */
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-left::after,
 .dockview-theme-manifold .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash.dv-sash--edge-right::after {
+  content: '';
+  position: absolute;
+  top: 50%;
   width: 6px;
   height: 6px;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
   border-top: 1.5px solid var(--text-secondary);
   border-right: 1.5px solid var(--text-secondary);
   transition: border-color var(--duration-normal) var(--ease-premium);
@@ -166,12 +171,6 @@
 .dockview-theme-manifold .dv-tab {
   font-family: inherit;
   font-size: inherit;
-}
-
-/* Sash hover — brighten the grip dots to the accent metal. The collapsed-edge
-   rails keep their chevron affordance instead. */
-.dockview-theme-manifold .dv-sash:hover:not(.dv-sash--edge-left):not(.dv-sash--edge-right)::after {
-  --grip-color: var(--accent);
 }
 
 /* dockview only draws a sash between two views, so a resizable divider always
