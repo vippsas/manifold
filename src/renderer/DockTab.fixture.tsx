@@ -71,7 +71,6 @@ function Fixture(): React.JSX.Element {
             <div style={{ height: 60 }} />
           </div>
           <style>{`
-            .force-hover .dock-tab__action { opacity: 1 }
             .dockview-theme-manifold .dv-tab.force-hover .dock-tab:not(.dock-tab--icon):not(.dock-tab--headless) { background: var(--list-hover-bg); color: var(--text-primary) }
           `}</style>
         </div>

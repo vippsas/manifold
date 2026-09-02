@@ -552,9 +552,10 @@ select:focus-visible {
   justify-content: center;
 }
 
-/* Each agent tab has one overflow action. It stays hidden until the tab is
-   hovered or holds the keyboard, so the strip reads as agent names rather than
-   a row of controls. The group header's × (hide) remains separate. */
+/* Each agent tab's controls — the overflow action and the cost coin — stay
+   visible at rest. They were revealed on hover/focus so the strip read as agent
+   names, but that hid the affordances from anyone not already reaching for them.
+   The group header's × (hide) remains separate. */
 .dock-tab__action {
   display: inline-flex;
   align-items: center;
@@ -567,13 +568,7 @@ select:focus-visible {
   border-radius: var(--radius-xs);
   color: var(--text-muted);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 150ms ease, background 150ms ease, color 150ms ease;
-}
-
-.dock-tab:hover .dock-tab__action,
-.dock-tab:focus-within .dock-tab__action {
-  opacity: 1;
+  transition: background 150ms ease, color 150ms ease;
 }
 
 .dock-tab__action:hover {
@@ -583,8 +578,13 @@ select:focus-visible {
 
 .dock-tab__action:focus-visible {
   outline: none;
-  opacity: 1;
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
+}
+
+/* The cost coin reads the same as the action glyphs but does nothing on click —
+   it is an affordance for its tooltip, so it keeps the arrow cursor. */
+.dock-tab__usage {
+  cursor: default;
 }
 
 /* An editor pane's own actions sit at the right of its file tabs. They were a

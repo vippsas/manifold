@@ -26,6 +26,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'agent:sessions',
   'agent:resume',
   'agent:replay',
+  'agent:session-usage',
   'files:tree',
   'files:tree-dir',
   'files:tree-by-project',
