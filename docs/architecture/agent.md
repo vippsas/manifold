@@ -48,8 +48,10 @@ at least two of Claude, Codex, Copilot, and Gemini are installed, preserving cro
 1. *Interactive* (the persistent TUI) — there is no builder here; `SessionCreator` starts from
    `runtime.args` and appends the helper flags below, then spawns directly
    (`session-creator.ts:110`).
-2. *Print mode / chat* — `buildSimpleRuntimeCommand(runtimeId, prompt, additionalDirs)`
-   (`simple-runtime.ts:18`).
+2. *Print mode / chat* — `buildSimpleRuntimeCommand(runtimeId, prompt, additionalDirs, options?)`
+   (`simple-runtime.ts:40`). With `options.guarded` (a Viola worker, see [viola](viola.md)) the
+   Claude shape also gets `--settings` carrying the catastrophic-command `permissions.deny` list
+   (`simple-runtime.ts:14`, `:51`); Claude enforces deny rules even under bypassPermissions.
    Claude gets `--permission-mode bypassPermissions -p <prompt> --output-format stream-json --verbose`
    (`outputMode: 'claude-stream-json'`); Codex gets `exec --dangerously-bypass-approvals-and-sandbox
    --json <prompt>` (`'codex-jsonl'`); everything else gets `-p <prompt>` (`'plain-text'`). A
@@ -106,7 +108,7 @@ rebuilt on every chunk (#511). Anything with no match is `'running'`.
 - `AgentRuntime` — `src/shared/types.ts:1`. `{ id, name, binary, kind?, args?, aiModelArgs?, waitingPattern?, env?, installed?, needsModel? }`.
 - `getRuntimeById(id)` — `runtimes.ts:63`. The universal resolver; consumers across `session`, `git`, `search`, `memory`, `plugins` start here.
 - `PtyPool` — `pty-pool.ts:17`. Instantiated once in `src/main/app/index.ts:57`; handed to the session manager and dev-server manager.
-- `buildSimpleRuntimeCommand(runtimeId, prompt, additionalDirs?)` — `simple-runtime.ts:18`. Print-mode args (working-set flags included) + `SimpleRuntimeOutputMode`.
+- `buildSimpleRuntimeCommand(runtimeId, prompt, additionalDirs?, options?)` — `simple-runtime.ts:40`. Print-mode args (working-set flags included, deny list when `guarded`) + `SimpleRuntimeOutputMode`.
 - `buildAiRuntimeCommand(runtime, prompt, extraArgs)` — `ai-runtime-command.ts:20`. One-shot helper command; pair with `parseAiRuntimeOutput`/`parseAiRuntimeFailure`.
 - `claudeAnsiThemeArgs(themeType)` / `buildWorkingSetArgs(runtimeId, dirs)` — `claude-theme-args.ts:9` / `working-set-args.ts:6`. Interactive arg adornments.
 - `detectStatus(output, runtimeId)` — `status-detector.ts:85`. Output → `AgentStatus`.

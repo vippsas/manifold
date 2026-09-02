@@ -19,6 +19,8 @@ export interface WorktreeMeta {
   /** projectId -> worktree path for the workspace agent's full working set (for teardown). */
   workspaceWorktreePaths?: Record<string, string>
   nonInteractive?: boolean
+  /** The orchestrating session (Viola) that spawned this worker, if any. */
+  orchestratedBy?: string
   /** Codex's local thread id when a JSONL stream exposes it; used to locate Codex rollouts. */
   codexThreadId?: string
   /** Legacy field retained so older worktree metadata remains readable. */

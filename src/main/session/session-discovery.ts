@@ -129,6 +129,7 @@ export class SessionDiscovery {
           workspaceId: meta?.workspaceId,
           workspaceWorktreePaths: meta?.workspaceWorktreePaths,
           nonInteractive: legacyViola ? true : meta?.nonInteractive,
+          orchestratedBy: meta?.orchestratedBy,
           codexThreadId: meta?.codexThreadId,
           locked: meta?.locked,
         }

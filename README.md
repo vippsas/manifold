@@ -181,11 +181,14 @@ Agent states shown in the UI: `running` (actively working), `waiting` (paused fo
 Choose **Viola** from the ordinary **New agent** screen when a goal can be split into
 independent, PR-sized tasks. It opens as a normal agent tab, proposes a plan, and waits for
 approval. Enter the goal as a normal chat message, then choose **Start plan** or **Revise plan**
-in Viola's reply. Once started, each task runs concurrently in
-its own managed worktree on one of the installed Claude, Codex, Copilot, or Gemini runtimes.
-A different runtime then reviews only the task contract and diff; one blocking-review fix round
-goes back to the original implementer. Viola never merges, and it needs at least two of
-those runtime binaries installed to preserve independent review.
+in Viola's reply. The plan tags each task as an implement task or a read-only explore task and
+lists the gate commands that must pass. Once started, every task runs as its own pipeline:
+an implement task gets a managed worktree on one of the installed Claude, Codex, Copilot, or
+Gemini runtimes, its gates run before any review, and a different runtime then reviews the
+contract and diff from a scratch worktree with the diff applied. One red-gate fix and one
+blocking-review fix go back to the original implementer; explore tasks simply report back.
+Viola narrates each step in its chat, never merges, and needs at least two of those runtime
+binaries installed to preserve independent review.
 
 ## Automated Loop
 

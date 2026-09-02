@@ -60,6 +60,7 @@ export function createAgentSpawnService(sm: SessionAccess, options: AgentSpawnSe
     runtimeId?: string
     newWorktree?: boolean
     nonInteractive?: boolean
+    orchestratedBy?: string
   }): Promise<{ sessionId: string; runtimeId: string; worktreePath: string }> {
     const base = sm.getSession(baseSessionId)
     if (!base) throw new Error(`no session ${baseSessionId}`)
@@ -72,6 +73,7 @@ export function createAgentSpawnService(sm: SessionAccess, options: AgentSpawnSe
       ...(opts.newWorktree ? { baseBranch: baseRef } : {}),
       groupId: opts.groupId,
       ...(opts.nonInteractive !== undefined ? { nonInteractive: opts.nonInteractive } : {}),
+      ...(opts.orchestratedBy ? { orchestratedBy: opts.orchestratedBy } : {}),
     })
     return {
       sessionId: sibling.id,
@@ -86,7 +88,8 @@ export function createAgentSpawnService(sm: SessionAccess, options: AgentSpawnSe
       return { sessionId: child.sessionId }
     },
     async spawnAgent(baseSessionId, opts) {
-      return spawn(baseSessionId, opts)
+      // Core orchestration marks its workers so their chat turns run guarded.
+      return spawn(baseSessionId, { ...opts, orchestratedBy: baseSessionId })
     },
     sendText(sessionId, text) {
       sm.sendInput(sessionId, text)

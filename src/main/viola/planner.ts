@@ -1,70 +1,6 @@
+import { MAX_TASKS } from './prompts'
 import type { ViolaPlan, ViolaReview, ViolaTaskPlan, ViolaWorkerId } from './types'
-
-const MAX_TASKS = 4
-
-export function buildPlanPrompt(goal: string, runtimes: ViolaWorkerId[]): string {
-  return `You are the planning brain inside Manifold Viola, a coding orchestrator that writes no code itself.
-
-Goal:
-${goal}
-
-Available worker harnesses: ${runtimes.join(', ')}.
-
-Return JSON only with this shape:
-{"summary":"one sentence","tasks":[{"title":"short task label","description":"standalone implementation task","acceptance":["verifiable condition"]}]}
-
-Rules:
-- Return 1-${MAX_TASKS} tasks.
-- Workers run in parallel in isolated worktrees. Tasks must not depend on each other or edit the same files.
-- Delegate investigation and implementation; Viola itself does not write code.
-- If the goal cannot be split safely, return one task.
-- Each description must stand alone.
-- Acceptance conditions must be concrete and testable.
-- Do not include markdown fences or commentary.`
-}
-
-export function buildReviewPrompt(task: ViolaTaskPlan, diff: string): string {
-  const boundedDiff = diff.length > 80_000
-    ? `${diff.slice(0, 80_000)}\n\n[diff truncated by Viola]`
-    : diff
-  return `You are an independent code reviewer. Review only the supplied diff against the task contract. Do not edit files.
-
-Task: ${task.description}
-Acceptance:
-${task.acceptance.map((item) => `- ${item}`).join('\n')}
-
-Diff:
-${boundedDiff}
-
-Return JSON only:
-{"passed":true,"blocking":[],"nonBlocking":[]}
-
-Set passed=false for correctness, security, regression, missing-test, or unmet-acceptance issues. Blocking findings must be concrete and actionable.`
-}
-
-export function buildImplementationPrompt(task: ViolaTaskPlan): string {
-  return `IMPLEMENT this scoped task in your current Manifold-managed worktree.
-
-Task: ${task.description}
-
-Acceptance contract:
-${task.acceptance.map((item) => `- ${item}`).join('\n')}
-
-Stay within this task. Add or update tests, run the relevant gates, and inspect the result. Commit the finished change. If GitHub CLI authentication and a remote are available, push the branch and open a pull request. Never merge. Report what changed and the exact verification commands.`
-}
-
-export function buildFixPrompt(task: ViolaTaskPlan, blocking: string[]): string {
-  return `The independent reviewer found blocking issues in your implementation.
-
-Original task: ${task.description}
-Acceptance contract:
-${task.acceptance.map((item) => `- ${item}`).join('\n')}
-
-Fix every blocking issue:
-${blocking.map((item) => `- ${item}`).join('\n')}
-
-Keep the fix scoped, rerun the relevant gates, and update the existing commit or PR. Never merge.`
-}
+import { isViolaTaskPurpose, isViolaWorker } from './types'
 
 export function parsePlanResponse(text: string): ViolaPlan | { error: string } {
   const parsed = parseJsonObject(text)
@@ -84,12 +20,22 @@ export function parsePlanResponse(text: string): ViolaPlan | { error: string } {
     if (!title || !description || acceptance.length === 0) {
       return { error: 'Every task needs a title, description, and at least one acceptance condition.' }
     }
+    const purpose = stringValue(raw.purpose) || 'implement'
+    if (!isViolaTaskPurpose(purpose)) return { error: `Task "${title}" has an unknown purpose "${purpose}".` }
     let id = slug(title) || `task-${tasks.length + 1}`
     const base = id
     let suffix = 2
     while (used.has(id)) id = `${base}-${suffix++}`
     used.add(id)
-    tasks.push({ id, title, description, acceptance })
+    tasks.push({
+      id,
+      title,
+      description,
+      acceptance,
+      purpose,
+      ...(workerValue(raw.worker) ? { worker: workerValue(raw.worker) } : {}),
+      gates: purpose === 'implement' ? stringArray(raw.gates) : [],
+    })
   }
   return { summary: summary || `${tasks.length} scoped task${tasks.length === 1 ? '' : 's'}`, tasks }
 }
@@ -127,6 +73,11 @@ function stringValue(value: unknown): string {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map(stringValue).filter(Boolean) : []
+}
+
+function workerValue(value: unknown): ViolaWorkerId | undefined {
+  const worker = stringValue(value)
+  return isViolaWorker(worker) ? worker : undefined
 }
 
 function slug(value: string): string {

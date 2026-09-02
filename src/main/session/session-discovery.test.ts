@@ -79,3 +79,13 @@ describe('SessionDiscovery session-id stability', () => {
     })
   })
 })
+
+describe('SessionDiscovery orchestrated workers', () => {
+  it('restores the orchestrating session from worktree meta', async () => {
+    const { discovery, sessions } = deps({ runtimeId: 'claude', nonInteractive: true, orchestratedBy: 'viola-1' })
+
+    await discovery.discoverSessionsForProject('p1')
+
+    expect(Array.from(sessions.values())[0].orchestratedBy).toBe('viola-1')
+  })
+})

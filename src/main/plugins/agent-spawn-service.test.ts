@@ -51,6 +51,7 @@ describe('createAgentSpawnService', () => {
     expect(sm.createSession).toHaveBeenCalledWith({
       projectId: 'p1', runtimeId: 'codex', prompt: 'fix-auth',
       existingWorktreePath: undefined, baseBranch: 'base-sha', groupId: undefined, nonInteractive: true,
+      orchestratedBy: 'base-1',
     })
     expect(resolveHead).toHaveBeenCalledWith('/wt/base')
   })

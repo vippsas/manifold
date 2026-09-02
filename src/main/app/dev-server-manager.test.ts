@@ -3,6 +3,8 @@ import { DevServerManager } from './dev-server-manager'
 import { SessionKiller } from '../session/session-killer'
 import type { InternalSession } from '../session/session-types'
 
+vi.mock('../agent/agent-env', () => ({ agentSpawnEnv: vi.fn(() => undefined) }))
+
 function makeSession(over: Partial<InternalSession> = {}): InternalSession {
   return {
     id: 'old', projectId: 'p1', runtimeId: 'claude', branchName: 'main',
@@ -106,5 +108,42 @@ describe('DevServerManager — session eviction', () => {
     expect(killSession).toHaveBeenCalledWith('mine')
     expect(killSession).not.toHaveBeenCalledWith('other')
     expect(sessions.has('other')).toBe(true)
+  })
+})
+
+describe('DevServerManager — print-mode follow-up', () => {
+  function follow(session: InternalSession) {
+    const ptyPool = {
+      spawn: vi.fn(() => ({ id: 'pty-turn', pid: 7 })),
+      onData: vi.fn(),
+      onExit: vi.fn(),
+      kill: vi.fn(),
+    }
+    const streamWirer = { wireOutputStreaming: vi.fn(), wireStreamJsonOutput: vi.fn(), wirePrintModeExitHandling: vi.fn() }
+    const manager = new DevServerManager(
+      ptyPool as never,
+      () => ({ getMessages: vi.fn(() => []) }) as never,
+      new Map([[session.id, session]]),
+      {} as never,
+      vi.fn(),
+      streamWirer as never,
+      vi.fn(),
+    )
+    manager.spawnPrintModeFollowUp(session, 'go')
+    return ptyPool.spawn.mock.calls[0] as unknown as [string, string[]]
+  }
+
+  it('guards a Viola worker\'s Claude turn with the catastrophic-command deny list', () => {
+    const [binary, args] = follow(makeSession({
+      runtimeId: 'claude', nonInteractive: true, orchestratedBy: 'viola-1', worktreePath: '/wt/fix-auth',
+    }))
+    expect(binary).toBe('claude')
+    expect(args).toContain('--settings')
+    expect(args[args.indexOf('--settings') + 1]).toContain('Bash(gh pr merge*)')
+  })
+
+  it('leaves an ordinary chat session\'s Claude turn unguarded', () => {
+    const [, args] = follow(makeSession({ runtimeId: 'claude', nonInteractive: true, worktreePath: '/wt/chat' }))
+    expect(args).not.toContain('--settings')
   })
 })

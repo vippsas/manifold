@@ -3,6 +3,28 @@ import { buildWorkingSetArgs } from './working-set-args'
 
 export type SimpleRuntimeOutputMode = 'claude-stream-json' | 'codex-jsonl' | 'plain-text'
 
+export interface SimpleRuntimeCommandOptions {
+  /** Orchestrated (Viola) worker: deny the catastrophic command set. Claude enforces
+   *  `permissions.deny` in every mode, including bypassPermissions; other CLIs have no
+   *  equivalent hook, so they stay prompt-guarded only. */
+  guarded?: boolean
+}
+
+/** Bash rules are prefix matches with `*` wildcards, so each spelling needs its own rule. */
+export const ORCHESTRATED_WORKER_DENY_RULES: readonly string[] = [
+  'Bash(git push*--force*)',
+  'Bash(git push* -f*)',
+  'Bash(git push*--delete*)',
+  'Bash(git push*--mirror*)',
+  'Bash(git reset --hard*origin/*)',
+  'Bash(rm -rf /*)',
+  'Bash(rm -fr /*)',
+  'Bash(rm -rf ~*)',
+  'Bash(rm -fr ~*)',
+  'Bash(rm -rf $HOME*)',
+  'Bash(gh pr merge*)',
+]
+
 export interface SimpleRuntimeCommand {
   binary: string
   args: string[]
@@ -19,12 +41,16 @@ export function buildSimpleRuntimeCommand(
   runtimeId: string,
   prompt: string,
   additionalDirs: string[] = [],
+  options: SimpleRuntimeCommandOptions = {},
 ): SimpleRuntimeCommand {
   const runtime = getRuntimeById(runtimeId)
   if (!runtime) throw new Error(`Runtime not found: ${runtimeId}`)
 
   const baseArgs = [...(runtime.args ?? [])]
   const workingSet = buildWorkingSetArgs(runtimeId, additionalDirs)
+  const guard = options.guarded && runtimeId === 'claude'
+    ? ['--settings', JSON.stringify({ permissions: { deny: ORCHESTRATED_WORKER_DENY_RULES } })]
+    : []
 
   switch (runtimeId) {
     case 'claude':
@@ -33,6 +59,7 @@ export function buildSimpleRuntimeCommand(
         args: [
           ...baseArgs,
           '--permission-mode', 'bypassPermissions',
+          ...guard,
           ...workingSet,
           '-p', prompt,
           '--output-format', 'stream-json',
