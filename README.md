@@ -187,8 +187,10 @@ an implement task gets a managed worktree on one of the installed Claude, Codex,
 Gemini runtimes, its gates run before any review, and a different runtime then reviews the
 contract and diff from a scratch worktree with the diff applied. One red-gate fix and one
 blocking-review fix go back to the original implementer; explore tasks simply report back.
-Viola narrates each step in its chat, never merges, and needs at least two of those runtime
-binaries installed to preserve independent review.
+Viola narrates each step in its chat and never merges. It needs at least two of those runtime
+binaries installed to preserve independent review, and it needs a repository added as a git
+project: a plain folder is worked in place, which leaves no way to isolate a task or review it
+independently.
 
 ## Automated Loop
 

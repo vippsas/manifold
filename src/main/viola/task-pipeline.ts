@@ -11,6 +11,8 @@ import type { ViolaReview, ViolaRun, ViolaTaskRun, ViolaTaskState, ViolaWorkerId
 
 export interface PipelineContext {
   deps: Pick<ViolaEngineDeps, 'spawn' | 'git' | 'gates'>
+  /** Viola's own checkout, used to detect a worker that was not given its own worktree. */
+  basePath: string
   publish(run: ViolaRun): Promise<void>
 }
 
@@ -159,6 +161,16 @@ async function spawnWorker(
   newWorktree: boolean,
 ): Promise<ViolaAgent> {
   const agent = await ctx.deps.spawn(run.baseSessionId, { title, runtimeId, newWorktree, nonInteractive: true })
+  // A project added as a plain folder always works in place, so it hands back Viola's own
+  // checkout however loudly we ask for a worktree. Every implement guarantee depends on the
+  // isolation, and reviewing there would reset a real working copy, so stop before any work.
+  if (newWorktree && agent.worktreePath === ctx.basePath) {
+    throw new Error(
+      `Manifold gave "${title}" no isolated worktree: it shares Viola's own checkout (${agent.worktreePath}). `
+      + 'A repository added as a plain folder always works in place. Re-add it as a git project so Viola '
+      + 'can isolate each task and review it independently.',
+    )
+  }
   if (title === task.title) {
     task.sessionId = agent.sessionId
     task.worktreePath = agent.worktreePath

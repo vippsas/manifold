@@ -52,6 +52,8 @@ function setup(options: SetupOptions = {}) {
   const gates = { run: vi.fn(async () => ({ ok: true, output: '' })) }
   const deps: ViolaEngineDeps = {
     availableRuntimes: vi.fn(async () => ['claude', 'codex']),
+    baseWorktreePath: vi.fn(async () => '/wt/base'),
+    supportsIsolatedWorktrees: vi.fn(async () => true),
     plan: vi.fn(async () => PLAN),
     spawn,
     git,
@@ -73,6 +75,12 @@ describe('ViolaEngine', () => {
   it('requires two installed harnesses before it plans', async () => {
     const { engine, deps } = setup({ deps: { availableRuntimes: vi.fn(async () => ['claude']) } })
     await expect(engine.plan('viola-1', 'Fix it')).rejects.toThrow(/at least two/i)
+    expect(deps.plan).not.toHaveBeenCalled()
+  })
+
+  it('refuses to plan when the project cannot host isolated worktrees', async () => {
+    const { engine, deps } = setup({ deps: { supportsIsolatedWorktrees: vi.fn(async () => false) } })
+    await expect(engine.plan('viola-1', 'Fix it')).rejects.toThrow(/isolated worktree/i)
     expect(deps.plan).not.toHaveBeenCalled()
   })
 
@@ -248,6 +256,48 @@ describe('ViolaEngine', () => {
     for (const task of result.tasks) {
       expect(task).toMatchObject({ state: 'error', error: expect.stringContaining('worktree quota exceeded') })
     }
+  })
+
+  it('fails an implement task when the spawn shares Viola\'s own checkout instead of isolating it', async () => {
+    const { engine, spawn, git } = setup()
+    // A `kind: 'folder'` project ignores newWorktree and hands back the project directory.
+    spawn.mockImplementation(async (_base: string, options: { runtimeId: ViolaWorkerId }) => ({
+      sessionId: `${options.runtimeId}-shared`,
+      runtimeId: options.runtimeId,
+      worktreePath: '/wt/base',
+      whenReady: async () => true,
+      runTurn: vi.fn(async () => ({ outcome: 'ended' as const, response: 'Implemented.' })),
+    }))
+    await engine.plan('viola-1', 'Fix it')
+    const result = await engine.start('viola-1')
+
+    expect(result.state).toBe('needs_attention')
+    for (const task of result.tasks) {
+      expect(task).toMatchObject({ state: 'error', error: expect.stringMatching(/isolated worktree/i) })
+    }
+    // Nothing ran in the shared checkout: no turn, no gates, and above all no destructive apply.
+    expect(git.apply).not.toHaveBeenCalled()
+    expect(spawn).toHaveBeenCalledTimes(2)
+  })
+
+  it('still lets a read-only explore task share Viola\'s checkout', async () => {
+    const explore: ViolaPlan = {
+      summary: 'Investigate',
+      tasks: [{ id: 'flake', title: 'Flake', description: 'Why?', acceptance: ['Cause named'], purpose: 'explore', gates: [] }],
+    }
+    const { engine, spawn } = setup({ deps: { plan: vi.fn(async () => explore) } })
+    spawn.mockImplementation(async (_base: string, options: { runtimeId: ViolaWorkerId }) => ({
+      sessionId: 'explorer',
+      runtimeId: options.runtimeId,
+      worktreePath: '/wt/base',
+      whenReady: async () => true,
+      runTurn: vi.fn(async () => ({ outcome: 'ended' as const, response: 'It retries twice.' })),
+    }))
+    await engine.plan('viola-1', 'Why?')
+    const result = await engine.start('viola-1')
+
+    expect(result.state).toBe('complete')
+    expect(result.tasks[0]).toMatchObject({ state: 'done', report: 'It retries twice.' })
   })
 
   it('fails a task whose worker never becomes ready', async () => {

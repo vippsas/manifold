@@ -27,6 +27,10 @@ export interface ViolaSpawnOptions {
 
 export interface ViolaEngineDeps {
   availableRuntimes(): Promise<ViolaWorkerId[]>
+  /** The orchestrator's own checkout. A worker that lands here was not isolated. */
+  baseWorktreePath(baseSessionId: string): Promise<string>
+  /** Whether this project gets managed worktrees at all. Folder projects always work in place. */
+  supportsIsolatedWorktrees(baseSessionId: string): Promise<boolean>
   plan(sessionId: string, goal: string, runtimes: ViolaWorkerId[]): Promise<ViolaPlan>
   spawn(baseSessionId: string, options: ViolaSpawnOptions): Promise<ViolaAgent>
   git: ViolaGit
@@ -66,6 +70,13 @@ export class ViolaEngine {
     const cleanedGoal = goal.trim()
     if (!cleanedGoal) throw new Error('Describe the goal before asking Viola to plan it.')
 
+    if (!(await this.deps.supportsIsolatedWorktrees(baseSessionId))) {
+      throw new Error(
+        'this project cannot host an isolated worktree, because it was added as a plain folder and every '
+        + 'agent works directly in it. Viola needs one worktree per task to keep tasks apart and to review '
+        + 'each diff independently. Re-add the repository as a git project and Viola will work.',
+      )
+    }
     const availableRuntimes = await this.deps.availableRuntimes()
     if (availableRuntimes.length < 2) {
       throw new Error('Viola needs at least two installed worker harnesses for independent review.')
@@ -97,8 +108,12 @@ export class ViolaEngine {
     this.aborts.set(baseSessionId, abort)
     await this.publish(run)
 
-    const context = { deps: this.deps, publish: (current: ViolaRun) => this.publish(current) }
     try {
+      const context = {
+        deps: this.deps,
+        basePath: await this.deps.baseWorktreePath(baseSessionId),
+        publish: (current: ViolaRun) => this.publish(current),
+      }
       await Promise.all(run.tasks.map((task, index) => (
         runTaskPipeline(context, run, task, this.assignWorker(run, task, index), abort.signal)
       )))

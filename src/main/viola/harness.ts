@@ -1,4 +1,5 @@
-import type { AgentRuntime } from '../../shared/types'
+import type { AgentRuntime, Project } from '../../shared/types'
+import { isGitProject } from '../../shared/project-kind'
 import { getRuntimeById, listRuntimesWithStatus } from '../agent/runtimes'
 import type { ChatAdapter } from '../agent/chat-adapter'
 import type { GitOperationsManager } from '../git/git-operations'
@@ -20,6 +21,8 @@ type GitAi = Pick<GitOperationsManager, 'aiGenerate'>
 export interface ViolaHarnessOptions {
   storageRoot: string
   getPreferredRuntime(): string
+  /** Resolves the session's project so Viola can refuse a folder project up front. */
+  getProject?: (projectId: string) => Pick<Project, 'kind'> | undefined | null
   listRuntimes?: () => Promise<AgentRuntime[]>
   spawnService?: NativeAgentSpawnService
   controlService?: AgentControlService
@@ -54,6 +57,12 @@ export class ViolaHarness implements ViolaHarnessController {
 
     this.engine = new ViolaEngine({
       availableRuntimes: () => this.availableWorkers(),
+      baseWorktreePath: async (sessionId) => this.requireSession(sessionId).worktreePath,
+      supportsIsolatedWorktrees: async (sessionId) => {
+        const lookup = options.getProject
+        if (!lookup) return true
+        return isGitProject(lookup(this.requireSession(sessionId).projectId))
+      },
       plan: async (sessionId, goal, runtimes) => {
         const session = this.requireSession(sessionId)
         const brain = this.resolveBrain(options.getPreferredRuntime(), runtimes)

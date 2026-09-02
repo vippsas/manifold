@@ -21,9 +21,18 @@ before review, cross-harness review, and the bounded fix loop are enforced in co
 
 ## Availability and creation
 
+Viola has two preconditions, and both are enforced before any model call.
+
 The supported worker harnesses are Claude, Codex, Copilot, and Gemini. Runtime discovery marks
 Viola available only when at least two of those binaries are installed, because one harness
-cannot independently review its own work (`src/main/agent/runtimes.ts:93`). Selecting Viola
+cannot independently review its own work (`src/main/agent/runtimes.ts:93`).
+
+The project must also be able to host managed worktrees. A project added as a plain folder
+(`kind: 'folder'`) always works in place: `SessionCreator` treats it as `noWorktree` and hands
+every agent the project directory itself, whatever `newWorktree` asked for
+(`src/main/session/session-creator.ts:41`, `:55`). Viola's guarantees all rest on isolation, so
+it refuses to plan for such a project and says to re-add it as a git project
+(`src/main/viola/engine.ts:73`). Selecting Viola
 creates a normal session with `runtimeId: 'viola'` and chat mode. `SessionCreator` recognizes
 the orchestrator kind, creates no PTY, and leaves the session waiting for its first goal
 (`src/main/session/session-creator.ts:37`, `:126`).
@@ -62,11 +71,16 @@ installed; otherwise tasks rotate through the available harnesses
 (`src/main/viola/engine.ts:127`).
 
 Every worker is a **chat-mode** Manifold session (`nonInteractive: true`,
-`src/main/viola/task-pipeline.ts:161`). Chat mode runs each turn as a print-mode process with
+`src/main/viola/task-pipeline.ts:163`). Chat mode runs each turn as a print-mode process with
 the CLI's own approval bypass, so no permission or folder-trust prompt can stall a headless
 worker, the turn ends when the process exits, and the worker's final message is its report
-(`src/main/viola/harness.ts:207`). A worker that is not ready within 30 seconds, or a reviewer
-whose spawn fails, ends the task with that underlying error (`src/main/viola/task-pipeline.ts:153`).
+(`src/main/viola/harness.ts:216`).
+
+Each spawn is verified rather than trusted. A worker that asked for a worktree but came back on
+Viola's own checkout means isolation was unavailable after all, and the task fails there, before
+any turn, gate, or review runs (`src/main/viola/task-pipeline.ts:167`). A worker that is not
+ready within 30 seconds, or a reviewer whose spawn fails, ends the task with that underlying
+error (`src/main/viola/task-pipeline.ts:179`).
 
 - **Explore tasks** share Viola's own checkout (`newWorktree: false`), receive a read-only prompt,
   and are done when their report returns; no reviewer is involved
@@ -81,7 +95,9 @@ whose spawn fails, ends the task with that underlying error (`src/main/viola/tas
 - **Review** spawns a reviewer on a different harness in its own fresh worktree. Viola resets
   that scratch worktree to `HEAD` and applies the implementer's diff onto it, so the reviewer can
   read surrounding files and run the gates itself (`src/main/viola/git.ts:34`,
-  `src/main/viola/task-pipeline.ts:139`). The prompt carries the diff stat, the implementer's
+  `src/main/viola/task-pipeline.ts:141`). Because that reset and clean are destructive, `apply`
+  first proves the target is a linked worktree and refuses a main checkout, which is somebody's
+  real working copy (`src/main/viola/git.ts:54`). The prompt carries the diff stat, the implementer's
   report labelled as unverified claims, and the inline diff only below 60k characters; above
   that it tells the reviewer to run `git diff` locally rather than truncating silently
   (`src/main/viola/prompts.ts:5`, `:57`). A blocking verdict is sent once to the original
@@ -130,6 +146,8 @@ re-reviews remain explicit task errors or `needs_attention`; healthy siblings st
 - `engine.test.ts` pins the two-harness precondition, plan gate, chat-mode fan-out, per-task
   pipelining, gates before review, explore reports, worker routing, and the bounded fix loop.
 - `harness.test.ts` pins the default-model planner call, live progress lines, and the summary.
-- `git.test.ts` and `gates.test.ts` run real git and real shell commands in temp repos.
+- `git.test.ts` and `gates.test.ts` run real git and real shell commands in temp repos, including
+  a linked-worktree apply and the refusal to touch a main checkout.
+- `engine.test.ts` and `harness.test.ts` pin both preconditions and the non-isolated-spawn abort.
 - Session, renderer, and chooser tests pin native runtime creation, harness routing,
   `orchestratedBy` persistence, and the guarded Claude turn.

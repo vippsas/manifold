@@ -9,7 +9,7 @@ export interface ViolaGit {
   diff(worktreePath: string, baseSha: string): Promise<string>
   diffStat(worktreePath: string, baseSha: string): Promise<string>
   /** Resets a Viola-owned scratch worktree to HEAD, then applies `diff` as uncommitted changes.
-   *  Only ever pointed at reviewer worktrees Viola created itself. */
+   *  Rejects any path that is not a linked worktree, so a shared main checkout is never reset. */
   apply(worktreePath: string, diff: string): Promise<void>
   pullRequestUrl(worktreePath: string): Promise<string | undefined>
 }
@@ -32,6 +32,7 @@ export function createViolaGit(): ViolaGit {
       return stdout
     },
     async apply(worktreePath, diff) {
+      await assertLinkedWorktree(worktreePath)
       await exec('git', ['reset', '--hard', '--quiet'], { cwd: worktreePath })
       await exec('git', ['clean', '-fdq'], { cwd: worktreePath })
       await gitWithStdin(worktreePath, ['apply', '--binary', '--whitespace=nowarn'], diff)
@@ -44,6 +45,24 @@ export function createViolaGit(): ViolaGit {
         return undefined
       }
     },
+  }
+}
+
+/** `apply` resets and cleans its target, so it must only ever run on a linked worktree Viola
+ *  created for a review. A main checkout is somebody's real working copy — for a project added
+ *  as a plain folder every agent shares it, and resetting it would destroy uncommitted work. */
+async function assertLinkedWorktree(worktreePath: string): Promise<void> {
+  // Ask git for both paths in its own absolute form. Resolving them ourselves would compare a
+  // symlinked prefix (macOS /var) against git's physical one (/private/var) and never match.
+  const { stdout } = await exec(
+    'git',
+    ['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir'],
+    { cwd: worktreePath },
+  )
+  const [gitDir, commonDir] = stdout.trim().split('\n').map((line) => line.trim())
+  // A linked worktree's git dir lives under the common dir; a main checkout's is the common dir.
+  if (!gitDir || !commonDir || gitDir === commonDir) {
+    throw new Error(`Refusing to reset ${worktreePath}: it is not an isolated worktree but a main checkout.`)
   }
 }
 

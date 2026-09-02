@@ -13,7 +13,7 @@ const PLAN_JSON = JSON.stringify({
   }],
 })
 
-function setup(options: { preferredRuntime?: string; planResponse?: string } = {}) {
+function setup(options: { preferredRuntime?: string; planResponse?: string; projectKind?: 'git' | 'folder' } = {}) {
   const statuses: string[] = []
   const sessions = {
     getSession: vi.fn((id: string) => (id === 'viola-1' ? {
@@ -67,6 +67,7 @@ function setup(options: { preferredRuntime?: string; planResponse?: string } = {
     {
       storageRoot: '/tmp',
       getPreferredRuntime: () => options.preferredRuntime ?? 'codex',
+      getProject: () => ({ kind: options.projectKind ?? 'git' }),
       listRuntimes: async () => [
         { id: 'claude', name: 'Claude Code', binary: 'claude', installed: true },
         { id: 'codex', name: 'Codex', binary: 'codex', installed: true },
@@ -106,6 +107,17 @@ describe('ViolaHarness', () => {
     expect(chat.getMessages('viola-1')[0].text).toContain('No worker has started')
     expect(spawnService.spawnAgent).not.toHaveBeenCalled()
     expect(statuses).toEqual(['running', 'waiting'])
+  })
+
+  it('tells the user to re-add a plain-folder project instead of planning work it cannot isolate', async () => {
+    const { harness, chat, aiGenerate } = setup({ projectKind: 'folder' })
+
+    harness.send('viola-1', 'Add validation')
+
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+    expect(chat.getMessages('viola-1')[0].text).toMatch(/isolated worktree/i)
+    expect(chat.getMessages('viola-1')[0].text).toMatch(/git project/i)
+    expect(aiGenerate).not.toHaveBeenCalled()
   })
 
   it('plans on the brain\'s default model with a budget that allows reading the repo', async () => {

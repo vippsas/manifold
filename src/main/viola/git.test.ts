@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -11,6 +11,7 @@ function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null' } })
 }
 
+/** A main checkout, i.e. the shape a `kind: 'folder'` Manifold project hands every agent. */
 function seedRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'viola-git-'))
   repos.push(root)
@@ -23,33 +24,54 @@ function seedRepo(): string {
   return root
 }
 
+/** A linked worktree, i.e. what a managed git project gives each Viola worker. */
+function addWorktree(root: string, name: string): string {
+  const path = join(root, '..', `${name}-${Date.now()}`)
+  git(root, 'worktree', 'add', '-q', '-b', name, path)
+  repos.push(path)
+  return path
+}
+
 afterEach(() => {
   for (const root of repos.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
 describe('createViolaGit', () => {
   it('captures a worker diff against its base and applies it onto a clean reviewer worktree', async () => {
-    const implementer = seedRepo()
-    const reviewer = seedRepo()
+    const root = seedRepo()
+    const implementer = addWorktree(root, 'implement')
+    const reviewer = addWorktree(root, 'review')
     const viola = createViolaGit()
     const baseSha = await viola.head(implementer)
-    writeFileSync(join(implementer, 'a.txt'), 'one\ntwo\n')
-    git(implementer, 'commit', '-q', '-am', 'change')
+    writeFileSync(join(implementer, 'new.txt'), 'added\n')
+    git(implementer, 'add', 'new.txt')
+    git(implementer, 'commit', '-q', '-m', 'change')
 
     const diff = await viola.diff(implementer, baseSha)
-    expect(diff).toContain('+two')
-    expect(await viola.diffStat(implementer, baseSha)).toContain('a.txt')
+    expect(diff).toContain('new file')
+    expect(await viola.diffStat(implementer, baseSha)).toContain('new.txt')
 
-    writeFileSync(join(reviewer, 'a.txt'), 'stale reviewer edit\n')
     writeFileSync(join(reviewer, 'junk.txt'), 'left over\n')
     await viola.apply(reviewer, diff)
 
-    expect(readFileSync(join(reviewer, 'a.txt'), 'utf8')).toBe('one\ntwo\n')
-    expect(() => readFileSync(join(reviewer, 'junk.txt'))).toThrow()
+    expect(readFileSync(join(reviewer, 'new.txt'), 'utf8')).toBe('added\n')
+    expect(existsSync(join(reviewer, 'junk.txt'))).toBe(false)
+  })
+
+  it('refuses to touch a main checkout, so a shared project directory is never reset or cleaned', async () => {
+    const main = seedRepo()
+    writeFileSync(join(main, 'uncommitted.txt'), 'precious\n')
+    writeFileSync(join(main, 'a.txt'), 'one\nlocal edit\n')
+
+    await expect(createViolaGit().apply(main, 'diff --git a/x b/x\n')).rejects.toThrow(/not an isolated worktree/i)
+
+    // Nothing was reset or cleaned: the user's local state survives untouched.
+    expect(existsSync(join(main, 'uncommitted.txt'))).toBe(true)
+    expect(readFileSync(join(main, 'a.txt'), 'utf8')).toBe('one\nlocal edit\n')
   })
 
   it('fails loudly when the diff does not apply', async () => {
-    const reviewer = seedRepo()
+    const reviewer = addWorktree(seedRepo(), 'review')
     const diff = 'diff --git a/missing.txt b/missing.txt\n--- a/missing.txt\n+++ b/missing.txt\n@@ -1 +1 @@\n-nope\n+yes\n'
     await expect(createViolaGit().apply(reviewer, diff)).rejects.toThrow(/Could not apply the worker's diff/)
   })
