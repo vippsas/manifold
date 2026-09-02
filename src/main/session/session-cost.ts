@@ -35,5 +35,6 @@ export async function readSessionCost(opts: SessionCostLocator): Promise<Session
     costUsd: usd,
     unpricedModels,
     byModel: rows,
+    contextTokens: usage.contextTokens,
   }
 }

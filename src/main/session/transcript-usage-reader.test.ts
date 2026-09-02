@@ -68,6 +68,7 @@ describe('readClaudeTranscriptUsage', () => {
       tokenUsage: { inputTokens: 157, outputTokens: 33, cacheReadTokens: 6, cacheCreationTokens: 3 },
       turns: 2,
       byRate: { unknown: { ...NO_TOKENS, inputTokens: 157, outputTokens: 33, cacheReadTokens: 6, cacheWrite5mTokens: 3 } },
+      contextTokens: 9, // the last call only: 7 in + 1 cache read + 1 cache write
     })
   })
 
@@ -75,7 +76,7 @@ describe('readClaudeTranscriptUsage', () => {
     const wt = '/Users/sv/wt/bar'
     await writeTranscript(wt, 'sid-2', ['not json', humanTurn('hi')])
     const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-2' })
-    expect(r).toEqual({ tokenUsage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }, turns: 1, byRate: {} })
+    expect(r).toEqual({ tokenUsage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }, turns: 1, byRate: {}, contextTokens: 0 })
   })
 
   it('buckets usage by model and speed, splitting 5m from 1h cache writes', async () => {
@@ -106,6 +107,44 @@ describe('readClaudeTranscriptUsage', () => {
     expect(r?.byRate['unknown']).toEqual({ ...NO_TOKENS, inputTokens: 1, cacheWrite5mTokens: 40 })
   })
 
+  it('reports the current context size, not the cumulative cache traffic', async () => {
+    // The last call's input + cache read + cache write is the live context — the
+    // figure Claude Code's status line calls `Ctx`. Earlier calls re-read the
+    // same prefix and bill for it again, so the running totals far exceed it.
+    const wt = '/Users/sv/wt/ctx'
+    await writeTranscript(wt, 'sid-ctx', [
+      humanTurn('hei'),
+      pricedAssistant('a1', 'claude-haiku-4-5', 'standard', { input: 10, output: 5, cr: 30_000, w1h: 75 }),
+      humanTurn('hei igjen'),
+      pricedAssistant('a2', 'claude-sonnet-5', 'standard', { input: 2, output: 16, cr: 22_823, w1h: 19_630 }),
+    ])
+    const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-ctx' })
+    expect(r?.contextTokens).toBe(42_455)
+    // Cumulative cache traffic is much larger — that is the point of showing both.
+    expect(r?.tokenUsage.cacheReadTokens).toBe(52_823)
+  })
+
+  it('has no context to report before the first assistant reply', async () => {
+    const wt = '/Users/sv/wt/noctx'
+    await writeTranscript(wt, 'sid-noctx', [humanTurn('hei')])
+    const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-noctx' })
+    expect(r?.contextTokens).toBe(0)
+  })
+
+  it('does not count a local slash command as a human turn', async () => {
+    // `/model` is handled locally: the transcript records the command envelope
+    // and its stdout as user entries, but neither is a prompt to the model.
+    const wt = '/Users/sv/wt/slash'
+    await writeTranscript(wt, 'sid-slash', [
+      humanTurn('hei'),
+      humanTurn('<command-name>/model</command-name>\n<command-message>model</command-message>'),
+      humanTurn('<local-command-stdout>Set model to `Sonnet 5`</local-command-stdout>'),
+      humanTurn('hei igjen'),
+    ])
+    const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: wt, sessionId: 'sid-slash' })
+    expect(r?.turns).toBe(2)
+  })
+
   it('returns null when no transcript exists for the session id', async () => {
     const r = await readClaudeTranscriptUsage({ claudeProjectsDir: dir, worktreePath: '/Users/sv/wt/none', sessionId: 'missing' })
     expect(r).toBeNull()
@@ -128,6 +167,7 @@ describe('readClaudeTranscriptUsage', () => {
       tokenUsage: { inputTokens: 42, outputTokens: 8, cacheReadTokens: 0, cacheCreationTokens: 0 },
       turns: 1,
       byRate: { unknown: { ...NO_TOKENS, inputTokens: 42, outputTokens: 8 } },
+      contextTokens: 42,
     })
   })
 

@@ -20,23 +20,26 @@ import type { DockAppState } from './editor/editor-shell/dock-panel-types'
 import { siblingPanelId } from '../hooks/agent-session/agent-siblings'
 import type { SessionCostSummary } from '../../shared/types'
 
-// Real numbers from a two-model ("hei", /model, "hei") session: 4 turns, a
-// switch from Opus 5 to Haiku 4.5, and the cache re-written under the new model
-// because caches are model-scoped. The shape that made the total look wrong.
+// Real numbers from a two-model session (Haiku 4.5, /model, Sonnet 5): three
+// typed prompts across three requests. Note the gap the tooltip has to explain —
+// 103.9k billed but only 42.5k in context, because every request re-reads the
+// cached prefix and the /model switch re-wrote it under the new model.
 const PRICED: SessionCostSummary = {
-  tokenUsage: { inputTokens: 12, outputTokens: 170, cacheReadTokens: 14_299, cacheCreationTokens: 47_357 },
-  turns: 4,
-  costUsd: 0.2308,
+  tokenUsage: { inputTokens: 22, outputTokens: 652, cacheReadTokens: 69_630, cacheCreationTokens: 33_547 },
+  turns: 3,
+  costUsd: 0.1189633,
+  contextTokens: 42_455,
   unpricedModels: [],
   byModel: [
-    { model: 'Opus 5', inputTokens: 2, outputTokens: 43, cacheReadTokens: 14_299, cacheWriteTokens: 15_901, costUsd: 0.1672 },
-    { model: 'Haiku 4.5', inputTokens: 10, outputTokens: 127, cacheReadTokens: 0, cacheWriteTokens: 31_456, costUsd: 0.0636 },
+    { model: 'Sonnet 5', inputTokens: 2, outputTokens: 16, cacheReadTokens: 22_823, cacheWriteTokens: 19_630, costUsd: 0.0832486 },
+    { model: 'Haiku 4.5', inputTokens: 20, outputTokens: 636, cacheReadTokens: 46_807, cacheWriteTokens: 13_917, costUsd: 0.0357147 },
   ],
 }
 const UNPRICED: SessionCostSummary = {
   tokenUsage: { inputTokens: 12_000, outputTokens: 4_300, cacheReadTokens: 88_000, cacheCreationTokens: 9_000 },
   turns: 6,
   costUsd: null,
+  contextTokens: 31_500,
   unpricedModels: ['claude-mystery-9'],
   byModel: [
     { model: 'claude-mystery-9', inputTokens: 12_000, outputTokens: 4_300, cacheReadTokens: 88_000, cacheWriteTokens: 9_000, costUsd: null },

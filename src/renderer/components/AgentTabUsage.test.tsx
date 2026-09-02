@@ -13,6 +13,7 @@ function summary(over: Partial<SessionCostSummary> = {}): SessionCostSummary {
     costUsd: 3.41,
     unpricedModels: [],
     byModel: [{ model: 'Opus 5', inputTokens: 1_000_000, outputTokens: 200_000, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: 3.41 }],
+    contextTokens: 42_455,
     ...over,
   }
 }
@@ -48,7 +49,7 @@ describe('AgentTabUsage', () => {
 
     const tip = await bubble()
     await waitFor(() => expect(tip.textContent).toContain('$3.41'))
-    expect(tip.textContent).toContain('1.2M tokens')
+    expect(tip.textContent).toContain('1.2M billed')
     expect(tip.textContent).toContain('47 turns')
   })
 
@@ -76,6 +77,24 @@ describe('AgentTabUsage', () => {
     expect(tip.textContent).toContain('31.5k')   // Haiku cache write
     expect(tip.textContent).toContain('$0.17')   // per-model cost
     expect(tip.textContent).toContain('$0.06')
+  })
+
+  it('separates cumulative billed tokens from the live context size', async () => {
+    // Real shape: 103.9k billed across 3 requests, but only 42.5k in context —
+    // reporting one number for both is what made the total look wrong.
+    invoke.mockResolvedValue(summary({
+      tokenUsage: { inputTokens: 22, outputTokens: 652, cacheReadTokens: 69_630, cacheCreationTokens: 33_547 },
+      contextTokens: 42_455,
+      turns: 3,
+    }))
+    render(<AgentTabUsage sessionId="s1" />)
+
+    fireEvent.pointerEnter(icon())
+
+    const tip = await bubble()
+    await waitFor(() => expect(tip.textContent).toContain('103.9k billed'))
+    expect(tip.textContent).toContain('42.5k context')
+    expect(tip.textContent).toContain('3 turns')
   })
 
   it('labels the breakdown columns so the numbers are not bare', async () => {

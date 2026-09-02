@@ -369,6 +369,8 @@ export interface SessionCostSummary {
   unpricedModels: string[]
   /** Per-model rows, most expensive first, for the tooltip's breakdown table. */
   byModel: SessionCostRow[]
+  /** Live context size — what the newest request carried. Matches Claude Code's `Ctx`. */
+  contextTokens: number
 }
 
 /** One model's share of a session: where its tokens went and what they cost. */

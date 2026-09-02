@@ -23,6 +23,15 @@ export interface SessionUsage {
  */
 export interface ClaudeSessionUsage extends SessionUsage {
   byRate: Record<string, CostTokens>
+  /**
+   * The live context size: what the most recent request actually carried.
+   *
+   * Distinct from the cumulative figures above, and much smaller. Every turn
+   * re-reads the cached prefix and is billed for it again, so `cacheReadTokens`
+   * grows without bound while the context stays roughly flat. This is the number
+   * Claude Code's status line shows as `Ctx`.
+   */
+  contextTokens: number
 }
 
 /** The subset of a transcript's `message.usage` that pricing reads. */
@@ -113,6 +122,7 @@ function parseTranscriptUsage(raw: string): ClaudeSessionUsage {
   const byRate: Record<string, CostTokens> = {}
   const seen = new Set<string>()
   let turns = 0
+  let contextTokens = 0
   for (const lineText of raw.split('\n')) {
     const trimmed = lineText.trim()
     if (!trimmed) continue
@@ -120,6 +130,13 @@ function parseTranscriptUsage(raw: string): ClaudeSessionUsage {
     try { e = JSON.parse(trimmed) } catch { continue }
     if (e.type === 'assistant') {
       const message = e.message as { id?: string; model?: string; usage?: RawUsage } | undefined
+      // The newest main-thread request wins: a later call supersedes an earlier
+      // one's context. Sidechains are subagents with their own window, not this
+      // conversation's.
+      if (e.isSidechain !== true && message?.usage) {
+        const u = message.usage
+        contextTokens = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
+      }
       const id = message?.id
       // Transcripts duplicate assistant entries by message.id — count usage once per id.
       if (id && seen.has(id)) continue
@@ -151,7 +168,7 @@ function parseTranscriptUsage(raw: string): ClaudeSessionUsage {
       turns += 1
     }
   }
-  return { tokenUsage: usage, turns, byRate }
+  return { tokenUsage: usage, turns, byRate, contextTokens }
 }
 
 function bucketFor(byRate: Record<string, CostTokens>, key: string): CostTokens {
@@ -169,7 +186,19 @@ function bucketFor(byRate: Record<string, CostTokens>, key: string): CostTokens 
 function isHumanTurn(e: Record<string, unknown>): boolean {
   if (e.isMeta === true || e.isSidechain === true) return false
   const message = e.message as { content?: unknown } | undefined
-  return typeof message?.content === 'string'
+  if (typeof message?.content !== 'string') return false
+  return !isLocalCommandEnvelope(message.content)
+}
+
+/**
+ * A slash command handled locally (`/model`, `/clear`) is written to the
+ * transcript as user entries — the `<command-name>` envelope and a
+ * `<local-command-stdout>` result — but neither is a prompt anyone sent to the
+ * model, and counting them inflates the turn count (a `/model` switch read as
+ * two extra turns).
+ */
+function isLocalCommandEnvelope(content: string): boolean {
+  return /^\s*<(command-|local-command-)/.test(content)
 }
 
 async function exists(p: string): Promise<boolean> {

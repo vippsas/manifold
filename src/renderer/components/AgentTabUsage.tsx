@@ -81,7 +81,11 @@ function describeSummary(s: SessionCostSummary): { label: string; body: React.Re
     body: (
       <div style={styles.body}>
         <span style={styles.summary}>
-          {`${formatTokens(total)} tokens · ${s.turns} ${s.turns === 1 ? 'turn' : 'turns'} · est. at API rates`}
+          {/* Two different quantities, and conflating them is what made the total
+              look wrong: `billed` is cumulative across every request (each turn
+              re-reads the cached prefix and pays again), `context` is what the
+              newest request carried and matches the status line's `Ctx`. */}
+          {`${formatTokens(total)} billed · ${formatTokens(s.contextTokens)} context · ${s.turns} ${s.turns === 1 ? 'turn' : 'turns'} · est. at API rates`}
         </span>
         <Breakdown rows={s.byModel} />
         {partial && (
