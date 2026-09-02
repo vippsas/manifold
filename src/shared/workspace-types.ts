@@ -50,9 +50,12 @@ export interface WorkspaceRepoStatus {
   /** What the index holds — the two groups mirror git's own model, so a file
    *  staged and then edited again legitimately appears in both. */
   staged: FileChange[]
-  /** Working-tree changes on top of the index, including untracked files and
-   *  anything conflicted. */
+  /** Working-tree changes on top of the index for files git already tracks,
+   *  including anything conflicted. */
   unstaged: FileChange[]
+  /** Files git has no record of. Kept apart from `unstaged` because discarding
+   *  one deletes it outright rather than reverting it. */
+  untracked: FileChange[]
 }
 
 /** Result of the status-bar sync operation. Git failures are returned rather

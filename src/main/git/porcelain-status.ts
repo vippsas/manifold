@@ -2,10 +2,14 @@ import type { FileChange, FileChangeType } from '../../shared/types'
 
 /** A checkout's uncommitted work split the way git tracks it: what the index
  *  holds and what the working tree holds on top. A file edited, staged, then
- *  edited again appears in both — that is git's own model, not a duplicate. */
+ *  edited again appears in both — that is git's own model, not a duplicate.
+ *  Untracked files are their own group rather than part of `unstaged`, the way
+ *  VS Code sections them, so "stage all changes" and "discard all changes" can
+ *  leave brand-new files alone. */
 export interface WorkspaceStatusGroups {
   staged: FileChange[]
   unstaged: FileChange[]
+  untracked: FileChange[]
 }
 
 // Git's unmerged porcelain codes — see parseStatusWithConflicts, which applies
@@ -30,10 +34,12 @@ function typeFor(code: string): FileChangeType {
  *
  *  Conflicts land in unstaged only: a conflicted file's index holds every side
  *  of the merge, so offering it as "staged" would invite committing the
- *  markers. */
+ *  markers. `??` entries land in `untracked` — git has no record of them at
+ *  all, so discarding one deletes a file rather than reverting it. */
 export function parseWorkspaceStatus(raw: string): WorkspaceStatusGroups {
   const staged: FileChange[] = []
   const unstaged: FileChange[] = []
+  const untracked: FileChange[] = []
 
   for (const line of raw.split('\n')) {
     if (line.length < 4) continue
@@ -53,12 +59,12 @@ export function parseWorkspaceStatus(raw: string): WorkspaceStatusGroups {
       continue
     }
     if (code === '??') {
-      unstaged.push({ path: filePath, type: 'added' })
+      untracked.push({ path: filePath, type: 'added' })
       continue
     }
     if (index !== ' ') staged.push({ path: filePath, type: typeFor(index) })
     if (worktree !== ' ') unstaged.push({ path: filePath, type: typeFor(worktree) })
   }
 
-  return { staged, unstaged }
+  return { staged, unstaged, untracked }
 }

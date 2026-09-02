@@ -33,6 +33,10 @@ const statuses: WorkspaceRepoStatus[] = [
       { path: 'src/checkout/checkout-flow.ts', type: 'modified' },
       { path: 'src/legacy/one-page-checkout.ts', type: 'deleted' },
     ],
+    untracked: [
+      { path: 'src/checkout/WalletButton.tsx', type: 'added' },
+      { path: 'docs/checkout-notes.md', type: 'added' },
+    ],
   },
   {
     projectId: 'p2',
@@ -41,6 +45,7 @@ const statuses: WorkspaceRepoStatus[] = [
     branch: 'manifold/checkout-redesign',
     staged: [],
     unstaged: [],
+    untracked: [],
   },
 ]
 

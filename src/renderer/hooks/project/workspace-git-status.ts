@@ -5,7 +5,7 @@ import { useIpcListener } from '../app/useIpc'
 export function countWorkspaceChangedFiles(repos: WorkspaceRepoStatus[]): number {
   const paths = new Set<string>()
   for (const repo of repos) {
-    for (const change of [...repo.staged, ...repo.unstaged]) {
+    for (const change of [...repo.staged, ...repo.unstaged, ...repo.untracked]) {
       paths.add(`${repo.projectId}\0${change.path}`)
     }
   }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { sourceControlStyles as styles } from './SourceControl.styles'
 
-export type ScmGlyphId = 'refresh' | 'check' | 'stage' | 'unstage' | 'discard'
+export type ScmGlyphId = 'refresh' | 'check' | 'stage' | 'unstage' | 'discard' | 'list' | 'tree'
 
 const GLYPH_PATHS: Record<ScmGlyphId, React.JSX.Element> = {
   refresh: (
@@ -19,6 +19,19 @@ const GLYPH_PATHS: Record<ScmGlyphId, React.JSX.Element> = {
     <>
       <path d="M4 5v5h5" />
       <path d="M4.6 14a8 8 0 1 0 1.3-6.3L4 10" />
+    </>
+  ),
+  list: (
+    <>
+      <path d="M8 6h12M8 12h12M8 18h12" />
+      <path d="M4 6h.01M4 12h.01M4 18h.01" />
+    </>
+  ),
+  tree: (
+    <>
+      <path d="M4 5h16" />
+      <path d="M8 5v14" />
+      <path d="M8 12h12M8 19h12" />
     </>
   ),
 }

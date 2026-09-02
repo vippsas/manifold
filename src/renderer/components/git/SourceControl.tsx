@@ -4,8 +4,9 @@ import type { FileChange } from '../../../shared/types'
 import type { ScmFileTarget } from '../editor/file-open-request'
 import { useWorkspaceRepoStatuses } from '../../hooks/project/workspace-git-status'
 import { ConfirmDialog } from '../ConfirmDialog'
+import { ContextMenu, tidy, type MenuItem } from '../common/ContextMenu'
 import { BranchSwitcher } from './BranchSwitcher'
-import { ScmChangeGroup } from './ScmChangeGroup'
+import { ScmChangeGroup, type ScmGroupKind, type ScmViewMode } from './ScmChangeGroup'
 import { ScmGlyph, ScmIconButton } from './scm-icons'
 import { sourceControlStyles as styles } from './SourceControl.styles'
 
@@ -18,17 +19,28 @@ interface SourceControlProps {
 const IS_MAC = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
 
 /** A discard the user has yet to confirm. Held here rather than in the group so
- *  one dialog serves every row and group in the panel. */
+ *  one dialog serves every row and group in the panel. `kind` decides the
+ *  wording: discarding tracked work reverts it, while discarding an untracked
+ *  file deletes it outright. */
 interface PendingDiscard {
   projectId: string
   paths: string[]
+  kind: ScmGroupKind
+}
+
+/** The panel's single context menu, positioned at the pointer. One instance
+ *  serves every repo header, group header, and row. */
+interface MenuState {
+  x: number
+  y: number
+  items: MenuItem[]
 }
 
 /** VS Code-style Source Control view for the selected workspace: one section
  *  per member repo checkout — a clickable branch (switch/create, see
  *  `BranchSwitcher`), a commit message input, and the uncommitted changes split
- *  into staged and unstaged groups — the way VS Code's SCM view sections a
- *  multi-root workspace's repositories. */
+ *  into staged, unstaged, and untracked groups — the way VS Code's SCM view
+ *  sections a multi-root workspace's repositories. */
 export function SourceControl({ workspace, onSelectFile }: SourceControlProps): React.JSX.Element {
   const { repos, refresh } = useWorkspaceRepoStatuses(workspace?.id ?? null)
   return <SourceControlContent workspace={workspace} repos={repos} refresh={refresh} onSelectFile={onSelectFile} />
@@ -47,6 +59,8 @@ export function SourceControlContent({
 }): React.JSX.Element {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard | null>(null)
+  const [menu, setMenu] = useState<MenuState | null>(null)
+  const [viewMode, setViewMode] = useState<ScmViewMode>('list')
   const workspaceId = workspace?.id ?? null
 
   const toggleRepo = (projectId: string): void => {
@@ -57,6 +71,13 @@ export function SourceControlContent({
       return next
     })
   }
+
+  const openMenu = useCallback((event: React.MouseEvent, items: MenuItem[]): void => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (items.length === 0) return
+    setMenu({ x: event.clientX, y: event.clientY, items })
+  }, [])
 
   const runIndexOp = useCallback(async (channel: string, projectId: string, paths: string[]): Promise<void> => {
     if (!workspaceId || paths.length === 0) return
@@ -84,6 +105,15 @@ export function SourceControlContent({
 
   return (
     <div style={styles.wrapper}>
+      {repos.length > 0 && (
+        <div style={styles.toolbar}>
+          <ScmIconButton
+            glyph={viewMode === 'list' ? 'tree' : 'list'}
+            label={viewMode === 'list' ? 'View as Tree' : 'View as List'}
+            onClick={() => setViewMode((mode) => (mode === 'list' ? 'tree' : 'list'))}
+          />
+        </div>
+      )}
       <div style={styles.list}>
         {repos.map((repo) => (
           <RepoSection
@@ -91,38 +121,52 @@ export function SourceControlContent({
             workspaceId={workspace.id}
             repo={repo}
             isCollapsed={collapsed.has(repo.projectId)}
+            viewMode={viewMode}
+            onSetViewMode={setViewMode}
             onToggle={() => toggleRepo(repo.projectId)}
             onSelectFile={onSelectFile}
             onRefresh={refresh}
+            onOpenMenu={openMenu}
             onStage={(paths) => void runIndexOp('git:workspace-stage', repo.projectId, paths)}
             onUnstage={(paths) => void runIndexOp('git:workspace-unstage', repo.projectId, paths)}
-            onRequestDiscard={(paths) => setPendingDiscard({ projectId: repo.projectId, paths })}
+            onRequestDiscard={(paths, kind) => setPendingDiscard({ projectId: repo.projectId, paths, kind })}
           />
         ))}
         {repos.length === 0 && <div style={styles.empty}>No git repositories in this workspace</div>}
       </div>
       {pendingDiscard && (
         <ConfirmDialog
-          title="Discard changes?"
-          message={pendingDiscard.paths.length === 1
-            ? `Changes to ${pendingDiscard.paths[0]} will be lost. This cannot be undone.`
-            : `Changes to ${pendingDiscard.paths.length} files will be lost. This cannot be undone.`}
-          confirmLabel="Discard"
+          title={pendingDiscard.kind === 'untracked' ? 'Delete untracked files?' : 'Discard changes?'}
+          message={discardMessage(pendingDiscard)}
+          confirmLabel={pendingDiscard.kind === 'untracked' ? 'Delete' : 'Discard'}
           onConfirm={confirmDiscard}
           onCancel={() => setPendingDiscard(null)}
         />
       )}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </div>
   )
+}
+
+/** Untracked files have no committed version to fall back to, so the dialog
+ *  says "deleted" rather than "lost" — the outcome the user actually gets. */
+function discardMessage({ paths, kind }: PendingDiscard): string {
+  const subject = paths.length === 1 ? paths[0] : `${paths.length} files`
+  return kind === 'untracked'
+    ? `${paths.length === 1 ? subject : `These ${subject}`} will be deleted from disk. This cannot be undone.`
+    : `Changes to ${subject} will be lost. This cannot be undone.`
 }
 
 function RepoSection({
   workspaceId,
   repo,
   isCollapsed,
+  viewMode,
+  onSetViewMode,
   onToggle,
   onSelectFile,
   onRefresh,
+  onOpenMenu,
   onStage,
   onUnstage,
   onRequestDiscard,
@@ -130,16 +174,20 @@ function RepoSection({
   workspaceId: string
   repo: WorkspaceRepoStatus
   isCollapsed: boolean
+  viewMode: ScmViewMode
+  onSetViewMode: (mode: ScmViewMode) => void
   onToggle: () => void
   onSelectFile: (absolutePath: string, scm: ScmFileTarget) => void
   onRefresh: () => void
+  onOpenMenu: (event: React.MouseEvent, items: MenuItem[]) => void
   onStage: (paths: string[]) => void
   onUnstage: (paths: string[]) => void
-  onRequestDiscard: (paths: string[]) => void
+  onRequestDiscard: (paths: string[], kind: ScmGroupKind) => void
 }): React.JSX.Element {
   const root = repo.checkoutPath.replace(/\/$/, '')
   const commitRef = useRef<(() => void) | null>(null)
-  const total = repo.staged.length + repo.unstaged.length
+  const untracked = repo.untracked ?? []
+  const total = repo.staged.length + repo.unstaged.length + untracked.length
 
   const openFile = (change: FileChange, staged: boolean): void => {
     onSelectFile(`${root}/${change.path}`, {
@@ -150,9 +198,26 @@ function RepoSection({
     })
   }
 
+  const repoMenu = (): MenuItem[] => tidy([
+    { label: 'Commit', action: () => commitRef.current?.() },
+    { label: 'Refresh', action: onRefresh },
+    'separator',
+    { label: 'View as List', action: () => onSetViewMode('list'), disabled: viewMode === 'list' },
+    { label: 'View as Tree', action: () => onSetViewMode('tree'), disabled: viewMode === 'tree' },
+  ])
+
+  const groupProps = {
+    viewMode,
+    onSetViewMode,
+    onStage,
+    onUnstage,
+    onDiscard: onRequestDiscard,
+    onOpenMenu,
+  }
+
   return (
     <section aria-label={repo.projectName}>
-      <div style={styles.repoHeader}>
+      <div style={styles.repoHeader} onContextMenu={(e) => onOpenMenu(e, repoMenu())}>
         <button
           type="button"
           style={styles.repoToggle}
@@ -182,36 +247,39 @@ function RepoSection({
       </div>
       {!isCollapsed && (
         <>
-          {total > 0 && (
-            <CommitInput
-              workspaceId={workspaceId}
-              projectId={repo.projectId}
-              branch={repo.branch}
-              hasStaged={repo.staged.length > 0}
-              onCommitted={onRefresh}
-              commitRef={commitRef}
-            />
-          )}
+          <CommitInput
+            workspaceId={workspaceId}
+            projectId={repo.projectId}
+            branch={repo.branch}
+            hasStaged={repo.staged.length > 0}
+            onCommitted={onRefresh}
+            commitRef={commitRef}
+          />
           {repo.staged.length > 0 && (
             <ScmChangeGroup
               label="Staged Changes"
               changes={repo.staged}
-              staged
+              kind="staged"
               onSelectFile={(change) => openFile(change, true)}
-              onStage={onStage}
-              onUnstage={onUnstage}
-              onDiscard={onRequestDiscard}
+              {...groupProps}
             />
           )}
           {repo.unstaged.length > 0 && (
             <ScmChangeGroup
               label="Changes"
               changes={repo.unstaged}
-              staged={false}
+              kind="unstaged"
               onSelectFile={(change) => openFile(change, false)}
-              onStage={onStage}
-              onUnstage={onUnstage}
-              onDiscard={onRequestDiscard}
+              {...groupProps}
+            />
+          )}
+          {untracked.length > 0 && (
+            <ScmChangeGroup
+              label="Untracked Changes"
+              changes={untracked}
+              kind="untracked"
+              onSelectFile={(change) => openFile(change, false)}
+              {...groupProps}
             />
           )}
           {total === 0 && <div style={styles.cleanRow}>No changes</div>}
@@ -222,10 +290,12 @@ function RepoSection({
 }
 
 /** VS Code's SCM message box: a per-repo input that commits on the button or
- *  Cmd/Ctrl+Enter. With something staged it commits exactly that; with nothing
- *  staged it asks first, since committing everything is a different act from
- *  the one the staging UI implies. `commitRef` lets the repo header's ✓ fire
- *  the same path as the button. */
+ *  Cmd/Ctrl+Enter. It is always present, even on a clean checkout, so the box
+ *  never moves out from under a half-typed message when the last change is
+ *  staged or discarded. With something staged it commits exactly that; with
+ *  nothing staged it asks first, since committing everything is a different act
+ *  from the one the staging UI implies. `commitRef` lets the repo header's ✓
+ *  fire the same path as the button. */
 function CommitInput({
   workspaceId,
   projectId,

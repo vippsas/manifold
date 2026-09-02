@@ -35,10 +35,8 @@ const statuses: WorkspaceRepoStatus[] = [
     checkoutPath: '/worktrees/repo-one',
     branch: 'manifold/feature-x',
     staged: [{ path: 'src/staged.ts', type: 'modified' }],
-    unstaged: [
-      { path: 'src/app.ts', type: 'modified' },
-      { path: 'docs/new.md', type: 'added' },
-    ],
+    unstaged: [{ path: 'src/app.ts', type: 'modified' }],
+    untracked: [{ path: 'docs/new.md', type: 'added' }],
   },
   {
     projectId: 'p2',
@@ -47,6 +45,7 @@ const statuses: WorkspaceRepoStatus[] = [
     branch: 'manifold/feature-x',
     staged: [],
     unstaged: [],
+    untracked: [],
   },
 ]
 
@@ -81,7 +80,7 @@ describe('SourceControl', () => {
     expect(screen.getByText('No changes')).toBeInTheDocument()
   })
 
-  it('splits changes into staged and unstaged groups with counts', async () => {
+  it('splits changes into staged, unstaged, and untracked groups with counts', async () => {
     mockInvoke.mockResolvedValue(statuses)
     render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
 
@@ -89,8 +88,9 @@ describe('SourceControl', () => {
       expect(screen.getByText('Staged Changes')).toBeInTheDocument()
     })
     expect(screen.getByText('Changes')).toBeInTheDocument()
+    expect(screen.getByText('Untracked Changes')).toBeInTheDocument()
     expect(screen.getByText('staged.ts')).toBeInTheDocument()
-    // The repo badge counts both halves.
+    // The repo badge counts all three groups.
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
@@ -161,7 +161,7 @@ describe('SourceControl', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stage all Changes' }))
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-stage', 'ws-1', 'p1', ['src/app.ts', 'docs/new.md'])
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-stage', 'ws-1', 'p1', ['src/app.ts'])
     })
   })
 
@@ -206,12 +206,13 @@ describe('SourceControl', () => {
     await waitFor(() => {
       expect(screen.getByText('app.ts')).toBeInTheDocument()
     })
-    // Only the repo with changes offers a message box.
-    expect(screen.getAllByPlaceholderText(/to commit on/)).toHaveLength(1)
+    // Every repo section offers a message box, clean or not, so it never moves
+    // out from under a half-typed message when the last change is staged.
+    expect(screen.getAllByPlaceholderText(/to commit on/)).toHaveLength(2)
 
-    fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'fix: polish checkout' } })
+    fireEvent.change(screen.getAllByPlaceholderText(/to commit on/)[0], { target: { value: 'fix: polish checkout' } })
     const callsBefore = mockInvoke.mock.calls.length
-    fireEvent.click(screen.getByRole('button', { name: /^Commit$/ }))
+    fireEvent.click(screen.getAllByRole('button', { name: /^Commit$/ })[0])
 
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'fix: polish checkout', false)
@@ -229,8 +230,8 @@ describe('SourceControl', () => {
     await waitFor(() => {
       expect(screen.getByText('app.ts')).toBeInTheDocument()
     })
-    fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'wip' } })
-    fireEvent.click(screen.getByRole('button', { name: /^Commit$/ }))
+    fireEvent.change(screen.getAllByPlaceholderText(/to commit on/)[0], { target: { value: 'wip' } })
+    fireEvent.click(screen.getAllByRole('button', { name: /^Commit$/ })[0])
 
     expect(screen.getByText('No staged changes')).toBeInTheDocument()
     expect(mockInvoke).not.toHaveBeenCalledWith('git:workspace-commit', 'ws-1', 'p1', 'wip', expect.anything())
@@ -248,8 +249,8 @@ describe('SourceControl', () => {
     await waitFor(() => {
       expect(screen.getByText('app.ts')).toBeInTheDocument()
     })
-    fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'wip' } })
-    fireEvent.click(screen.getByRole('button', { name: /^Commit$/ }))
+    fireEvent.change(screen.getAllByPlaceholderText(/to commit on/)[0], { target: { value: 'wip' } })
+    fireEvent.click(screen.getAllByRole('button', { name: /^Commit$/ })[0])
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByText('No staged changes')).not.toBeInTheDocument()
@@ -263,7 +264,7 @@ describe('SourceControl', () => {
     await waitFor(() => {
       expect(screen.getByText('app.ts')).toBeInTheDocument()
     })
-    fireEvent.change(screen.getByPlaceholderText(/to commit on/), { target: { value: 'from the header' } })
+    fireEvent.change(screen.getAllByPlaceholderText(/to commit on/)[0], { target: { value: 'from the header' } })
     fireEvent.click(screen.getByRole('button', { name: 'Commit repo-one' }))
 
     await waitFor(() => {
@@ -310,6 +311,133 @@ describe('SourceControl', () => {
     const branchButtons = screen.getAllByRole('button', { name: /manifold\/feature-x/ })
     expect(branchButtons).toHaveLength(2)
     expect(branchButtons[0]).toHaveAttribute('aria-haspopup', 'listbox')
+  })
+
+
+  it('warns that discarding an untracked file deletes it rather than reverts it', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('new.md')).toBeInTheDocument()
+    })
+    fireEvent.mouseEnter(screen.getByTitle('docs/new.md'))
+    fireEvent.click(screen.getByRole('button', { name: 'Discard docs/new.md' }))
+
+    // Untracked files have no committed version to fall back to.
+    expect(screen.getByText('Delete untracked files?')).toBeInTheDocument()
+    expect(screen.getByText(/will be deleted from disk/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-discard', 'ws-1', 'p1', ['docs/new.md'])
+    })
+  })
+
+  it('stages a file from its right-click menu', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.contextMenu(screen.getByTitle('src/app.ts'))
+    fireEvent.click(screen.getByText('Stage Changes'))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-stage', 'ws-1', 'p1', ['src/app.ts'])
+    })
+  })
+
+  it('offers unstage rather than discard on a staged row menu', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('staged.ts')).toBeInTheDocument()
+    })
+    fireEvent.contextMenu(screen.getByTitle('src/staged.ts'))
+
+    expect(screen.queryByText('Discard Changes')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Unstage Changes'))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-unstage', 'ws-1', 'p1', ['src/staged.ts'])
+    })
+  })
+
+  it('discards a whole group from the group header menu, after confirming', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Changes')).toBeInTheDocument()
+    })
+    fireEvent.contextMenu(screen.getByText('Changes'))
+    fireEvent.click(screen.getByText('Discard All Changes'))
+
+    expect(screen.getByText('Discard changes?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-discard', 'ws-1', 'p1', ['src/app.ts'])
+    })
+  })
+
+  it('switches to a tree of directories and back to a flat list', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    // Only the tree gives a directory its own row, so the label is what tells
+    // the two modes apart.
+    expect(screen.queryByLabelText('src')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'View as Tree' }))
+    expect(screen.getAllByLabelText('src').length).toBeGreaterThan(0)
+    expect(screen.getByText('app.ts')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'View as List' }))
+    expect(screen.queryByLabelText('src')).not.toBeInTheDocument()
+  })
+
+  it('collapses a directory in tree view, hiding the files under it', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'View as Tree' }))
+
+    // Staged Changes renders before Changes, so the second 'src' row is the
+    // unstaged group's.
+    const [, unstagedDir] = screen.getAllByLabelText('src')
+    fireEvent.click(unstagedDir)
+
+    expect(screen.queryByText('app.ts')).not.toBeInTheDocument()
+    // The staged group is untouched.
+    expect(screen.getByText('staged.ts')).toBeInTheDocument()
+  })
+
+  it('stages every file under a directory from its tree row', async () => {
+    mockInvoke.mockResolvedValue(statuses)
+    render(<SourceControl workspace={workspace} onSelectFile={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('app.ts')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'View as Tree' }))
+
+    const [, unstagedDir] = screen.getAllByLabelText('src')
+    fireEvent.mouseEnter(unstagedDir)
+    fireEvent.click(screen.getByRole('button', { name: 'Stage src' }))
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-stage', 'ws-1', 'p1', ['src/app.ts'])
+    })
   })
 
   it('refreshes when the file watcher reports changes', async () => {

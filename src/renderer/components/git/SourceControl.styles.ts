@@ -15,6 +15,14 @@ export const sourceControlStyles: Record<string, React.CSSProperties> = {
     overflowY: 'auto' as const,
     padding: 'var(--space-xs) 0',
   },
+  // Panel-level actions that apply to every repo section at once — currently
+  // just the list/tree toggle, which VS Code puts in its view title bar.
+  toolbar: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    flexShrink: 0,
+    padding: '2px var(--space-sm)',
+  },
   empty: {
     display: 'flex',
     alignItems: 'center',
@@ -233,5 +241,12 @@ export const sourceControlStyles: Record<string, React.CSSProperties> = {
     fontFamily: 'var(--font-mono)',
     fontSize: 'var(--type-ui-micro)',
     color: 'var(--text-muted)',
+  },
+  // A tree-mode directory row. Full-strength text, unlike the `dir` suffix on a
+  // list-mode row, since here it is the row's own subject rather than a hint.
+  dirName: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--type-ui-small)',
+    color: 'var(--text-secondary)',
   },
 }

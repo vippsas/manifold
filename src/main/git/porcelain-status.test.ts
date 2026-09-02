@@ -40,10 +40,20 @@ describe('parseWorkspaceStatus', () => {
     expect(unstaged).toEqual([{ path: 'src/vanished.ts', type: 'deleted' }])
   })
 
-  it('treats untracked files as unstaged additions', () => {
-    const { staged, unstaged } = parseWorkspaceStatus(status('?? src/untracked.ts'))
+  it('puts untracked files in their own group, not in unstaged', () => {
+    const { staged, unstaged, untracked } = parseWorkspaceStatus(status('?? src/untracked.ts'))
     expect(staged).toEqual([])
-    expect(unstaged).toEqual([{ path: 'src/untracked.ts', type: 'added' }])
+    expect(unstaged).toEqual([])
+    expect(untracked).toEqual([{ path: 'src/untracked.ts', type: 'added' }])
+  })
+
+  it('keeps untracked files out of a stage-all over the unstaged group', () => {
+    const { unstaged, untracked } = parseWorkspaceStatus(status(
+      ' M src/edited.ts',
+      '?? src/brand-new.ts',
+    ))
+    expect(unstaged).toEqual([{ path: 'src/edited.ts', type: 'modified' }])
+    expect(untracked).toEqual([{ path: 'src/brand-new.ts', type: 'added' }])
   })
 
   it('keeps the destination path of a rename', () => {
@@ -76,10 +86,10 @@ describe('parseWorkspaceStatus', () => {
   })
 
   it('ignores blank and truncated lines', () => {
-    expect(parseWorkspaceStatus('\n\nM\n')).toEqual({ staged: [], unstaged: [] })
+    expect(parseWorkspaceStatus('\n\nM\n')).toEqual({ staged: [], unstaged: [], untracked: [] })
   })
 
   it('returns empty groups for a clean checkout', () => {
-    expect(parseWorkspaceStatus('')).toEqual({ staged: [], unstaged: [] })
+    expect(parseWorkspaceStatus('')).toEqual({ staged: [], unstaged: [], untracked: [] })
   })
 })
