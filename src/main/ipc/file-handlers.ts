@@ -118,7 +118,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     fileWatcher.writeFile(authorize(sessionId, filePath), content)
   })
 
-  ipcMain.handle('files:delete', (_event, sessionId: string, filePath: string) => {
+  ipcMain.handle('files:delete', async (_event, sessionId: string, filePath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     const resolved = resolve(session.worktreePath, filePath)
@@ -126,10 +126,10 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: file outside allowed directories')
     }
     fileWatcher.deleteFile(resolved)
-    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+    return { tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
 
-  ipcMain.handle('files:rename', (_event, sessionId: string, oldPath: string, newPath: string) => {
+  ipcMain.handle('files:rename', async (_event, sessionId: string, oldPath: string, newPath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     const resolvedOld = resolve(session.worktreePath, oldPath)
@@ -141,16 +141,16 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: file outside allowed directories')
     }
     fileWatcher.renameFile(resolvedOld, resolvedNew)
-    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+    return { tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
 
   // Creating needs no session either, for the same reason reading and saving
   // don't: a workspace shows its files before any agent works in it, and the
   // folders the user has open authorize the write. The selected session's tree
   // only rides along for the renderer that mirrors it.
-  const sessionTree = (sessionId: string | null): { tree?: FileTreeNode } => {
+  const sessionTree = async (sessionId: string | null): Promise<{ tree?: FileTreeNode }> => {
     const session = sessionId ? sessionManager.getSession(sessionId) : undefined
-    return session ? { tree: fileWatcher.getFileTree(session.worktreePath) } : {}
+    return session ? { tree: await fileWatcher.getFileTree(session.worktreePath) } : {}
   }
 
   ipcMain.handle('files:create-file', (_event, sessionId: string | null, dirPath: string, fileName: string) => {
@@ -165,7 +165,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     return sessionTree(sessionId)
   })
 
-  ipcMain.handle('files:import', (_event, sessionId: string, dirPath: string, sourcePaths: string[]) => {
+  ipcMain.handle('files:import', async (_event, sessionId: string, dirPath: string, sourcePaths: string[]) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     const resolvedDir = resolve(session.worktreePath, dirPath)
@@ -178,10 +178,10 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
     fileWatcher.notifyTreeChanged(sessionId, source)
 
-    return { tree: fileWatcher.getFileTree(session.worktreePath) }
+    return { tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
 
-  ipcMain.handle('files:paste-image', (_event, sessionId: string, dirPath: string, dataUrl: string) => {
+  ipcMain.handle('files:paste-image', async (_event, sessionId: string, dirPath: string, dataUrl: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     const resolvedDir = resolvePasteTargetDir(session, dirPath, isAllowed)
@@ -191,10 +191,10 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
     fileWatcher.notifyTreeChanged(sessionId, source)
 
-    return { path: filePath, tree: fileWatcher.getFileTree(session.worktreePath) }
+    return { path: filePath, tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
 
-  ipcMain.handle('files:paste-clipboard-image', (_event, sessionId: string, dirPath: string) => {
+  ipcMain.handle('files:paste-clipboard-image', async (_event, sessionId: string, dirPath: string) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
     const image = clipboard.readImage()
@@ -208,7 +208,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
     fileWatcher.notifyTreeChanged(sessionId, source)
 
-    return { pasted: true, path: filePath, tree: fileWatcher.getFileTree(session.worktreePath) }
+    return { pasted: true, path: filePath, tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
 
   ipcMain.handle('files:reveal', (_event, sessionId: string | null, filePath: string) => {

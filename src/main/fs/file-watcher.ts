@@ -229,7 +229,7 @@ export class FileWatcher {
     await this.treeWatcher.unwatchAll()
   }
 
-  getFileTree(dirPath: string): FileTreeNode {
+  getFileTree(dirPath: string): Promise<FileTreeNode> {
     return buildFileTree(dirPath)
   }
 

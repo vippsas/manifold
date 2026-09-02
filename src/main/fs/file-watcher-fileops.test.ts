@@ -12,6 +12,13 @@ vi.mock('node:fs', () => ({
   cpSync: vi.fn(),
 }))
 
+// The tree walk reads through fs/promises (it must not block the main
+// process), so its doubles live here rather than on the sync fs mock.
+vi.mock('node:fs/promises', () => ({
+  stat: vi.fn(),
+  readdir: vi.fn(),
+}))
+
 vi.mock('node:path', () => ({
   join: (...args: string[]) => args.join('/'),
   relative: (from: string, to: string) => to.replace(from + '/', ''),
@@ -19,6 +26,7 @@ vi.mock('node:path', () => ({
 }))
 
 import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
 import { FileWatcher } from './file-watcher'
 
 const mockStatSync = vi.mocked(fs.statSync)
@@ -27,6 +35,18 @@ const mockReadFileSync = vi.mocked(fs.readFileSync)
 const mockExistsSync = vi.mocked(fs.existsSync)
 const mockRenameSync = vi.mocked(fs.renameSync)
 const mockCpSync = vi.mocked(fs.cpSync)
+const mockStat = vi.mocked(fsp.stat)
+const mockReaddir = vi.mocked(fsp.readdir)
+
+type DirentDouble = { name: string; isDirectory: () => boolean; isSymbolicLink: () => boolean }
+
+function dirents(...entries: DirentDouble[]): Awaited<ReturnType<typeof fsp.readdir>> {
+  return entries as unknown as Awaited<ReturnType<typeof fsp.readdir>>
+}
+
+function statFor(isDirectory: boolean): Awaited<ReturnType<typeof fsp.stat>> {
+  return { isDirectory: () => isDirectory, mtimeMs: 1, size: 1 } as unknown as Awaited<ReturnType<typeof fsp.stat>>
+}
 
 describe('FileWatcher — file operations', () => {
   let watcher: FileWatcher
@@ -50,40 +70,32 @@ describe('FileWatcher — file operations', () => {
   })
 
   describe('getFileTree', () => {
-    it('builds a tree for a directory', () => {
-      mockStatSync
-        .mockReturnValueOnce({ isDirectory: () => true } as unknown as fs.Stats)
-        .mockReturnValueOnce({ isDirectory: () => true } as unknown as fs.Stats)
-        .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats)
-
-      mockReaddirSync
-        .mockReturnValueOnce([
+    it('builds a tree for a directory', async () => {
+      mockStat.mockResolvedValue(statFor(true))
+      mockReaddir
+        .mockResolvedValueOnce(dirents(
           { name: 'file.ts', isDirectory: () => false, isSymbolicLink: () => false },
           { name: 'src', isDirectory: () => true, isSymbolicLink: () => false },
-        ] as unknown as ReturnType<typeof fs.readdirSync>)
-        .mockReturnValueOnce([] as unknown as ReturnType<typeof fs.readdirSync>)
+        ))
+        .mockResolvedValueOnce(dirents())
 
-      const tree = watcher.getFileTree('/repo/worktree')
+      const tree = await watcher.getFileTree('/repo/worktree')
 
       expect(tree.name).toBe('worktree')
       expect(tree.isDirectory).toBe(true)
       expect(tree.children).toBeDefined()
     })
 
-    it('filters out node_modules and .git directories but shows dotfiles', () => {
-      mockStatSync
-        .mockReturnValueOnce({ isDirectory: () => true } as unknown as fs.Stats)
-        .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats)
-        .mockReturnValueOnce({ isDirectory: () => false } as unknown as fs.Stats)
-
-      mockReaddirSync.mockReturnValueOnce([
+    it('filters out node_modules and .git directories but shows dotfiles', async () => {
+      mockStat.mockResolvedValue(statFor(true))
+      mockReaddir.mockResolvedValueOnce(dirents(
         { name: '.git', isDirectory: () => true, isSymbolicLink: () => false },
         { name: 'node_modules', isDirectory: () => true, isSymbolicLink: () => false },
         { name: '.env', isDirectory: () => false, isSymbolicLink: () => false },
         { name: 'index.ts', isDirectory: () => false, isSymbolicLink: () => false },
-      ] as unknown as ReturnType<typeof fs.readdirSync>)
+      ))
 
-      const tree = watcher.getFileTree('/repo/worktree')
+      const tree = await watcher.getFileTree('/repo/worktree')
       const childNames = tree.children?.map((c) => c.name) ?? []
       expect(childNames).toContain('index.ts')
       expect(childNames).toContain('.env')
@@ -91,22 +103,18 @@ describe('FileWatcher — file operations', () => {
       expect(childNames).not.toContain('node_modules')
     })
 
-    it('returns a file node when path is not a directory', () => {
-      mockStatSync.mockReturnValue({
-        isDirectory: () => false,
-      } as unknown as fs.Stats)
+    it('returns a file node when path is not a directory', async () => {
+      mockStat.mockResolvedValue(statFor(false))
 
-      const tree = watcher.getFileTree('/repo/file.ts')
+      const tree = await watcher.getFileTree('/repo/file.ts')
       expect(tree.isDirectory).toBe(false)
       expect(tree.children).toBeUndefined()
     })
 
-    it('handles statSync errors gracefully', () => {
-      mockStatSync.mockImplementation(() => {
-        throw new Error('ENOENT')
-      })
+    it('handles stat errors gracefully', async () => {
+      mockStat.mockRejectedValue(new Error('ENOENT'))
 
-      const tree = watcher.getFileTree('/repo/missing')
+      const tree = await watcher.getFileTree('/repo/missing')
       expect(tree.isDirectory).toBe(false)
     })
   })
