@@ -299,8 +299,8 @@ describe('registerFileHandlers', () => {
       const handler = mocks.handlers.get('files:paste-image')
       if (!handler) throw new Error('files:paste-image handler was not registered')
 
-      expect(() => handler({}, 'sess-1', outside, 'data:image/png;base64,iVBORw=='))
-        .toThrow('Path traversal denied')
+      await expect(handler({}, 'sess-1', outside, 'data:image/png;base64,iVBORw=='))
+        .rejects.toThrow('Path traversal denied')
     } finally {
       await rm(root, { recursive: true, force: true })
       await rm(outside, { recursive: true, force: true })

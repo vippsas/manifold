@@ -50,6 +50,17 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 `useTerminal` live-updates the running xterm's `fontSize` on each `manifold:ui-scale-changed`
 (`useTerminal.ts:105`, `:108`).
 
+**A terminal tells the PTY only about sizes it hasn't sent.** `fitAndResize` remembers the
+last `cols`/`rows` it reported per terminal instance and skips the `agent:resize` IPC when the
+fit produced the same numbers (`useTerminal.ts:370`). The fit itself is already a no-op then —
+xterm only resizes on a change, and `FitAddon.fit()` bails out entirely while the element is
+detached — but the resize IPC was sent unconditionally, and a redundant one still raises
+SIGWINCH on the PTY, which an agent TUI answers with a full repaint. Since dockview's default
+`onlyWhenVisible` renderer detaches and re-attaches a pane's content element on every tab
+switch (`AppShell.tsx:210` sets no `defaultRenderer`), that fired the ResizeObserver — and so a
+whole-screen agent repaint — each time the user switched agents. Pinned by
+`useTerminal.test.tsx` ("only resizes the PTY when the fitted size actually changed").
+
 **A workspace row's glyph says which kind it is.** The list is flat — a repo's own
 clone and the worktrees cut off it sit side by side — so `WorkspaceGlyph` draws a folder
 for a **home** workspace and a git branch for a **worktree** one

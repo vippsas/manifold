@@ -157,6 +157,8 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
 
     let disposed = false
     let ready = false
+    // Per terminal instance: a fresh terminal always sends its first size.
+    const lastSentSize: { current: { cols: number; rows: number } | null } = { current: null }
     let interruptResetTimer: ReturnType<typeof setTimeout> | null = null
 
     // After a resize we re-fit synchronously (fitPreservingScroll), but the
@@ -212,7 +214,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     // correct size before accepting output.
     requestAnimationFrame(() => {
       if (disposed) return
-      fitAndResize(fitAddon, terminal, sessionId)
+      fitAndResize(fitAddon, terminal, sessionId, lastSentSize)
       setTimeout(() => {
         if (disposed) return
         terminal.reset()
@@ -292,7 +294,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       if (disposed) return
       requestAnimationFrame(() => {
         if (disposed) return
-        const offsetFromBottom = fitAndResize(fitAddon, terminal, sessionId)
+        const offsetFromBottom = fitAndResize(fitAddon, terminal, sessionId, lastSentSize)
         scrollAnchor = offsetFromBottom > 0
           ? { offsetFromBottom, expiresAt: Date.now() + RESIZE_SCROLL_GUARD_MS }
           : null
@@ -355,11 +357,19 @@ function fitPreservingScroll(fitAddon: FitAddon | null, terminal: Terminal): num
 function fitAndResize(
   fitAddon: FitAddon | null,
   terminal: Terminal,
-  sessionId: string | null
+  sessionId: string | null,
+  lastSentSize: { current: { cols: number; rows: number } | null }
 ): number {
   try {
     const offsetFromBottom = fitPreservingScroll(fitAddon, terminal)
-    if (sessionId) {
+    // Only tell the PTY about a size it hasn't been told. Re-attaching a dock
+    // pane (every tab switch) fires the ResizeObserver at the size the terminal
+    // already had, and a redundant resize still raises SIGWINCH — which an
+    // agent TUI answers with a full repaint, so switching tabs flashed and
+    // replayed a screenful of output for nothing.
+    if (sessionId
+      && (lastSentSize.current?.cols !== terminal.cols || lastSentSize.current?.rows !== terminal.rows)) {
+      lastSentSize.current = { cols: terminal.cols, rows: terminal.rows }
       void window.electronAPI.invoke('agent:resize', sessionId, terminal.cols, terminal.rows)
     }
     return offsetFromBottom
