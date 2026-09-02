@@ -1,7 +1,6 @@
 // The New Agent dialog is workspace-scoped: a list of providers you click to
-// start a terminal agent, plus a Chat row that picks a provider for a chat
-// agent. It asks nothing about names, repos, branches, PRs or worktrees — the
-// workspace is the place, and every agent started here joins it.
+// start a terminal agent. It asks nothing about names, repos, branches, PRs or
+// worktrees — the workspace is the place, and every agent started here joins it.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react'
@@ -50,13 +49,12 @@ const ready = (): Promise<unknown> =>
 const providerRow = (name: RegExp): HTMLElement => screen.getByRole('button', { name })
 
 describe('NewAgentForm', () => {
-  it('lists a row per installed provider, plus a Chat row', async () => {
+  it('lists a row per installed provider', async () => {
     renderForm()
     await ready()
 
     expect(await screen.findByRole('button', { name: /Claude Code/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Codex/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Chat with interface/ })).toBeInTheDocument()
   })
 
   it('starts a terminal agent when a provider row is clicked', async () => {
@@ -73,22 +71,6 @@ describe('NewAgentForm', () => {
         displayName: 'Codex',
         nonInteractive: false,
       })
-    })
-  })
-
-  it('starts a chat agent after choosing a provider under the Chat row', async () => {
-    const { props } = renderForm()
-    await ready()
-    await screen.findByRole('button', { name: /Claude Code/ })
-
-    fireEvent.click(screen.getByRole('button', { name: /Chat with interface/ }))
-    // The chat picker repeats the providers, so the chat Claude row is the second.
-    fireEvent.click(screen.getAllByRole('button', { name: /Claude Code/ })[1])
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ runtimeId: 'claude', nonInteractive: true }),
-      )
     })
   })
 
@@ -169,19 +151,6 @@ describe('NewAgentForm', () => {
 
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultRuntime: 'codex' })
-    })
-  })
-
-  it('remembers chat mode, and saves runtime + mode in one write', async () => {
-    renderForm()
-    await ready()
-    await screen.findByRole('button', { name: /Codex/ })
-
-    fireEvent.click(screen.getByRole('button', { name: /Chat with interface/ }))
-    fireEvent.click(screen.getAllByRole('button', { name: /Codex/ })[1])
-
-    await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('settings:update', { defaultAgentMode: 'chat', defaultRuntime: 'codex' })
     })
   })
 

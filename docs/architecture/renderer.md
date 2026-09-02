@@ -46,7 +46,7 @@ incomplete) or `OnboardingView` (no projects) before rendering the full workspac
 **Viola is a native agent harness, not a plugin panel.** The runtime registry supplies its
 row beside the installed CLI agents; `AgentLaunchList` recognizes the orchestrator kind, opens it
 in chat mode, and explains the two-installed-harness precondition when unavailable
-(`components/modals/AgentLaunchList.tsx:116`, `:125`). `AgentPanel` sends every non-interactive
+(`components/modals/AgentLaunchList.tsx:100`, `:112`). `AgentPanel` sends every non-interactive
 session through the same `AgentChatView`; `runtimeId: 'viola'` only selects the goal-oriented
 empty state (`components/editor/editor-shell/dock-agent-panel.tsx:165`,
 `components/editor/editor-shell/AgentChatView.tsx:48`). Planning and worker orchestration stay in
@@ -556,7 +556,7 @@ saved layout before it is restored).
   (`modals/useNewAgentForm.tsx:45`); its `launch(runtimeId, mode)` takes the provider and mode
   from the clicked row rather than a single stored selection, and `pending` marks the one row
   that is starting. Two presentations render the shared `AgentLaunchList`
-  (`modals/AgentLaunchList.tsx:81`): the full-panel **hero** (`modals/NewAgentHero.tsx`) for a
+  (`modals/AgentLaunchList.tsx:67`): the full-panel **hero** (`modals/NewAgentHero.tsx`) for a
   workspace with no agent yet — the provider list over the workspace's finished agents, to
   resume — and the compact `NewAgentModal` (⌘N, or the agent tab bar's + — no sidebar button
   opens it), which wraps the same list narrower in `NewAgentForm`. Only the hero carries a
@@ -566,9 +566,11 @@ saved layout before it is restored).
   supplies the starfield backdrop behind both.
 
   **The list is the runtime picker.** One row per runtime — the agent's brand mark on the left,
-  the name on the right — and clicking it starts that provider in a **terminal** on the spot. A
-  final **Chat with interface** row opens an indented provider picker instead, and choosing a
-  provider there starts a **chat** (`nonInteractive`) agent. The marks are inline paths in
+  the name on the right — and clicking it starts that agent on the spot.
+  A CLI harness row starts a **terminal** agent and the orchestrator row starts a **chat**
+  (`nonInteractive`) one (`AgentLaunchList.tsx:100`); there is no standalone Chat row, so
+  wrapping a *CLI* runtime in the chat surface is done by switching that agent's view mode in
+  `AgentSettingsModal` instead. The marks are inline paths in
   `new-task/RuntimeGlyph.tsx` — simple-icons (CC0-1.0) for Claude, Copilot and Gemini, the
   OpenAI logomark for Codex, which simple-icons does not carry — drawn in `currentColor`; the
   Ollama variants reuse the mark of the agent they launch, and a runtime with no mark falls back
@@ -581,9 +583,9 @@ saved layout before it is restored).
   (`AgentLaunchList.styles.ts:rowPlate`). Both wear the same `--radius-md` corners, so the list
   reads as one family with an obvious default rather than a wall of equals. The lead
   row's surface comes entirely from the class: an inline `background`/`color` would outrank it,
-  which is why `row` holds geometry only. Both the provider and the Terminal/Chat
-  mode are **remembered as the next view's defaults**, written as one `settings:update`
-  (`defaultRuntime`, `defaultAgentMode`) on launch rather than on each click, which would
+  which is why `row` holds geometry only. The launched provider is **remembered as the next
+  view's default**, written as one `settings:update` (`defaultRuntime`, and `defaultAgentMode`
+  when the launch mode differs from the stored one) on launch rather than on each click, which would
   broadcast `settings:changed` to every renderer while the user tries options out
   (`useNewAgentForm.tsx`). `NewAgentAdvanced` is gone with the disclosure it held;
   `BranchPicker`/`PRPicker` stay exported from `new-task` unused, for when branch/PR selection is

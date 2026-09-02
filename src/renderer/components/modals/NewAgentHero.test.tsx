@@ -61,7 +61,6 @@ describe('NewAgentHero', () => {
 
     expect(await screen.findByRole('button', { name: /Codex/ })).toHaveClass('btn-metal')
     expect(screen.getByRole('button', { name: /Claude Code/ })).not.toHaveClass('btn-metal')
-    expect(screen.getByRole('button', { name: /Chat with interface/ })).not.toHaveClass('btn-metal')
   })
 
   // A plate advertising a runtime you can't launch is a dead default.
@@ -90,7 +89,6 @@ describe('NewAgentHero', () => {
     expect(await screen.findByRole('button', { name: /Claude Code/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Codex/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Viola \(alpha\)/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Chat with interface/ })).toBeInTheDocument()
   })
 
   it('starts Viola as its own native chat harness', async () => {
@@ -140,21 +138,6 @@ describe('NewAgentHero', () => {
     await waitFor(() => {
       expect(props.onLaunch).toHaveBeenCalledWith(
         expect.objectContaining({ runtimeId: 'codex', nonInteractive: false }),
-      )
-    })
-  })
-
-  it('starts a chat agent after choosing a provider under the Chat row', async () => {
-    const { props } = renderHero()
-    await ready()
-    await screen.findByRole('button', { name: /Claude Code/ })
-
-    fireEvent.click(screen.getByRole('button', { name: /Chat with interface/ }))
-    fireEvent.click(screen.getAllByRole('button', { name: /Claude Code/ })[1])
-
-    await waitFor(() => {
-      expect(props.onLaunch).toHaveBeenCalledWith(
-        expect.objectContaining({ runtimeId: 'claude', nonInteractive: true }),
       )
     })
   })

@@ -5,31 +5,6 @@ import { RuntimeGlyph, runtimeGlyphPath } from '../new-task/RuntimeGlyph'
 import { PluginGlyph } from '../plugin-glyphs'
 import { launchListStyles as s } from './AgentLaunchList.styles'
 
-const ChatGlyph = (
-  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4V6Z" />
-  </svg>
-)
-
-function Chevron({ open }: { open: boolean }): React.JSX.Element {
-  return (
-    <svg
-      width={16}
-      height={16}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      style={{ ...s.chevron, transform: open ? 'rotate(90deg)' : undefined }}
-    >
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  )
-}
-
 interface RowProps {
   glyph: React.ReactNode
   name: string
@@ -82,8 +57,8 @@ function runtimeGlyph(runtime: AgentRuntime): React.ReactNode {
 }
 
 /**
- * The agent list: CLI harnesses start in a terminal, native orchestrators start
- * in chat, and the Chat row can wrap a CLI runtime in Manifold's chat surface.
+ * The agent list: one row per runtime — CLI harnesses start in a terminal,
+ * native orchestrators start in chat.
  * Shared by the compact dialog and the full-panel start view.
  *
  * Exactly one row leads — the runtime you launched last — and it wears the gold
@@ -103,7 +78,6 @@ export function AgentLaunchList({
   /** The remembered runtime. Falls back to the first installed one. */
   leadRuntimeId?: string
 }): React.JSX.Element {
-  const [chatOpen, setChatOpen] = useState(false)
   const firstRowRef = useRef<HTMLButtonElement>(null)
   const loading = pending !== null
 
@@ -114,10 +88,9 @@ export function AgentLaunchList({
   // The Ollama `needsModel` variants relaunch the same two agents and would
   // double every row, so they stay out of the list.
   const providers = runtimes.filter((rt) => !rt.needsModel)
-  const installedProviders = providers.filter((rt) => rt.installed !== false)
-  const chatProviders = installedProviders.filter((rt) => rt.kind !== 'orchestrator')
   // A runtime that isn't installed can't lead — the plate would advertise a
   // default you can't click.
+  const installedProviders = providers.filter((rt) => rt.installed !== false)
   const lead = installedProviders.find((rt) => rt.id === leadRuntimeId) ?? installedProviders[0]
 
   return (
@@ -142,29 +115,6 @@ export function AgentLaunchList({
           />
         )
       })}
-
-      <Row
-        glyph={ChatGlyph}
-        name="Chat with interface"
-        disabled={loading}
-        trailing={<Chevron open={chatOpen} />}
-        onClick={() => setChatOpen((open) => !open)}
-      />
-      {chatOpen && (
-        <div style={s.chatPanel}>
-          <span style={s.chatPanelLabel}>Choose a provider to chat with</span>
-          {chatProviders.map((runtime) => (
-            <Row
-              key={runtime.id}
-              glyph={runtimeGlyph(runtime)}
-              name={runtime.name}
-              disabled={loading}
-              starting={pending?.runtimeId === runtime.id && pending.mode === 'chat'}
-              onClick={() => onLaunch(runtime.id, 'chat')}
-            />
-          ))}
-        </div>
-      )}
     </div>
   )
 }
