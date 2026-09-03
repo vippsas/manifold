@@ -1,3 +1,4 @@
+import { ORCHESTRATED_WORKER_DENY_RULES } from './orchestrated-args'
 // Claude Code paints its own colors — it does not use the terminal's ANSI
 // palette by default, so Manifold's theme can't recolor it. Its "ANSI colors
 // only" themes (`light-ansi` / `dark-ansi`) are the exception: they render
@@ -6,7 +7,14 @@
 // variant matching Manifold's current light/dark theme via its `--settings`
 // flag (a high-precedence merge layer, so the user's other settings are kept).
 
-export function claudeAnsiThemeArgs(themeType: 'light' | 'dark'): string[] {
+export function claudeAnsiThemeArgs(
+  themeType: 'light' | 'dark',
+  options: { guarded?: boolean } = {},
+): string[] {
   const theme = themeType === 'light' ? 'light-ansi' : 'dark-ansi'
-  return ['--settings', JSON.stringify({ theme })]
+  // Claude takes a single --settings, so a worker's deny list has to ride along with the theme.
+  const settings = options.guarded
+    ? { theme, permissions: { deny: [...ORCHESTRATED_WORKER_DENY_RULES] } }
+    : { theme }
+  return ['--settings', JSON.stringify(settings)]
 }

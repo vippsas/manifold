@@ -19,9 +19,12 @@ function setup(options: {
   projectKind?: 'git' | 'folder'
   /** Replaces the default chat-writing worker turn (an interactive worker writes no chat). */
   workerTurn?: (sessionId: string, prompt: string) => Promise<'ended'>
-  internalSessions?: { outputBuffer: string; nonInteractive?: boolean }
-  /** Decides how each turn completes, keyed by the file it was waiting for. */
-  doneOutcome?: (path: string) => 'done' | 'timeout' | 'aborted'
+  internalSessions?: { outputBuffer: string; nonInteractive?: boolean; lastOutputTime?: number }
+  /** Decides how each turn completes, keyed by the file it was waiting for. 'pending' never
+   *  resolves, standing in for a worker that is blocked. */
+  doneOutcome?: (path: string) => 'done' | 'timeout' | 'aborted' | 'pending'
+  /** Fired when a turn starts waiting, to simulate the screen changing mid-turn. */
+  onWaitStarted?: () => void
 } = {}) {
   const statuses: string[] = []
   const sent: { channel: string; payload: unknown }[] = []
@@ -75,7 +78,12 @@ function setup(options: {
   const done = {
     donePath: vi.fn((worktreePath: string) => `${worktreePath}/.viola/done`),
     clear: vi.fn(async () => undefined),
-    wait: vi.fn(async (path: string) => options.doneOutcome?.(path) ?? ('done' as const)),
+    wait: vi.fn(async (path: string) => {
+      options.onWaitStarted?.()
+      const outcome = options.doneOutcome?.(path) ?? ('done' as const)
+      if (outcome === 'pending') return new Promise<never>(() => {})
+      return outcome
+    }),
   }
   const harness = new ViolaHarness(
     sessions as never,
@@ -96,10 +104,17 @@ function setup(options: {
       git,
       gates,
       done,
+      readyPollMs: 5,
+      composerWaitMs: 40,
+      submitDelayMs: 5,
     },
   )
   return { harness, chat, aiGenerate, spawnService, controlService, git, gates, statuses, sent, sessions, done }
 }
+
+/** An idle terminal every runtime's readiness check accepts (claude's ❯ and codex's ›): one
+ *  internal-session double serves both the claude implementer and the codex reviewer. */
+const READY_TUI = 'Welcome back\n❯ \n› '
 
 /** What a TUI hands its model after taking a bracketed paste: the text without the frame. */
 function unframe(text: string): string {
@@ -194,6 +209,7 @@ describe('ViolaHarness', () => {
   it('reads an interactive worker\'s report from its terminal, stripped of escape codes', async () => {
     const noisy = '\u001b[2K\u001b[1;36m> \u001b[0mAdded the validator.\r\n'
       + '\u001b[38;5;246mRan npm test -- src/validation: 4 passed.\u001b[0m\r\n'
+      + '\u001b[2m' + READY_TUI + '\u001b[0m'
     const { harness, chat, sessions } = setup({
       // An interactive worker writes to its PTY, never to the chat store.
       workerTurn: async () => 'ended',
@@ -219,7 +235,7 @@ describe('ViolaHarness', () => {
     // turn-end heuristic called a paused worker finished, and Viola reviewed an untouched tree.
     const { harness, chat, done, sessions, git } = setup({
       workerTurn: async () => 'ended',
-      internalSessions: { outputBuffer: 'still working, esc to interrupt' },
+      internalSessions: { outputBuffer: READY_TUI },
       doneOutcome: (path) => (path.endsWith('/.viola/done') ? 'timeout' : 'done'),
     })
     harness.send('viola-1', 'Add validation')
@@ -245,7 +261,7 @@ describe('ViolaHarness', () => {
     // PTY, every newline submitted a fragment, and Claude never saw the task or the path to write.
     const { harness, chat, sessions } = setup({
       workerTurn: async () => 'ended',
-      internalSessions: { outputBuffer: '', nonInteractive: false },
+      internalSessions: { outputBuffer: READY_TUI, nonInteractive: false },
     })
     harness.send('viola-1', 'Add validation')
     await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
@@ -260,6 +276,83 @@ describe('ViolaHarness', () => {
     expect(framed[0]).toContain('IMPLEMENT this scoped task')
     expect(framed[0]).toContain('write the single word DONE')
     expect(writes[writes.indexOf(framed[0]) + 1]).toBe('\r')
+  })
+
+  it('sends anyway when the composer never appears, instead of failing a healthy worker', async () => {
+    // The previous gate demanded MCP startup be finished and the screen quiet for 1.5s. Codex
+    // takes typing during startup (its slowest server allows 120s) and a TUI animates while
+    // idle, so a healthy worker was failed before it was ever prompted.
+    const tui = { outputBuffer: 'a screen this code cannot parse', nonInteractive: false, lastOutputTime: Date.now() }
+    const { harness, chat, sessions } = setup({ workerTurn: async () => 'ended', internalSessions: tui })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
+
+    const typed = vi.mocked(sessions.sendInput).mock.calls.filter(([, t]) => (t as string) !== '\r')
+    expect(typed.length).toBeGreaterThan(0)
+    expect(unframe(typed[0][1] as string)).toContain('IMPLEMENT this scoped task')
+    expect(texts(chat, 'viola-1').at(-1)).not.toContain('ready composer')
+  })
+
+  it('refuses to press Enter into a dialog and says which one', async () => {
+    // Enter on codex's update menu runs `brew upgrade`; on a trust dialog it answers a security
+    // question. Neither may be answered on the user's behalf.
+    const tui = { outputBuffer: '› 1. Update now (runs `brew upgrade --cask codex`)\n  2. Skip', nonInteractive: false, lastOutputTime: Date.now() - 5000 }
+    const { harness, chat, sessions } = setup({ workerTurn: async () => 'ended', internalSessions: tui })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
+
+    expect(vi.mocked(sessions.sendInput)).not.toHaveBeenCalled()
+    expect(texts(chat, 'viola-1').at(-1)).toContain('startup update menu')
+  })
+
+  it('waits for a composer to be drawn before sending, when it can see one', async () => {
+    // A codex reviewer received Viola's prompt while still on its startup banner ("Starting MCP
+    // servers (0/2)"); the shared status called that "waiting", the composer redrew, the text
+    // was gone, and the reviewer sat idle until its budget ran out.
+    // Routed to claude; the per-runtime shapes are pinned on the predicates in worker-ready.test.ts.
+    const tui = { outputBuffer: 'Welcome to Claude Code!\n⠋ Loading…', nonInteractive: false, lastOutputTime: Date.now() }
+    const { harness, chat, sessions } = setup({ workerTurn: async () => 'ended', internalSessions: tui })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    // Inside the composer-wait window (40ms here): nothing should be typed yet.
+    await new Promise((r) => setTimeout(r, 15))
+    const typed = () => vi.mocked(sessions.sendInput).mock.calls.filter(([, t]) => (t as string) !== '\r')
+    expect(typed()).toHaveLength(0)
+
+    // Composer drawn: now the prompt goes in.
+    tui.outputBuffer = READY_TUI
+    await vi.waitFor(() => expect(typed().length).toBeGreaterThan(0))
+    expect(unframe(typed()[0][1] as string)).toContain('IMPLEMENT this scoped task')
+  })
+
+  it('stops waiting when a worker asks mid-turn for an approval only a human can give', async () => {
+    // A deny rule can escalate a command whose path Claude cannot prove, even under bypass. The
+    // worker then sits at "Do you want to proceed?" — previously for the full 30-minute budget.
+    const tui = { outputBuffer: READY_TUI, nonInteractive: false, lastOutputTime: Date.now() - 5000 }
+    const { harness, chat } = setup({
+      workerTurn: async () => 'ended',
+      internalSessions: tui,
+      // The completion file never arrives, because the worker is blocked on the prompt.
+      doneOutcome: () => 'pending',
+      onWaitStarted: () => {
+        tui.outputBuffer = 'Bash command\n\nDo you want to proceed?\n❯ 1. Yes\n  2. No'
+      },
+    })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'), { timeout: 3000 })
+    expect(texts(chat, 'viola-1').at(-1)).toContain('waiting for your approval')
   })
 
   it('clears a stale completion file before each turn', async () => {

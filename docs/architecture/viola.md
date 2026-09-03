@@ -107,7 +107,93 @@ than assumed away:
   heuristic reads that idle prompt as a finished turn, leaving Viola to review an untouched tree.
   A session carrying `orchestratedBy` therefore gets its runtime's real bypass at launch
   (`src/main/agent/orchestrated-args.ts:13`, `src/main/session/session-creator.ts:154`). Human
-  launched interactive sessions are untouched and keep prompting.
+  launched interactive sessions are untouched and keep prompting. Codex additionally gets
+  `-c check_for_update_on_startup=false`: when a newer release exists it opens an interactive
+  "Update now" menu on launch, the worker's prompt and Enter land in that menu, and option 1 runs
+  `brew upgrade`. A real reviewer sat idle at that menu until its budget ran out.
+- **A TUI cannot be asked whether it is ready.** The shared session status reads "waiting" from a
+  prompt-shaped character anywhere in the output, which a startup banner satisfies. A stricter gate
+  is no better: an earlier version required MCP startup to have finished and the screen to be quiet
+  for 1.5 s, and it failed a healthy codex worker before it was ever prompted — codex takes typing
+  while its servers start (its slowest configured server allows 120 s) and a TUI animates while
+  idle, so "quiet" never arrives. So Viola waits up to 15 s for a composer to appear
+  (`src/main/viola/worker-ready.ts:30`, `src/main/viola/harness.ts:260`) and then **sends
+  regardless**: readiness is a courtesy, never a reason to fail a task, and the completion file
+  stays the only timeout.
+- **A deny rule outranks every permission mode, so a worker inherits none.** Deny rules apply even
+  under bypass, and a `Read()` rule makes Claude escalate any command whose read path it cannot
+  determine — a `cd` before a `git grep` is enough. An unattended worker then waits for an approval
+  nobody will give. An orchestrated worker therefore runs with exactly Viola's catastrophic deny
+  list and no inherited rules (`src/main/agent/orchestrated-args.ts:32`), delivered in the *same*
+  inline `--settings` as the ANSI theme because Claude accepts only one
+  (`src/main/agent/claude-theme-args.ts:16`). Interactive workers previously got no deny list at
+  all: the guard was reachable only on the chat-mode path. Under bypass those inherited rules were
+  porous regardless, since they govern the Read tool and not what a shell command may `cat`.
+- **One screen state is a hard stop.** A dialog whose Enter would act for the user — codex's
+  startup update menu, which runs `brew upgrade --cask codex` on option 1, or a folder-trust
+  question — must never be answered by Viola. Those are matched on their menu shape, so a worker
+  merely writing about an update cannot look like one, and the task fails with the dialog named
+  (`src/main/viola/worker-ready.ts:14`). The same check runs *during* a turn, raced against the
+  completion file (`src/main/viola/harness.ts:283`): an escalation that appears mid-turn ends the
+  wait immediately instead of burning the full 30-minute budget.
+
+## How a turn ends
+
+Every worker turn is driven the same way (`src/main/viola/harness.ts:240`): clear the completion
+file, send the prompt, submit it if the runtime is interactive, then wait for that file to appear.
+Nothing about the terminal's appearance is consulted.
+
+An interactive prompt is sent as one **bracketed paste** (`\e[200~` … `\e[201~`,
+`src/main/viola/harness.ts:298`). Typed raw into a PTY, every newline in a prompt is an Enter, and
+a real gate-fix prompt reached its worker as its last 133 characters — the task, the failing gate
+output, and the path to write had all been submitted as earlier fragments. The frame is what a
+terminal emits when a human pastes, so the TUI takes the whole block as a single message. A
+chat-mode runtime receives the prompt as argv and gets no frame.
+
+- An implement, fix, gate-fix, or explore turn writes a **done marker** in its own worktree,
+  `.viola/done` (`src/main/viola/done-signal.ts:36`). Every worker prompt ends with the instruction
+  naming that exact path and says plainly that nothing else counts as finished
+  (`src/main/viola/prompts.ts:34`).
+- A **review** turn waits for the verdict file it has to write anyway
+  (`src/main/viola/task-pipeline.ts:155`). Asking for a second marker would only add a way to
+  finish and be missed.
+
+The file is cleared before each turn, so a turn can never inherit the previous turn's completion.
+The wait is bounded by the worker's 30-minute budget; a timeout interrupts the worker and fails the
+task with a timeout, which is the honest outcome — far better than reviewing work that is still in
+progress.
+
+## Task pipelines
+
+`start` runs every task as its own pipeline and awaits them concurrently, so a finished task is
+reviewed while a slower sibling is still implementing (`src/main/viola/engine.ts:102`,
+`src/main/viola/task-pipeline.ts:20`). The planner's suggested worker wins when it is
+installed; otherwise tasks rotate through the available harnesses
+(`src/main/viola/engine.ts:127`).
+
+Every worker is an ordinary **interactive** Manifold session — a real terminal in its own tab, so
+the human can watch one or take it over mid-run (`src/main/viola/task-pipeline.ts:172`). Only Viola
+itself is a chat session. Two consequences follow from that choice, and both are handled rather
+than assumed away:
+
+- **Permission prompts would stall an unattended worker.** The registry's Claude entry passes
+  `--allow-dangerously-skip-permissions`, which enables bypass "as an option, without it being
+  enabled by default", so a worker launched with it alone still prompts — and the turn-end
+  heuristic reads that idle prompt as a finished turn, leaving Viola to review an untouched tree.
+  A session carrying `orchestratedBy` therefore gets its runtime's real bypass at launch
+  (`src/main/agent/orchestrated-args.ts:13`, `src/main/session/session-creator.ts:154`). Human
+  launched interactive sessions are untouched and keep prompting. Codex additionally gets
+  `-c check_for_update_on_startup=false`: when a newer release exists it opens an interactive
+  "Update now" menu on launch, the worker's prompt and Enter land in that menu, and option 1 runs
+  `brew upgrade`. A real reviewer sat idle at that menu until its budget ran out.
+- **A TUI is not ready when the session status says so.** The shared status reads "waiting" from a
+  prompt-shaped character anywhere in the output, and a startup banner has those; codex also draws
+  its composer immediately, then redraws it while MCP servers start, discarding anything typed.
+  Viola uses its own readiness (`src/main/viola/worker-ready.ts:13`,
+  `src/main/viola/harness.ts:260`): the composer is drawn, nothing on screen would swallow
+  keystrokes — an update menu, a trust dialog, a startup phase, a turn in progress — and the
+  screen has been quiet for 1.5 s. The wait allows two minutes, since MCP startup can be slow, and
+  a worker that never gets there fails its task with a message saying to open its tab.
 - **A terminal has no chat messages to read.** A worker's report is the tail of its PTY, so it is
   stripped of escape codes and bounded before it reaches a prompt or a summary
   (`src/main/viola/harness.ts:284`).

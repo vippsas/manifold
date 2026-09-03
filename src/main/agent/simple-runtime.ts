@@ -1,4 +1,5 @@
 import { getRuntimeById } from './runtimes'
+import { ORCHESTRATED_WORKER_DENY_RULES } from './orchestrated-args'
 import { buildWorkingSetArgs } from './working-set-args'
 
 export type SimpleRuntimeOutputMode = 'claude-stream-json' | 'codex-jsonl' | 'plain-text'
@@ -10,20 +11,6 @@ export interface SimpleRuntimeCommandOptions {
   guarded?: boolean
 }
 
-/** Bash rules are prefix matches with `*` wildcards, so each spelling needs its own rule. */
-export const ORCHESTRATED_WORKER_DENY_RULES: readonly string[] = [
-  'Bash(git push*--force*)',
-  'Bash(git push* -f*)',
-  'Bash(git push*--delete*)',
-  'Bash(git push*--mirror*)',
-  'Bash(git reset --hard*origin/*)',
-  'Bash(rm -rf /*)',
-  'Bash(rm -fr /*)',
-  'Bash(rm -rf ~*)',
-  'Bash(rm -fr ~*)',
-  'Bash(rm -rf $HOME*)',
-  'Bash(gh pr merge*)',
-]
 
 export interface SimpleRuntimeCommand {
   binary: string

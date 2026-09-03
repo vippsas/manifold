@@ -237,7 +237,32 @@ check (`src/main/viola/git.ts:54`). `viola/git.test.ts` pins both halves: a link
 apply, and a main checkout that must survive with its uncommitted edits intact. See
 [Viola](viola.md).
 
-## 7. Verify against the real code path, not an approximation
+## 7. A TUI agent cannot be asked whether it is ready for a prompt
+
+**Symptom.** Either an orchestrated interactive worker never acts on the prompt it was sent (no
+turn starts, no API traffic, idle at 0 % CPU until a timeout), or a *healthy* worker is failed for
+never becoming ready.
+
+**Root cause.** `detectStatus` returns `waiting` from a prompt-shaped character anywhere in recent
+output, which a startup banner satisfies before a composer exists. Tightening that is a trap of its
+own: codex accepts typing while its MCP servers start — one configured server allows 120 s — and a
+TUI animates while idle, so requiring a finished startup and a quiet screen fails a worker that is
+perfectly fine. A separate hazard: when a newer release exists codex opens an interactive
+"Update now" menu on launch, and option 1 runs `brew upgrade --cask codex`.
+
+**Guardrail.** Do not gate on readiness. Wait briefly for a composer, then send anyway, and make
+an explicit artifact the only timeout (`src/main/viola/harness.ts:260`,
+`src/main/viola/done-signal.ts`). Refuse only the screens whose Enter would act for the user, and
+name them (`src/main/viola/worker-ready.ts:14`). Suppress the update menu at launch
+(`src/main/agent/orchestrated-args.ts:19`). `worker-ready.test.ts` and `harness.test.ts` pin both
+halves: send-anyway on an unparsed screen, and refusal on a dialog.
+
+**A caution on evidence.** Driving these CLIs from a bare PTY is not a faithful test: codex queries
+the terminal for its colours (OSC 10/11) and stalls when nothing answers, so a plain `node-pty`
+harness never reaches the composer. Conclusions about TUI behaviour need the real app, or a
+harness that answers those queries.
+
+## 8. Verify against the real code path, not an approximation
 
 Cross-cutting principle behind the guardrails above. A test that stubs the very thing
 under test proves nothing; a green check must exercise the app's real imports and
@@ -257,7 +282,7 @@ could only be confirmed against the live system.
   native-module rebuild story and the worktree bootstrap/doctor flow).
 - **CLAUDE.md §7** — the worktree-setup rule this page's trap #3 summarizes.
 - **[Renderer](renderer.md)** — where the terminal hook of trap #5 sits in the panel tree.
-- **[Viola](viola.md)** — subsystem-level detail for trap #6 (both isolation
-  preconditions and the destructive-apply guard).
+- **[Viola](viola.md)** — subsystem-level detail for traps #6 and #7 (isolation preconditions,
+  the destructive-apply guard, and TUI readiness).
 - **Test template** — `src/renderer/test-utils/strict-mode.test.tsx` is the copyable
   guardrail for trap #1; copy it next to a component and swap in the real one.
