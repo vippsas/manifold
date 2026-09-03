@@ -28,6 +28,9 @@ describe('ViolaEngine', () => {
     for (const [, options] of spawn.mock.calls) {
       expect(options).toMatchObject({ newWorktree: true, nonInteractive: false, groupId: 'viola-100' })
     }
+    // The reviewer's session is recorded too, so the board can open its tab during review.
+    expect(result.tasks[0].reviewSessionId).toBe('codex-3')
+    expect(result.tasks[1].reviewSessionId).toBe('claude-4')
     expect(git.apply).toHaveBeenCalledWith('/wt/codex-3', 'diff --git a/file b/file')
     expect(git.apply).toHaveBeenCalledWith('/wt/claude-4', 'diff --git a/file b/file')
   })

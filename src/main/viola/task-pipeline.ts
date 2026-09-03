@@ -195,6 +195,9 @@ async function spawnWorker(
   if (title === task.title) {
     task.sessionId = agent.sessionId
     task.worktreePath = agent.worktreePath
+  } else {
+    // The reviewer's session, so the board can open the worker it names during review.
+    task.reviewSessionId = agent.sessionId
   }
   if (!(await agent.whenReady(READY_TIMEOUT_MS))) {
     throw new Error(

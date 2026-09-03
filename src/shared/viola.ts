@@ -47,6 +47,8 @@ export interface ViolaTaskRun extends ViolaTaskPlan {
   runtimeId?: ViolaWorkerId
   reviewRuntimeId?: ViolaWorkerId
   sessionId?: string
+  /** The reviewer's own session, so its terminal can be opened while it reviews. */
+  reviewSessionId?: string
   worktreePath?: string
   /** The worker's own final message: an explore answer or an implementer's unverified summary. */
   report?: string

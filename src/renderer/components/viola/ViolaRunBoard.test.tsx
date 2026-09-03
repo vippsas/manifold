@@ -78,6 +78,30 @@ describe('ViolaRunBoard', () => {
     expect(onOpenSibling).toHaveBeenCalledWith('child-1', 'API tests')
   })
 
+  it('opens the reviewer\'s tab while reviewing, matching the harness the row names', () => {
+    // The row already shows the reviewer as the worker on the hook during review, so clicking it
+    // must reach that session. It used to open the implementer's, and a reviewer had no tab at all.
+    const { onOpenSibling } = renderBoard(run([task({
+      state: 'reviewing',
+      runtimeId: 'claude',
+      reviewRuntimeId: 'codex',
+      sessionId: 'child-impl',
+      reviewSessionId: 'child-review',
+    })]))
+
+    fireEvent.click(screen.getByText('reviewing'))
+
+    expect(onOpenSibling).toHaveBeenCalledWith('child-review', 'review-api')
+  })
+
+  it('falls back to the implementer when a reviewer has not been spawned yet', () => {
+    const { onOpenSibling } = renderBoard(run([task({ state: 'reviewing', reviewRuntimeId: 'codex' })]))
+
+    fireEvent.click(screen.getByText('reviewing'))
+
+    expect(onOpenSibling).toHaveBeenCalledWith('child-1', 'API tests')
+  })
+
   it('does not offer a click target for a task that has no session yet', () => {
     renderBoard(run([task({ state: 'spawning', sessionId: undefined })]))
 
