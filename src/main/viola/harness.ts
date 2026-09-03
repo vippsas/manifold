@@ -16,7 +16,7 @@ import { parsePlanResponse } from './planner'
 import { buildPlanPrompt } from './prompts'
 import { FileViolaStore, type ViolaStore } from './store'
 import { createViolaVerdictStore, type ViolaVerdictStore } from './verdict-store'
-import { workerComposerReady } from './worker-ready'
+import { blockingDialog, composerVisible } from './worker-ready'
 import type { ViolaRun, ViolaTaskState, ViolaWorkerId } from '../../shared/viola'
 import { isViolaWorker } from '../../shared/viola'
 
@@ -39,7 +39,7 @@ export interface ViolaHarnessOptions {
   sendToRenderer?: (channel: string, payload: unknown) => void
   /** Interactive timing knobs; overridable so tests need not wait on real delays. */
   readyPollMs?: number
-  readyQuietMs?: number
+  composerWaitMs?: number
   submitDelayMs?: number
 }
 
@@ -51,8 +51,9 @@ const TERMINAL_REPORT_MAX_CHARS = 4_000
 /** Matches the interactive submit delay the shared turn driver uses. */
 const SUBMIT_DELAY_MS = 400
 const READY_POLL_MS = 500
-/** The composer must hold still this long: a TUI draws it early, then redraws through startup. */
-const READY_QUIET_MS = 1_500
+/** How long to give a TUI to draw a composer before sending anyway. Short on purpose: this is a
+ *  courtesy, not a gate, so an unparsed screen costs seconds rather than failing the task. */
+const COMPOSER_WAIT_MS = 15_000
 const DEFAULT_READY_TIMEOUT_MS = 120_000
 
 /** Native conversational harness for the Viola runtime. */
@@ -65,7 +66,7 @@ export class ViolaHarness implements ViolaHarnessController {
   private readonly control: AgentControlService
   private readonly done: ViolaDoneSignal
   private readonly readyPollMs: number
-  private readonly readyQuietMs: number
+  private readonly composerWaitMs: number
   private readonly submitDelayMs: number
   private readonly listRuntimes: () => Promise<AgentRuntime[]>
 
@@ -81,7 +82,7 @@ export class ViolaHarness implements ViolaHarnessController {
     this.sendToRenderer = options.sendToRenderer ?? ((): void => {})
     this.done = options.done ?? createViolaDoneSignal()
     this.readyPollMs = options.readyPollMs ?? READY_POLL_MS
-    this.readyQuietMs = options.readyQuietMs ?? READY_QUIET_MS
+    this.composerWaitMs = options.composerWaitMs ?? COMPOSER_WAIT_MS
     this.submitDelayMs = options.submitDelayMs ?? SUBMIT_DELAY_MS
 
     this.engine = new ViolaEngine({
@@ -247,14 +248,15 @@ export class ViolaHarness implements ViolaHarnessController {
     return runtime
   }
 
-  /** Waits until an interactive worker's TUI can actually take a prompt.
+  /** Gives an interactive worker's TUI a chance to draw its composer, then reports whether it is
+   *  safe to type.
    *
-   *  Not the session status: that reads "waiting" from a prompt-shaped character anywhere in the
-   *  output, and a TUI's startup banner has those. A codex reviewer was typed into while it was
-   *  still starting its MCP servers; the composer redrew, the prompt was gone, and the reviewer sat
-   *  idle for its whole budget. Ready means the composer is drawn, nothing on screen would swallow
-   *  keystrokes, and the screen has been quiet for a moment — so a composer drawn early and then
-   *  wiped does not count. Chat-mode sessions have no TUI and keep the plain status check. */
+   *  Readiness is never a reason to fail a task. An earlier version demanded a positive, settled
+   *  composer and failed the task after 120s; codex takes typing while its MCP servers start (the
+   *  slowest configured one allows 120s) and a TUI animates while idle, so that gate failed a
+   *  healthy worker before it was ever prompted. So: wait a short while for a composer, then send
+   *  regardless, and let the completion file be the only timeout. The one hard stop is a dialog
+   *  whose Enter would do something on the user's behalf. */
   private async workerReady(
     sessionId: string,
     runtimeId: string,
@@ -263,15 +265,24 @@ export class ViolaHarness implements ViolaHarnessController {
   ): Promise<boolean> {
     const internal = this.sessions.getInternalSession(sessionId)
     if (!internal || internal.nonInteractive) return spawn.whenReady(sessionId, timeoutMs)
-    const deadline = Date.now() + (timeoutMs ?? DEFAULT_READY_TIMEOUT_MS)
+    const deadline = Math.min(
+      Date.now() + this.composerWaitMs,
+      Date.now() + (timeoutMs ?? DEFAULT_READY_TIMEOUT_MS),
+    )
     while (Date.now() < deadline) {
       const current = this.sessions.getInternalSession(sessionId)
       if (!current) return false
-      const quietFor = Date.now() - (current.lastOutputTime ?? 0)
-      if (workerComposerReady(runtimeId, current.outputBuffer ?? '') && quietFor >= this.readyQuietMs) return true
+      if (composerVisible(runtimeId, current.outputBuffer ?? '')) break
       await sleep(this.readyPollMs)
     }
-    return false
+    return true
+  }
+
+  /** The reason it is unsafe to type into this worker right now, or null. */
+  private dialogBlocking(sessionId: string): string | null {
+    const internal = this.sessions.getInternalSession(sessionId)
+    if (!internal || internal.nonInteractive) return null
+    return blockingDialog(internal.outputBuffer ?? '')
   }
 
   /** Sends a prompt, then waits for the file the worker was told to write.
@@ -283,6 +294,14 @@ export class ViolaHarness implements ViolaHarnessController {
     const { prompt, completionFile, signal } = request
     if (signal.aborted) return { outcome: 'aborted', response: '' }
     const before = this.chat.getMessages(sessionId).length
+
+    const dialog = this.dialogBlocking(sessionId)
+    if (dialog) {
+      // Answering it could upgrade a package or accept a trust prompt for the user.
+      throw new Error(
+        `Refusing to type into this worker: ${dialog}. Open its tab, answer it, and start again.`,
+      )
+    }
 
     await this.done.clear(completionFile)
     const interactive = !this.sessions.getInternalSession(sessionId)?.nonInteractive

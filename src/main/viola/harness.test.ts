@@ -97,7 +97,7 @@ function setup(options: {
       gates,
       done,
       readyPollMs: 5,
-      readyQuietMs: 20,
+      composerWaitMs: 40,
       submitDelayMs: 5,
     },
   )
@@ -270,25 +270,57 @@ describe('ViolaHarness', () => {
     expect(writes[writes.indexOf(framed[0]) + 1]).toBe('\r')
   })
 
-  it('does not type into an interactive worker until its composer is drawn and settled', async () => {
+  it('sends anyway when the composer never appears, instead of failing a healthy worker', async () => {
+    // The previous gate demanded MCP startup be finished and the screen quiet for 1.5s. Codex
+    // takes typing during startup (its slowest server allows 120s) and a TUI animates while
+    // idle, so a healthy worker was failed before it was ever prompted.
+    const tui = { outputBuffer: 'a screen this code cannot parse', nonInteractive: false, lastOutputTime: Date.now() }
+    const { harness, chat, sessions } = setup({ workerTurn: async () => 'ended', internalSessions: tui })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
+
+    const typed = vi.mocked(sessions.sendInput).mock.calls.filter(([, t]) => (t as string) !== '\r')
+    expect(typed.length).toBeGreaterThan(0)
+    expect(unframe(typed[0][1] as string)).toContain('IMPLEMENT this scoped task')
+    expect(texts(chat, 'viola-1').at(-1)).not.toContain('ready composer')
+  })
+
+  it('refuses to press Enter into a dialog and says which one', async () => {
+    // Enter on codex's update menu runs `brew upgrade`; on a trust dialog it answers a security
+    // question. Neither may be answered on the user's behalf.
+    const tui = { outputBuffer: '› 1. Update now (runs `brew upgrade --cask codex`)\n  2. Skip', nonInteractive: false, lastOutputTime: Date.now() - 5000 }
+    const { harness, chat, sessions } = setup({ workerTurn: async () => 'ended', internalSessions: tui })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
+
+    expect(vi.mocked(sessions.sendInput)).not.toHaveBeenCalled()
+    expect(texts(chat, 'viola-1').at(-1)).toContain('startup update menu')
+  })
+
+  it('waits for a composer to be drawn before sending, when it can see one', async () => {
     // A codex reviewer received Viola's prompt while still on its startup banner ("Starting MCP
     // servers (0/2)"); the shared status called that "waiting", the composer redrew, the text
     // was gone, and the reviewer sat idle until its budget ran out.
-    // This worker is routed to claude; the codex banner, update menu and MCP-startup cases are
-    // pinned on the pure predicate in worker-ready.test.ts.
+    // Routed to claude; the per-runtime shapes are pinned on the predicates in worker-ready.test.ts.
     const tui = { outputBuffer: 'Welcome to Claude Code!\n⠋ Loading…', nonInteractive: false, lastOutputTime: Date.now() }
     const { harness, chat, sessions } = setup({ workerTurn: async () => 'ended', internalSessions: tui })
     harness.send('viola-1', 'Add validation')
     await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
 
     harness.send('viola-1', 'Start plan')
-    await new Promise((r) => setTimeout(r, 120))
+    // Inside the composer-wait window (40ms here): nothing should be typed yet.
+    await new Promise((r) => setTimeout(r, 15))
     const typed = () => vi.mocked(sessions.sendInput).mock.calls.filter(([, t]) => (t as string) !== '\r')
     expect(typed()).toHaveLength(0)
 
-    // Composer up, startup finished, screen quiet: now the prompt may go in.
+    // Composer drawn: now the prompt goes in.
     tui.outputBuffer = READY_TUI
-    tui.lastOutputTime = Date.now() - 1000
     await vi.waitFor(() => expect(typed().length).toBeGreaterThan(0))
     expect(unframe(typed()[0][1] as string)).toContain('IMPLEMENT this scoped task')
   })

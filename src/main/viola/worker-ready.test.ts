@@ -1,32 +1,43 @@
 import { describe, expect, it } from 'vitest'
-import { workerComposerReady } from './worker-ready'
+import { blockingDialog, composerVisible } from './worker-ready'
 
-describe('workerComposerReady', () => {
-  it('is not fooled by codex\'s startup banner, which carries prompt-like characters', () => {
-    // The shared status detector calls this "waiting"; Viola then typed a prompt into a TUI with
-    // no composer yet, and the text was lost.
-    const banner = '╭──╮│ >_ OpenAI Codex (v0.153.0) │╰──╯\nTip: use ! for shell • Starting MCP servers (0/2): codex_apps, nod'
-    expect(workerComposerReady('codex', banner)).toBe(false)
+describe('blockingDialog', () => {
+  it('names codex\'s update menu, where Enter runs a package upgrade', () => {
+    expect(blockingDialog('› 1. Update now (runs `brew upgrade --cask codex`)\n  2. Skip'))
+      .toMatch(/update/i)
   })
 
-  it('accepts codex once its composer is on screen and MCP startup has finished', () => {
-    const ready = '│ model: gpt-5.6 │\n╰──╯\n› Ask Codex to do anything\n  gpt-5.6 xhigh · /model to change'
-    expect(workerComposerReady('codex', ready)).toBe(true)
+  it('names a folder-trust dialog', () => {
+    expect(blockingDialog('Do you trust the files in this folder?\n❯ 1. Yes, proceed')).toMatch(/trust/i)
   })
 
-  it('refuses codex while its update menu is showing, whatever else is on screen', () => {
-    const menu = '› 1. Update now (runs `brew upgrade --cask codex`)\n  2. Skip this version'
-    expect(workerComposerReady('codex', menu)).toBe(false)
+  it('is silent for an ordinary terminal, however prompt-like', () => {
+    expect(blockingDialog('› Ask Codex to do anything')).toBeNull()
+    expect(blockingDialog('Welcome back\n❯ ')).toBeNull()
+    // A worker discussing an update in its own output must not look like a menu.
+    expect(blockingDialog('I will update now the README section on OpenAI.')).toBeNull()
+  })
+})
+
+describe('composerVisible', () => {
+  it('accepts a drawn composer even while MCP servers are still starting', () => {
+    // codex accepts typing during startup, and its slowest configured server allows 120s —
+    // treating startup as not-ready failed a healthy worker before it was ever prompted.
+    const starting = '› Ask Codex to do anything\nTip: use ! for shell • Starting MCP servers (0/4): node_repl'
+    expect(composerVisible('codex', starting)).toBe(true)
   })
 
-  it('accepts claude at an idle prompt and refuses it mid-turn or at a dialog', () => {
-    expect(workerComposerReady('claude', 'Welcome back\n❯ ')).toBe(true)
-    expect(workerComposerReady('claude', '❯ \n⠋ Thinking… (esc to interrupt)')).toBe(false)
-    expect(workerComposerReady('claude', 'Do you trust the files in this folder?\n❯ 1. Yes, proceed')).toBe(false)
+  it('accepts claude at its prompt', () => {
+    expect(composerVisible('claude', 'Welcome back\n❯ ')).toBe(true)
   })
 
-  it('falls back to a bare prompt glyph for runtimes without a specific rule', () => {
-    expect(workerComposerReady('gemini', 'Gemini CLI\n❯ ')).toBe(true)
-    expect(workerComposerReady('gemini', 'Loading…')).toBe(false)
+  it('reports nothing drawn yet for an empty or pre-banner screen', () => {
+    expect(composerVisible('codex', '')).toBe(false)
+    expect(composerVisible('claude', 'Loading…')).toBe(false)
+  })
+
+  it('does not require a quiet screen, since a TUI animates while idle', () => {
+    // The previous gate also demanded 1.5s of output silence; a spinner never allows that.
+    expect(composerVisible('codex', '⠋ ⠙ ⠹ › Ask Codex to do anything')).toBe(true)
   })
 })

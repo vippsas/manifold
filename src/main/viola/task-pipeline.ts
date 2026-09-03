@@ -198,8 +198,7 @@ async function spawnWorker(
   }
   if (!(await agent.whenReady(READY_TIMEOUT_MS))) {
     throw new Error(
-      `Worker "${title}" (${runtimeId}) never showed a ready composer within ${READY_TIMEOUT_MS / 1000}s — `
-      + 'it may be stuck on a startup dialog or still starting MCP servers. Open its tab to see.',
+      `Worker "${title}" (${runtimeId}) did not start within ${READY_TIMEOUT_MS / 1000}s. Open its tab to see why.`,
     )
   }
   return agent

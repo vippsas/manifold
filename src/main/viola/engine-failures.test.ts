@@ -108,7 +108,7 @@ describe('ViolaEngine preconditions and failures', () => {
     const result = await engine.start('viola-1')
 
     for (const task of result.tasks) {
-      expect(task).toMatchObject({ state: 'error', error: expect.stringMatching(/ready/i) })
+      expect(task).toMatchObject({ state: 'error', error: expect.stringMatching(/did not start/i) })
     }
   })
 })

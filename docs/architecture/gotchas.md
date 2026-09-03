@@ -237,24 +237,30 @@ check (`src/main/viola/git.ts:54`). `viola/git.test.ts` pins both halves: a link
 apply, and a main checkout that must survive with its uncommitted edits intact. See
 [Viola](viola.md).
 
-## 7. A TUI agent's "waiting" status is not "ready for a prompt"
+## 7. A TUI agent cannot be asked whether it is ready for a prompt
 
-**Symptom.** An orchestrated interactive worker is sent a prompt and never acts on it: no turn
-starts, no API traffic, the process idles at 0 % CPU until a timeout.
+**Symptom.** Either an orchestrated interactive worker never acts on the prompt it was sent (no
+turn starts, no API traffic, idle at 0 % CPU until a timeout), or a *healthy* worker is failed for
+never becoming ready.
 
-**Root cause.** Two independent traps. `detectStatus` returns `waiting` from a prompt-shaped
-character anywhere in recent output, which a startup banner satisfies before the composer exists;
-codex draws its composer at once and redraws it while MCP servers start, so early keystrokes are
-discarded. And when a newer release exists, codex opens an interactive "Update now" menu on launch —
-the prompt and Enter land there, and option 1 runs `brew upgrade --cask codex`. Both were found by
-driving a real codex in a PTY (`node-pty`) and watching the screen.
+**Root cause.** `detectStatus` returns `waiting` from a prompt-shaped character anywhere in recent
+output, which a startup banner satisfies before a composer exists. Tightening that is a trap of its
+own: codex accepts typing while its MCP servers start — one configured server allows 120 s — and a
+TUI animates while idle, so requiring a finished startup and a quiet screen fails a worker that is
+perfectly fine. A separate hazard: when a newer release exists codex opens an interactive
+"Update now" menu on launch, and option 1 runs `brew upgrade --cask codex`.
 
-**Guardrail.** Orchestrated codex launches with `-c check_for_update_on_startup=false`
-(`src/main/agent/orchestrated-args.ts:19`). Viola judges readiness itself
-(`src/main/viola/worker-ready.ts:13`): composer drawn, no menu/dialog/startup phase in the tail,
-screen quiet for 1.5 s, two-minute allowance. `worker-ready.test.ts` pins the banner, the menu,
-and the ready state; `harness.test.ts` pins that nothing is typed until the composer settles. See
-[Viola](viola.md).
+**Guardrail.** Do not gate on readiness. Wait briefly for a composer, then send anyway, and make
+an explicit artifact the only timeout (`src/main/viola/harness.ts:260`,
+`src/main/viola/done-signal.ts`). Refuse only the screens whose Enter would act for the user, and
+name them (`src/main/viola/worker-ready.ts:14`). Suppress the update menu at launch
+(`src/main/agent/orchestrated-args.ts:19`). `worker-ready.test.ts` and `harness.test.ts` pin both
+halves: send-anyway on an unparsed screen, and refusal on a dialog.
+
+**A caution on evidence.** Driving these CLIs from a bare PTY is not a faithful test: codex queries
+the terminal for its colours (OSC 10/11) and stalls when nothing answers, so a plain `node-pty`
+harness never reaches the composer. Conclusions about TUI behaviour need the real app, or a
+harness that answers those queries.
 
 ## 8. Verify against the real code path, not an approximation
 
