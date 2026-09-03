@@ -46,8 +46,13 @@ export function ViolaRunBoard({ run }: { run: ViolaRun | undefined }): React.JSX
     <ul style={s.board} aria-label="Viola run progress">
       {run.tasks.map((task) => {
         const color = STEP_COLORS[task.state]
-        // While reviewing, the harness on the hook is the reviewer, not the implementer.
-        const worker = task.state === 'reviewing' ? task.reviewRuntimeId : task.runtimeId
+        // While reviewing, the harness on the hook is the reviewer, not the implementer — and the
+        // row opens whichever worker it names, so the label and the click never disagree.
+        const reviewing = task.state === 'reviewing'
+        const worker = reviewing ? task.reviewRuntimeId : task.runtimeId
+        const target = reviewing && task.reviewSessionId
+          ? { sessionId: task.reviewSessionId, title: `review-${task.id}` }
+          : { sessionId: task.sessionId, title: task.title }
         const detail = detailFor(task)
         const body = (
           <>
@@ -61,14 +66,14 @@ export function ViolaRunBoard({ run }: { run: ViolaRun | undefined }): React.JSX
         )
         return (
           <li key={task.id} style={s.rowItem}>
-            {task.sessionId && open ? (
+            {target.sessionId && open ? (
               // The whole row is the target: the step label is the live-looking part, so making
               // only the title clickable reads as nothing happening.
               <button
                 type="button"
                 style={s.rowButton}
-                title={`Open ${task.title} in its own tab`}
-                onClick={() => open(task.sessionId!, task.title)}
+                title={`Open ${target.title} in its own tab`}
+                onClick={() => open(target.sessionId!, target.title)}
               >
                 {body}
               </button>
