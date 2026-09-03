@@ -52,8 +52,9 @@ function setup(options: {
     kill: vi.fn(),
   }
   // A worker's reply now arrives through the chat store as its turn runs, not from a driver call.
-  sessions.sendInput = vi.fn((sessionId: string, text: string) => {
-    if (text === '\r' || options.workerTurn) return
+  sessions.sendInput = vi.fn((sessionId: string, raw: string) => {
+    if (raw === '\r' || options.workerTurn) return
+    const text = unframe(raw)
     chat.addAgentMessage(
       sessionId,
       text.startsWith('You are an independent code reviewer')
@@ -98,6 +99,11 @@ function setup(options: {
     },
   )
   return { harness, chat, aiGenerate, spawnService, controlService, git, gates, statuses, sent, sessions, done }
+}
+
+/** What a TUI hands its model after taking a bracketed paste: the text without the frame. */
+function unframe(text: string): string {
+  return text.replace(/^\u001b\[200~/, '').replace(/\u001b\[201~$/, '')
 }
 
 function texts(chat: ChatAdapter, sessionId: string): string[] {
@@ -200,7 +206,7 @@ describe('ViolaHarness', () => {
     await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
 
     const reviewPrompt = vi.mocked(sessions.sendInput).mock.calls
-      .map(([, text]) => text as string)
+      .map(([, text]) => unframe(text as string))
       .find((text) => text.startsWith('You are an independent code reviewer'))!
     expect(reviewPrompt).toContain('Added the validator.')
     expect(reviewPrompt).toContain('4 passed.')
@@ -232,6 +238,28 @@ describe('ViolaHarness', () => {
     expect(git.diff).not.toHaveBeenCalled()
     // The stalled worker is interrupted rather than left running.
     expect(vi.mocked(sessions.interruptSession)).toHaveBeenCalled()
+  })
+
+  it('frames an interactive prompt as one bracketed paste so newlines are not Enter presses', async () => {
+    // The gate-fix prompt reached a real worker as its last 133 characters: typed raw into the
+    // PTY, every newline submitted a fragment, and Claude never saw the task or the path to write.
+    const { harness, chat, sessions } = setup({
+      workerTurn: async () => 'ended',
+      internalSessions: { outputBuffer: '', nonInteractive: false },
+    })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'))
+
+    const writes = vi.mocked(sessions.sendInput).mock.calls.map(([, text]) => text as string)
+    const framed = writes.filter((text) => text.startsWith('\u001b[200~') && text.endsWith('\u001b[201~'))
+    expect(framed.length).toBeGreaterThan(0)
+    // The whole multi-line prompt sits inside one frame, followed by a separate Enter.
+    expect(framed[0]).toContain('IMPLEMENT this scoped task')
+    expect(framed[0]).toContain('write the single word DONE')
+    expect(writes[writes.indexOf(framed[0]) + 1]).toBe('\r')
   })
 
   it('clears a stale completion file before each turn', async () => {

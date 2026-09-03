@@ -3,7 +3,7 @@ import type { DockviewApi } from 'dockview'
 import type { AgentSession } from '../../../shared/types'
 import { isSiblingPanelId, parseSiblingSessionId, siblingPanelId } from './agent-siblings'
 import { clearAgentTabDismissed, isAgentTabDismissed, pruneDismissedAgentTabs } from './dismissed-agent-tabs'
-import { isAgentTabOpened, pruneOpenedAgentTabs } from './opened-agent-tabs'
+import { isAgentTabOpened } from './opened-agent-tabs'
 import { findTopLeftWorkspaceReferencePanel } from '../dock-layout/dock-layout-helpers'
 
 interface Options {
@@ -121,7 +121,9 @@ export function useAgentSiblingDockTabs({
     // opened stay open until the session itself is gone.
     const knownSessionIds = new Set(siblingsInWorkspace.map((s) => s.id))
     pruneDismissedAgentTabs(knownSessionIds)
-    pruneOpenedAgentTabs(knownSessionIds)
+    // The "opened" record is deliberately NOT pruned here: `knownSessionIds` is only the
+    // *active* workspace, so pruning on a repo switch forgot every other workspace's opened
+    // worker tabs, and returning found nothing to restore.
 
     for (const panel of api.panels) {
       if (!isSiblingPanelId(panel.id)) continue
