@@ -243,9 +243,13 @@ export class ViolaHarness implements ViolaHarnessController {
     const before = this.chat.getMessages(sessionId).length
 
     await this.done.clear(completionFile)
-    this.sessions.sendInput(sessionId, prompt)
-    // An interactive runtime needs the prompt submitted; a chat-mode one already ran on send.
-    if (!this.sessions.getInternalSession(sessionId)?.nonInteractive) {
+    const interactive = !this.sessions.getInternalSession(sessionId)?.nonInteractive
+    // Typed raw into a PTY, every newline in a prompt is an Enter: a real gate-fix prompt reached
+    // its worker as the last 133 characters, the rest having been submitted as fragments. Framing
+    // it as a bracketed paste is what a terminal does when a human pastes, and the TUI then takes
+    // the whole block as one message. A chat-mode runtime gets the prompt as argv, so no frame.
+    this.sessions.sendInput(sessionId, interactive ? asBracketedPaste(prompt) : prompt)
+    if (interactive) {
       await sleep(SUBMIT_DELAY_MS)
       this.sessions.sendInput(sessionId, '\r')
     }
@@ -288,6 +292,11 @@ function terminalReport(output: string): string {
     .filter((line) => line.trim().length > 0)
     .join('\n')
   return clean.length > TERMINAL_REPORT_MAX_CHARS ? clean.slice(-TERMINAL_REPORT_MAX_CHARS) : clean
+}
+
+/** xterm bracketed-paste framing: the TUI treats the enclosed text as one pasted block. */
+function asBracketedPaste(text: string): string {
+  return `\u001b[200~${text}\u001b[201~`
 }
 
 function sleep(ms: number): Promise<void> {

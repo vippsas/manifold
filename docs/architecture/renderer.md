@@ -59,7 +59,10 @@ deliberately not for grouped ones (a Viola run's workers), which are opened on d
 owner UI. Because the dock layout is one window-wide object that is reloaded and filtered on a
 repo switch, an on-demand tab would not survive returning to the workspace — nothing recreates a
 grouped panel. `opened-agent-tabs.ts` records that the user opened one, the mirror image of
-`dismissed-agent-tabs.ts` recording that they closed one.
+`dismissed-agent-tabs.ts` recording that they closed one — except that it is not pruned against
+the active workspace's sessions, which would discard every other workspace's record on a repo
+switch. (The dismissal set *is* pruned that way, so a tab hidden in one workspace can reappear
+after visiting another; that is pre-existing and worth its own fix.)
 
 **The Viola run board is the renderer's one always-on subscription.** `components/viola/
 viola-run-store.ts` listens on `viola:run` at module scope rather than per component, because a

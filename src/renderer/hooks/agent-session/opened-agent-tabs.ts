@@ -9,7 +9,12 @@
  *  and switching repositories reloads it and strips sibling panels whose session is not in the new
  *  workspace. Coming back, an ungrouped agent's tab is recreated by the auto-tab pass, but a
  *  grouped one has nothing to recreate it — so the worker tab the user opened simply vanished.
- *  This records that choice, so it survives the switch. */
+ *  This records that choice, so it survives the switch.
+ *
+ *  It is never pruned against the active workspace's session list — that list is someone else's
+ *  the moment the user switches repos, and pruning against it is exactly how the record got lost.
+ *  A stale id for a dead session is harmless (it can never match a live one) and the set holds
+ *  one uuid per opened worker tab, so growth is not a concern. */
 const opened = new Set<string>()
 
 export function markAgentTabOpened(sessionId: string): void {
@@ -18,13 +23,6 @@ export function markAgentTabOpened(sessionId: string): void {
 
 export function isAgentTabOpened(sessionId: string): boolean {
   return opened.has(sessionId)
-}
-
-/** Drop marks for sessions that no longer exist, so the set can't grow unbounded. */
-export function pruneOpenedAgentTabs(knownSessionIds: Set<string>): void {
-  for (const id of opened) {
-    if (!knownSessionIds.has(id)) opened.delete(id)
-  }
 }
 
 /** Test-only: reset between cases. */

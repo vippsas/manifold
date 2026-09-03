@@ -504,6 +504,49 @@ describe('useAgentSiblingDockTabs', () => {
       }))
     })
 
+    it('remembers an opened worker tab across a visit to another repository', () => {
+      // Switching repos makes the active workspace's session list someone else's. The bug: the
+      // "opened" record was pruned against that list, so returning found nothing to restore.
+      markAgentTabOpened('worker-1')
+      const group: MockGroup = { element: { getBoundingClientRect: () => ({ top: 0, left: 0 }) }, panels: [] }
+      const agentPanel = buildPanel('agent', group)
+      const panels = new Map<string, MockPanel>([[agentPanel.id, agentPanel]])
+      const addPanel = vi.fn((opts: { id: string }) => { panels.set(opts.id, buildPanel(opts.id, group)) })
+      const removePanel = vi.fn((panel: MockPanel) => { panels.delete(panel.id) })
+      const api = {
+        getPanel: ((id: string) => panels.get(id)) as DockviewApi['getPanel'],
+        addPanel,
+        removePanel,
+        onDidActivePanelChange: (() => ({ dispose() {} })) as DockviewApi['onDidActivePanelChange'],
+      } as unknown as DockviewApi
+      Object.defineProperty(api, 'panels', { get: () => Array.from(panels.values()) })
+
+      const other: AgentSession = {
+        id: 'other-primary', projectId: 'p2', runtimeId: 'codex', branchName: 'main',
+        worktreePath: '/wt/other', status: 'waiting', pid: 9, additionalDirs: [],
+      } as AgentSession
+      const home = { sessions: [viola, worker()], primary: 'viola', worktree: '/wt/base' }
+      const away = { sessions: [other], primary: 'other-primary', worktree: '/wt/other' }
+
+      const { rerender } = renderHook((view: typeof home) => useAgentSiblingDockTabs({
+        apiRef: { current: api },
+        layoutVersion: 1,
+        sessions: view.sessions,
+        activeWorktreePath: view.worktree,
+        primarySessionId: view.primary,
+        activeSessionId: view.primary,
+        onSelectSession: vi.fn(),
+      }), { initialProps: home })
+      expect(panels.has(siblingPanelId('worker-1'))).toBe(true)
+
+      rerender(away)
+      // Leaving prunes the worker's panel, correctly: it belongs to another workspace.
+      expect(panels.has(siblingPanelId('worker-1'))).toBe(false)
+
+      rerender(home)
+      expect(panels.has(siblingPanelId('worker-1'))).toBe(true)
+    })
+
     it('still honours hiding a worker tab the user closed', () => {
       markAgentTabOpened('worker-1')
       markAgentTabDismissed('worker-1')

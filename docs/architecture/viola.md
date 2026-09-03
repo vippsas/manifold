@@ -68,6 +68,13 @@ Every worker turn is driven the same way (`src/main/viola/harness.ts:240`): clea
 file, send the prompt, submit it if the runtime is interactive, then wait for that file to appear.
 Nothing about the terminal's appearance is consulted.
 
+An interactive prompt is sent as one **bracketed paste** (`\e[200~` … `\e[201~`,
+`src/main/viola/harness.ts:298`). Typed raw into a PTY, every newline in a prompt is an Enter, and
+a real gate-fix prompt reached its worker as its last 133 characters — the task, the failing gate
+output, and the path to write had all been submitted as earlier fragments. The frame is what a
+terminal emits when a human pastes, so the TUI takes the whole block as a single message. A
+chat-mode runtime receives the prompt as argv and gets no frame.
+
 - An implement, fix, gate-fix, or explore turn writes a **done marker** in its own worktree,
   `.viola/done` (`src/main/viola/done-signal.ts:36`). Every worker prompt ends with the instruction
   naming that exact path and says plainly that nothing else counts as finished
@@ -187,7 +194,9 @@ window-wide dock layout: switching repositories reloads it and strips sibling pa
 is not in the new workspace. An ungrouped agent's tab is recreated by the auto-tab pass on return,
 but a grouped one has nothing to recreate it, so a worker tab the user had opened simply
 disappeared. The record is in memory, matching the dismissal set beside it; after an app restart a
-run is `stopped` anyway. A fixing row names
+run is `stopped` anyway. Unlike the dismissal set it is *never pruned against the active
+workspace's sessions*: that list is another workspace's the moment the user switches repos, and
+pruning against it was exactly how the record got lost, so returning restored nothing. A fixing row names
 the blocking finding it is addressing, the one detail that used to reach the chat log. The board
 is passed to `ChatPane` as its `activity` slot, so it replaces the phrases for Viola only and
 every other runtime is untouched (`src/renderer-shared/chat/ChatPane.tsx:183`).
