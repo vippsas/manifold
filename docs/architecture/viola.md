@@ -107,7 +107,18 @@ than assumed away:
   heuristic reads that idle prompt as a finished turn, leaving Viola to review an untouched tree.
   A session carrying `orchestratedBy` therefore gets its runtime's real bypass at launch
   (`src/main/agent/orchestrated-args.ts:13`, `src/main/session/session-creator.ts:154`). Human
-  launched interactive sessions are untouched and keep prompting.
+  launched interactive sessions are untouched and keep prompting. Codex additionally gets
+  `-c check_for_update_on_startup=false`: when a newer release exists it opens an interactive
+  "Update now" menu on launch, the worker's prompt and Enter land in that menu, and option 1 runs
+  `brew upgrade`. A real reviewer sat idle at that menu until its budget ran out.
+- **A TUI is not ready when the session status says so.** The shared status reads "waiting" from a
+  prompt-shaped character anywhere in the output, and a startup banner has those; codex also draws
+  its composer immediately, then redraws it while MCP servers start, discarding anything typed.
+  Viola uses its own readiness (`src/main/viola/worker-ready.ts:13`,
+  `src/main/viola/harness.ts:258`): the composer is drawn, nothing on screen would swallow
+  keystrokes — an update menu, a trust dialog, a startup phase, a turn in progress — and the
+  screen has been quiet for 1.5 s. The wait allows two minutes, since MCP startup can be slow, and
+  a worker that never gets there fails its task with a message saying to open its tab.
 - **A terminal has no chat messages to read.** A worker's report is the tail of its PTY, so it is
   stripped of escape codes and bounded before it reaches a prompt or a summary
   (`src/main/viola/harness.ts:284`).

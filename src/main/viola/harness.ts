@@ -16,6 +16,7 @@ import { parsePlanResponse } from './planner'
 import { buildPlanPrompt } from './prompts'
 import { FileViolaStore, type ViolaStore } from './store'
 import { createViolaVerdictStore, type ViolaVerdictStore } from './verdict-store'
+import { workerComposerReady } from './worker-ready'
 import type { ViolaRun, ViolaTaskState, ViolaWorkerId } from '../../shared/viola'
 import { isViolaWorker } from '../../shared/viola'
 
@@ -36,6 +37,10 @@ export interface ViolaHarnessOptions {
   done?: ViolaDoneSignal
   /** Pushes run snapshots to the renderer's live board. */
   sendToRenderer?: (channel: string, payload: unknown) => void
+  /** Interactive timing knobs; overridable so tests need not wait on real delays. */
+  readyPollMs?: number
+  readyQuietMs?: number
+  submitDelayMs?: number
 }
 
 const START_COMMANDS = new Set(['start', 'start plan', 'run', 'run plan', 'approve', 'approved'])
@@ -45,6 +50,10 @@ const WORKER_TURN_BUDGET_SECONDS = 30 * 60
 const TERMINAL_REPORT_MAX_CHARS = 4_000
 /** Matches the interactive submit delay the shared turn driver uses. */
 const SUBMIT_DELAY_MS = 400
+const READY_POLL_MS = 500
+/** The composer must hold still this long: a TUI draws it early, then redraws through startup. */
+const READY_QUIET_MS = 1_500
+const DEFAULT_READY_TIMEOUT_MS = 120_000
 
 /** Native conversational harness for the Viola runtime. */
 export class ViolaHarness implements ViolaHarnessController {
@@ -55,6 +64,9 @@ export class ViolaHarness implements ViolaHarnessController {
   private readonly sendToRenderer: (channel: string, payload: unknown) => void
   private readonly control: AgentControlService
   private readonly done: ViolaDoneSignal
+  private readonly readyPollMs: number
+  private readonly readyQuietMs: number
+  private readonly submitDelayMs: number
   private readonly listRuntimes: () => Promise<AgentRuntime[]>
 
   constructor(
@@ -68,6 +80,9 @@ export class ViolaHarness implements ViolaHarnessController {
     this.listRuntimes = options.listRuntimes ?? listRuntimesWithStatus
     this.sendToRenderer = options.sendToRenderer ?? ((): void => {})
     this.done = options.done ?? createViolaDoneSignal()
+    this.readyPollMs = options.readyPollMs ?? READY_POLL_MS
+    this.readyQuietMs = options.readyQuietMs ?? READY_QUIET_MS
+    this.submitDelayMs = options.submitDelayMs ?? SUBMIT_DELAY_MS
 
     this.engine = new ViolaEngine({
       availableRuntimes: () => this.availableWorkers(),
@@ -101,7 +116,7 @@ export class ViolaHarness implements ViolaHarnessController {
           sessionId: child.sessionId,
           runtimeId: child.runtimeId,
           worktreePath: child.worktreePath,
-          whenReady: (timeoutMs) => spawn.whenReady(child.sessionId, timeoutMs),
+          whenReady: (timeoutMs) => this.workerReady(child.sessionId, child.runtimeId, timeoutMs, spawn),
           runTurn: (request) => this.runChildTurn(child.sessionId, request),
         }
       },
@@ -232,6 +247,33 @@ export class ViolaHarness implements ViolaHarnessController {
     return runtime
   }
 
+  /** Waits until an interactive worker's TUI can actually take a prompt.
+   *
+   *  Not the session status: that reads "waiting" from a prompt-shaped character anywhere in the
+   *  output, and a TUI's startup banner has those. A codex reviewer was typed into while it was
+   *  still starting its MCP servers; the composer redrew, the prompt was gone, and the reviewer sat
+   *  idle for its whole budget. Ready means the composer is drawn, nothing on screen would swallow
+   *  keystrokes, and the screen has been quiet for a moment — so a composer drawn early and then
+   *  wiped does not count. Chat-mode sessions have no TUI and keep the plain status check. */
+  private async workerReady(
+    sessionId: string,
+    runtimeId: string,
+    timeoutMs: number | undefined,
+    spawn: NativeAgentSpawnService,
+  ): Promise<boolean> {
+    const internal = this.sessions.getInternalSession(sessionId)
+    if (!internal || internal.nonInteractive) return spawn.whenReady(sessionId, timeoutMs)
+    const deadline = Date.now() + (timeoutMs ?? DEFAULT_READY_TIMEOUT_MS)
+    while (Date.now() < deadline) {
+      const current = this.sessions.getInternalSession(sessionId)
+      if (!current) return false
+      const quietFor = Date.now() - (current.lastOutputTime ?? 0)
+      if (workerComposerReady(runtimeId, current.outputBuffer ?? '') && quietFor >= this.readyQuietMs) return true
+      await sleep(this.readyPollMs)
+    }
+    return false
+  }
+
   /** Sends a prompt, then waits for the file the worker was told to write.
    *
    *  Deliberately not the shared turn-end heuristic: that infers "finished" from an idle-looking
@@ -250,7 +292,7 @@ export class ViolaHarness implements ViolaHarnessController {
     // the whole block as one message. A chat-mode runtime gets the prompt as argv, so no frame.
     this.sessions.sendInput(sessionId, interactive ? asBracketedPaste(prompt) : prompt)
     if (interactive) {
-      await sleep(SUBMIT_DELAY_MS)
+      await sleep(this.submitDelayMs)
       this.sessions.sendInput(sessionId, '\r')
     }
 

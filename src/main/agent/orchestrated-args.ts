@@ -13,7 +13,10 @@ const ORCHESTRATED_INTERACTIVE_ARGS: Record<string, readonly string[]> = {
   // The registry's `--allow-dangerously-skip-permissions` only enables bypass "as an option,
   // without it being enabled by default", so it alone still prompts.
   claude: ['--dangerously-skip-permissions'],
-  codex: ['--dangerously-bypass-approvals-and-sandbox'],
+  // Also silence the startup update check: when a newer release exists, codex opens an
+  // interactive "Update now" menu, and the worker's prompt and Enter land in that menu instead
+  // of the composer. A real reviewer sat idle at it until its budget ran out.
+  codex: ['--dangerously-bypass-approvals-and-sandbox', '-c', 'check_for_update_on_startup=false'],
   gemini: ['--yolo'],
 }
 

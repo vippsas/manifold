@@ -17,7 +17,8 @@ export interface PipelineContext {
   publish(run: ViolaRun): Promise<void>
 }
 
-const READY_TIMEOUT_MS = 30_000
+// Generous: a TUI worker may start MCP servers before its composer exists.
+const READY_TIMEOUT_MS = 120_000
 
 /** Drives one task from spawn to a terminal state. Never throws: failures land on the task. */
 export async function runTaskPipeline(
@@ -196,7 +197,10 @@ async function spawnWorker(
     task.worktreePath = agent.worktreePath
   }
   if (!(await agent.whenReady(READY_TIMEOUT_MS))) {
-    throw new Error(`Worker "${title}" (${runtimeId}) did not become ready in time.`)
+    throw new Error(
+      `Worker "${title}" (${runtimeId}) never showed a ready composer within ${READY_TIMEOUT_MS / 1000}s — `
+      + 'it may be stuck on a startup dialog or still starting MCP servers. Open its tab to see.',
+    )
   }
   return agent
 }

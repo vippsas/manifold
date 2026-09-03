@@ -237,7 +237,26 @@ check (`src/main/viola/git.ts:54`). `viola/git.test.ts` pins both halves: a link
 apply, and a main checkout that must survive with its uncommitted edits intact. See
 [Viola](viola.md).
 
-## 7. Verify against the real code path, not an approximation
+## 7. A TUI agent's "waiting" status is not "ready for a prompt"
+
+**Symptom.** An orchestrated interactive worker is sent a prompt and never acts on it: no turn
+starts, no API traffic, the process idles at 0 % CPU until a timeout.
+
+**Root cause.** Two independent traps. `detectStatus` returns `waiting` from a prompt-shaped
+character anywhere in recent output, which a startup banner satisfies before the composer exists;
+codex draws its composer at once and redraws it while MCP servers start, so early keystrokes are
+discarded. And when a newer release exists, codex opens an interactive "Update now" menu on launch —
+the prompt and Enter land there, and option 1 runs `brew upgrade --cask codex`. Both were found by
+driving a real codex in a PTY (`node-pty`) and watching the screen.
+
+**Guardrail.** Orchestrated codex launches with `-c check_for_update_on_startup=false`
+(`src/main/agent/orchestrated-args.ts:19`). Viola judges readiness itself
+(`src/main/viola/worker-ready.ts:13`): composer drawn, no menu/dialog/startup phase in the tail,
+screen quiet for 1.5 s, two-minute allowance. `worker-ready.test.ts` pins the banner, the menu,
+and the ready state; `harness.test.ts` pins that nothing is typed until the composer settles. See
+[Viola](viola.md).
+
+## 8. Verify against the real code path, not an approximation
 
 Cross-cutting principle behind the guardrails above. A test that stubs the very thing
 under test proves nothing; a green check must exercise the app's real imports and
@@ -257,7 +276,7 @@ could only be confirmed against the live system.
   native-module rebuild story and the worktree bootstrap/doctor flow).
 - **CLAUDE.md §7** — the worktree-setup rule this page's trap #3 summarizes.
 - **[Renderer](renderer.md)** — where the terminal hook of trap #5 sits in the panel tree.
-- **[Viola](viola.md)** — subsystem-level detail for trap #6 (both isolation
-  preconditions and the destructive-apply guard).
+- **[Viola](viola.md)** — subsystem-level detail for traps #6 and #7 (isolation preconditions,
+  the destructive-apply guard, and TUI readiness).
 - **Test template** — `src/renderer/test-utils/strict-mode.test.tsx` is the copyable
   guardrail for trap #1; copy it next to a component and swap in the real one.
