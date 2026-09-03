@@ -29,6 +29,7 @@ import { useSidebarHandleCycle } from './hooks/dock-layout/useSidebarHandleCycle
 import { useAgentSiblingDockTabs } from './hooks/agent-session/useAgentSiblingDockTabs'
 import { useAppEffects } from './hooks/app/useAppEffects'
 import { groupSessionsByWorkspace } from './hooks/app/session-workspace-map'
+import { resolveWorkspaceEntry } from './hooks/app/workspace-entry'
 import { useCommands } from './hooks/app/useCommands'
 import { themeFamilyOf } from '../shared/themes/registry'
 import { cycleAgent } from './commands/agent-cycle'
@@ -69,18 +70,6 @@ export function App(): React.JSX.Element {
   const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
     settings, updateSettings, workspaces,
   )
-  const activateFavorite = useCallback((fav: ResolvedFavorite): void => {
-    // Mirrors a click on the workspace's own sidebar row, and does not clear the
-    // session, so a ⌘-jump lands on the agent that workspace was left on rather
-    // than on an empty pane.
-    const ws = workspaces.find((w) => w.id === fav.id)
-    setActiveWorkspaceId(fav.id)
-    if (ws && ws.projectIds[0]) setActiveProject(ws.projectIds[0])
-  }, [workspaces, setActiveWorkspaceId, setActiveProject])
-  const jumpToFavorite = useCallback((index: number): void => {
-    const fav = favorites[index]
-    if (fav) activateFavorite(fav)
-  }, [favorites, activateFavorite])
   const [quickOpenVisible, setQuickOpenVisible] = useState(false)
   const [newWorkspaceVisible, setNewWorkspaceVisible] = useState(false)
   const sessionsByWorkspace = useMemo(
@@ -174,6 +163,37 @@ export function App(): React.JSX.Element {
   }, [])
 
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
+
+  // Entering a workspace, from wherever it is asked for: the sidebar row, a
+  // Favorites row, or ⌘1–9. All three used to be written out separately, and the
+  // Favorites ones only moved the active workspace and folder — the previous
+  // workspace's agent stayed on screen, so clicking a favorite looked like
+  // nothing had happened. `resolveWorkspaceEntry` is now the single answer to
+  // "what else moves"; this only applies it.
+  const enterWorkspace = useCallback((id: string): void => {
+    setActiveWorkspaceId(id)
+    const entry = resolveWorkspaceEntry(id, {
+      workspaces, sessionsByWorkspace, activeSessionId, activeProjectId,
+    })
+    if (entry.kind === 'keep') return
+    if (entry.kind === 'agent') {
+      overlays.handleSelectSession(entry.session.id, entry.session.projectId)
+      return
+    }
+    if (entry.projectId) setActiveProject(entry.projectId)
+    setActiveSession(null)
+  }, [
+    workspaces, sessionsByWorkspace, activeSessionId, activeProjectId,
+    overlays, setActiveWorkspaceId, setActiveProject, setActiveSession,
+  ])
+  const activateFavorite = useCallback(
+    (fav: ResolvedFavorite): void => enterWorkspace(fav.id),
+    [enterWorkspace],
+  )
+  const jumpToFavorite = useCallback((index: number): void => {
+    const fav = favorites[index]
+    if (fav) activateFavorite(fav)
+  }, [favorites, activateFavorite])
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
     const nextId = themeId.endsWith('-light')
@@ -392,26 +412,8 @@ export function App(): React.JSX.Element {
     sessionsByWorkspace,
     onNewWorkspace: () => setNewWorkspaceVisible(true),
     // Clicking the card is entering the workspace: the main view must show *its*
-    // agents. Two workspaces can span the same folders (a copy on a fresh
-    // worktree), so the active project alone can't tell them apart — when the
-    // current agent isn't one of this workspace's, jump to one that is, or to
-    // the empty agent view when it has none yet.
-    onSelectWorkspace: (id: string) => {
-      setActiveWorkspaceId(id)
-      const wsSessions = sessionsByWorkspace[id] ?? []
-      if (activeSessionId && wsSessions.some((s) => s.id === activeSessionId)) return
-      const target = wsSessions[0]
-      if (target) {
-        overlays.handleSelectSession(target.id, target.projectId)
-        return
-      }
-      const workspace = workspaces.find((w) => w.id === id)
-      const homeProjectId = activeProjectId && workspace?.projectIds.includes(activeProjectId)
-        ? activeProjectId
-        : workspace?.projectIds[0]
-      if (homeProjectId) setActiveProject(homeProjectId)
-      setActiveSession(null)
-    },
+    // agents. Same path as a Favorites click — see `enterWorkspace` above.
+    onSelectWorkspace: enterWorkspace,
     onRenameWorkspace: (id: string, name: string) => { void renameWorkspace(id, name) },
     onRemoveWorkspace: removeWorkspaceWithRepos,
     onCopyWorkspace: (id: string) => { void copyWorkspaceToWorktree(id) },
