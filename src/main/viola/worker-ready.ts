@@ -15,6 +15,11 @@ export function blockingDialog(output: string): string | null {
   const tail = stripAnsiForContext(output).slice(-TAIL_CHARS)
   if (/\b\d\.\s*Update now\b/i.test(tail)) return 'codex is showing its startup update menu'
   if (/Do you trust the files/i.test(tail)) return 'the runtime is asking whether this folder is trusted'
+  // A deny rule can still escalate a command whose path Claude cannot prove, and only a human may
+  // answer that. Matched on the menu shape so a worker discussing approval does not qualify.
+  if (/Do you want to proceed\?[\s\S]{0,80}\d\.\s*Yes/i.test(tail)) {
+    return 'the worker is waiting for your approval to run a command'
+  }
   return null
 }
 

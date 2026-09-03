@@ -11,11 +11,18 @@ describe('blockingDialog', () => {
     expect(blockingDialog('Do you trust the files in this folder?\n❯ 1. Yes, proceed')).toMatch(/trust/i)
   })
 
+  it('names a permission prompt the worker cannot answer itself', () => {
+    const prompt = 'Do you want to proceed?\n❯ 1. Yes\n  2. No\n\nEsc to cancel · Tab to amend'
+    expect(blockingDialog(prompt)).toMatch(/approval|proceed/i)
+  })
+
   it('is silent for an ordinary terminal, however prompt-like', () => {
     expect(blockingDialog('› Ask Codex to do anything')).toBeNull()
     expect(blockingDialog('Welcome back\n❯ ')).toBeNull()
     // A worker discussing an update in its own output must not look like a menu.
     expect(blockingDialog('I will update now the README section on OpenAI.')).toBeNull()
+    // A worker merely discussing approval must not read as a prompt.
+    expect(blockingDialog('The reviewer will decide whether to proceed with the fix.')).toBeNull()
   })
 })
 

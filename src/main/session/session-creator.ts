@@ -170,7 +170,9 @@ export class SessionCreator {
     // output isn't a themed TUI, and non-claude runtimes don't take --settings.
     if (!nonInteractive && commandBinary === 'claude') {
       runtimeArgs.push('--session-id', sessionId)
-      runtimeArgs.push(...claudeAnsiThemeArgs(this.getThemeType?.() ?? 'dark'))
+      runtimeArgs.push(...claudeAnsiThemeArgs(this.getThemeType?.() ?? 'dark', {
+        guarded: Boolean(options.orchestratedBy),
+      }))
     }
 
     debugLog(`[session] nonInteractive=${nonInteractive}, deferRuntime=${deferRuntime}, runtimeArgs=${JSON.stringify(runtimeArgs)}`)

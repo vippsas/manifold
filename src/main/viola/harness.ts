@@ -278,6 +278,21 @@ export class ViolaHarness implements ViolaHarnessController {
     return true
   }
 
+  /** Resolves only if a dialog appears while a turn is running. Never resolves otherwise, so it
+   *  can be raced against the completion file without ending a healthy turn. */
+  private waitForBlockingDialog(sessionId: string, signal: AbortSignal): Promise<{ blocked: string }> {
+    return new Promise((resolve) => {
+      const poll = async (): Promise<void> => {
+        while (!signal.aborted) {
+          const dialog = this.dialogBlocking(sessionId)
+          if (dialog) return resolve({ blocked: dialog })
+          await sleep(this.readyPollMs)
+        }
+      }
+      void poll()
+    })
+  }
+
   /** The reason it is unsafe to type into this worker right now, or null. */
   private dialogBlocking(sessionId: string): string | null {
     const internal = this.sessions.getInternalSession(sessionId)
@@ -315,10 +330,16 @@ export class ViolaHarness implements ViolaHarnessController {
       this.sessions.sendInput(sessionId, '\r')
     }
 
-    const outcome = await this.done.wait(completionFile, {
-      signal,
-      timeoutMs: WORKER_TURN_BUDGET_SECONDS * 1000,
-    })
+    // Race the completion file against a dialog appearing: a deny rule can escalate a command
+    // whose path Claude cannot prove even under bypass, and the worker then waits for an approval
+    // nobody is there to give. Without this it waits out the whole budget.
+    const outcome = await Promise.race([
+      this.done.wait(completionFile, { signal, timeoutMs: WORKER_TURN_BUDGET_SECONDS * 1000 }),
+      this.waitForBlockingDialog(sessionId, signal),
+    ])
+    if (typeof outcome === 'object') {
+      throw new Error(`Stopped waiting: ${outcome.blocked}. Open the worker's tab to answer it.`)
+    }
     if (outcome !== 'done') {
       this.control.cancelTurn(sessionId)
       this.sessions.interruptSession(sessionId)

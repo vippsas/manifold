@@ -20,8 +20,11 @@ function setup(options: {
   /** Replaces the default chat-writing worker turn (an interactive worker writes no chat). */
   workerTurn?: (sessionId: string, prompt: string) => Promise<'ended'>
   internalSessions?: { outputBuffer: string; nonInteractive?: boolean; lastOutputTime?: number }
-  /** Decides how each turn completes, keyed by the file it was waiting for. */
-  doneOutcome?: (path: string) => 'done' | 'timeout' | 'aborted'
+  /** Decides how each turn completes, keyed by the file it was waiting for. 'pending' never
+   *  resolves, standing in for a worker that is blocked. */
+  doneOutcome?: (path: string) => 'done' | 'timeout' | 'aborted' | 'pending'
+  /** Fired when a turn starts waiting, to simulate the screen changing mid-turn. */
+  onWaitStarted?: () => void
 } = {}) {
   const statuses: string[] = []
   const sent: { channel: string; payload: unknown }[] = []
@@ -75,7 +78,12 @@ function setup(options: {
   const done = {
     donePath: vi.fn((worktreePath: string) => `${worktreePath}/.viola/done`),
     clear: vi.fn(async () => undefined),
-    wait: vi.fn(async (path: string) => options.doneOutcome?.(path) ?? ('done' as const)),
+    wait: vi.fn(async (path: string) => {
+      options.onWaitStarted?.()
+      const outcome = options.doneOutcome?.(path) ?? ('done' as const)
+      if (outcome === 'pending') return new Promise<never>(() => {})
+      return outcome
+    }),
   }
   const harness = new ViolaHarness(
     sessions as never,
@@ -323,6 +331,28 @@ describe('ViolaHarness', () => {
     tui.outputBuffer = READY_TUI
     await vi.waitFor(() => expect(typed().length).toBeGreaterThan(0))
     expect(unframe(typed()[0][1] as string)).toContain('IMPLEMENT this scoped task')
+  })
+
+  it('stops waiting when a worker asks mid-turn for an approval only a human can give', async () => {
+    // A deny rule can escalate a command whose path Claude cannot prove, even under bypass. The
+    // worker then sits at "Do you want to proceed?" — previously for the full 30-minute budget.
+    const tui = { outputBuffer: READY_TUI, nonInteractive: false, lastOutputTime: Date.now() - 5000 }
+    const { harness, chat } = setup({
+      workerTurn: async () => 'ended',
+      internalSessions: tui,
+      // The completion file never arrives, because the worker is blocked on the prompt.
+      doneOutcome: () => 'pending',
+      onWaitStarted: () => {
+        tui.outputBuffer = 'Bash command\n\nDo you want to proceed?\n❯ 1. Yes\n  2. No'
+      },
+    })
+    harness.send('viola-1', 'Add validation')
+    await vi.waitFor(() => expect(chat.getMessages('viola-1')).toHaveLength(1))
+
+    harness.send('viola-1', 'Start plan')
+
+    await vi.waitFor(() => expect(texts(chat, 'viola-1').at(-1)).toContain('## Run'), { timeout: 3000 })
+    expect(texts(chat, 'viola-1').at(-1)).toContain('waiting for your approval')
   })
 
   it('clears a stale completion file before each turn', async () => {

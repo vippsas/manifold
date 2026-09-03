@@ -120,11 +120,22 @@ than assumed away:
   (`src/main/viola/worker-ready.ts:30`, `src/main/viola/harness.ts:260`) and then **sends
   regardless**: readiness is a courtesy, never a reason to fail a task, and the completion file
   stays the only timeout.
+- **A deny rule outranks every permission mode, so a worker inherits none.** Deny rules apply even
+  under bypass, and a `Read()` rule makes Claude escalate any command whose read path it cannot
+  determine — a `cd` before a `git grep` is enough. An unattended worker then waits for an approval
+  nobody will give. An orchestrated worker therefore runs with exactly Viola's catastrophic deny
+  list and no inherited rules (`src/main/agent/orchestrated-args.ts:32`), delivered in the *same*
+  inline `--settings` as the ANSI theme because Claude accepts only one
+  (`src/main/agent/claude-theme-args.ts:16`). Interactive workers previously got no deny list at
+  all: the guard was reachable only on the chat-mode path. Under bypass those inherited rules were
+  porous regardless, since they govern the Read tool and not what a shell command may `cat`.
 - **One screen state is a hard stop.** A dialog whose Enter would act for the user — codex's
   startup update menu, which runs `brew upgrade --cask codex` on option 1, or a folder-trust
   question — must never be answered by Viola. Those are matched on their menu shape, so a worker
   merely writing about an update cannot look like one, and the task fails with the dialog named
-  (`src/main/viola/worker-ready.ts:14`).
+  (`src/main/viola/worker-ready.ts:14`). The same check runs *during* a turn, raced against the
+  completion file (`src/main/viola/harness.ts:283`): an escalation that appears mid-turn ends the
+  wait immediately instead of burning the full 30-minute budget.
 
 ## How a turn ends
 
