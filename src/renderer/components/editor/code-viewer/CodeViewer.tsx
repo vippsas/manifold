@@ -260,6 +260,7 @@ export function CodeViewer({
           />
         ) : (
           <EditorContent
+            paneId={paneId}
             filePath={activeFilePath}
             fileContent={fileContent}
             language={language}

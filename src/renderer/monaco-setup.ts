@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor'
 import { loader } from '@monaco-editor/react'
+import { configureTypeScriptDefaults } from './monaco-ts-defaults'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
@@ -15,5 +16,7 @@ self.MonacoEnvironment = {
     return new editorWorker()
   }
 }
+
+configureTypeScriptDefaults(monaco)
 
 loader.config({ monaco })

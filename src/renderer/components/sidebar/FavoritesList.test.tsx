@@ -71,6 +71,28 @@ describe('FavoritesList', () => {
     expect(onActivateFavorite).toHaveBeenCalledWith({ id: 'w2', name: 'billing', worktree: false })
   })
 
+  // The only way out used to be the workspace's own card further down the list,
+  // which left a favorite looking stuck: right-clicking the row it is on did
+  // nothing at all.
+  it('removes a favorite from its own right-click menu', () => {
+    const onToggleFavorite = vi.fn()
+    renderList([{ id: 'w2', name: 'billing', worktree: false }], { onToggleFavorite })
+
+    fireEvent.contextMenu(screen.getByText('billing'))
+    fireEvent.click(screen.getByText('Remove from Favorites'))
+
+    expect(onToggleFavorite).toHaveBeenCalledWith('w2')
+  })
+
+  it('closes the menu after the favorite is removed', () => {
+    renderList([{ id: 'w2', name: 'billing', worktree: false }])
+
+    fireEvent.contextMenu(screen.getByText('billing'))
+    fireEvent.click(screen.getByText('Remove from Favorites'))
+
+    expect(screen.queryByText('Remove from Favorites')).not.toBeInTheDocument()
+  })
+
   it('reorders via drag-and-drop', () => {
     const onReorderFavorites = vi.fn()
     renderList([
