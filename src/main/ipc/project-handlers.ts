@@ -266,7 +266,9 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) throw new Error('No BrowserWindow found for event sender')
     const result = await dialog.showOpenDialog(window, {
-      properties: ['openDirectory']
+      // `createDirectory` is what puts macOS's "New Folder" button in the panel,
+      // so picking a repo can also mean making the folder for one on the spot.
+      properties: ['openDirectory', 'createDirectory']
     })
     if (result.canceled || result.filePaths.length === 0) return undefined
     return result.filePaths[0]

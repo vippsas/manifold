@@ -79,6 +79,17 @@ phrases for that runtime alone — see [Viola](viola.md).
 `useTerminal` live-updates the running xterm's `fontSize` on each `manifold:ui-scale-changed`
 (`useTerminal.ts:105`, `:108`).
 
+**The terminal guarantees legible text, whatever background an agent paints.**
+`buildTerminalOptions` sets xterm's `minimumContrastRatio` to 4.5 (`terminal-font.ts:61`), which
+makes xterm re-derive a per-cell foreground whenever the cell's own colours fall below that
+ratio. This is not cosmetic: embedded Claude Code runs with its ANSI-palette theme
+(`claudeAnsiThemeArgs`, see [Session](session.md)), so every background it paints is one of
+Manifold's sixteen palette colours — and clicking in an agent pane makes it highlight a region
+with `ESC[47m`. On a dark theme `terminal.ansiWhite` (`#D3DBE8` in Manifold Dark) is a near-white
+sitting behind the near-white default `terminal.foreground` (`#E6ECF7`), so the highlighted block
+rendered as an unreadable white slab. Normal agent output is already far above 4.5 and renders
+byte-identically; only the colliding cells change.
+
 **A terminal tells the PTY only about sizes it hasn't sent.** `fitAndResize` remembers the
 last `cols`/`rows` it reported per terminal instance and skips the `agent:resize` IPC when the
 fit produced the same numbers (`useTerminal.ts:370`). The fit itself is already a no-op then —

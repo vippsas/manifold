@@ -50,6 +50,15 @@ export function buildTerminalOptions(scrollbackLines: number, terminalFontFamily
     cursorStyle: 'block',
     cursorInactiveStyle: 'outline',
     allowProposedApi: true,
+    // Embedded Claude Code runs with its ANSI-palette theme (see
+    // `claudeAnsiThemeArgs`), so every background it paints is one of Manifold's
+    // 16 palette colours. Clicking in an agent pane makes it highlight a region
+    // with `ESC[47m`, and on a dark theme `ansiWhite` is a near-white — the same
+    // near-white as the default foreground, so the whole block turned into an
+    // unreadable white slab. xterm re-derives a foreground per cell to hold this
+    // ratio against whatever background the cell actually has; normal output is
+    // already well above it and renders unchanged.
+    minimumContrastRatio: 4.5,
     theme: xtermTheme,
   }
 }
