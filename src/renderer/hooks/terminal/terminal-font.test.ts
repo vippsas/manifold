@@ -18,6 +18,15 @@ describe('buildTerminalOptions uiScale', () => {
   })
 })
 
+describe('buildTerminalOptions legibility', () => {
+  // An agent painting `ESC[47m` (Claude Code's ANSI-palette highlight) on a dark
+  // theme puts near-white `ansiWhite` behind the near-white default foreground.
+  // xterm only re-derives a readable foreground when a minimum ratio is set.
+  it('asks xterm to enforce a readable foreground against any cell background', () => {
+    expect(buildTerminalOptions(1000).minimumContrastRatio).toBe(4.5)
+  })
+})
+
 describe('clampUiScale', () => {
   it('passes through an in-range value', () => {
     expect(clampUiScale(1.25)).toBe(1.25)
