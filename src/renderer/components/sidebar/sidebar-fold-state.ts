@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
-const STORAGE_KEY = 'manifold.sidebar.openWorkspaces.v1'
+// v2: the group fold moved from the home workspace's key onto the repo
+// header's own `repo:<projectId>` key, so v1 entries would name folds that no
+// longer exist. A fresh key starts everyone collapsed rather than half-migrated.
+const STORAGE_KEY = 'manifold.sidebar.openWorkspaces.v2'
 
 /** A workspace card. A home card's key also folds the worktrees under its repo. */
 export function workspaceFoldKey(workspaceId: string): string {
@@ -60,8 +63,10 @@ export function __resetFoldStateForTests(): void {
  *  it when it was already showing. */
 export function useWorkspaceFolds(): {
   isOpen: (key: string) => boolean
+  isGroupOpen: (key: string) => boolean
   toggle: (key: string) => void
   open: (key: string) => void
+  openGroup: (key: string) => void
 } {
   const [openKeys, setOpenKeys] = useState<Set<string>>(readOpen)
 
@@ -72,6 +77,12 @@ export function useWorkspaceFolds(): {
   }, [])
 
   const isOpen = useCallback((key: string): boolean => openKeys.has(key), [openKeys])
+
+  /** A **repo group** defaults to open, so a repo never hides its own
+   *  workspaces until you say so — the store records the groups you closed,
+   *  the inverse of how it records the cards you opened. Card state stays on
+   *  `isOpen`; only the group fold reads this. */
+  const isGroupOpen = useCallback((key: string): boolean => !openKeys.has(key), [openKeys])
 
   const toggle = useCallback((key: string): void => {
     const next = new Set(readOpen())
@@ -85,5 +96,15 @@ export function useWorkspaceFolds(): {
     commit(new Set(current).add(key))
   }, [])
 
-  return { isOpen, toggle, open }
+  /** Reveals a group whatever its stored state — the inverse of `open`, since
+   *  a group's presence in the set means *closed*. */
+  const openGroup = useCallback((key: string): void => {
+    const current = readOpen()
+    if (!current.has(key)) return
+    const next = new Set(current)
+    next.delete(key)
+    commit(next)
+  }, [])
+
+  return { isOpen, isGroupOpen, toggle, open, openGroup }
 }

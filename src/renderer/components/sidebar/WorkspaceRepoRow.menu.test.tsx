@@ -9,6 +9,12 @@ import {
   sampleWorkspaces,
 } from './ProjectSidebar.test-helpers'
 
+// A workspace spanning both sample repos, so it still renders a folder row per
+// repo (id kept as 'w1' so it stays the default active workspace). A one-repo
+// workspace renders no folder row anymore — see the "solo" test at the bottom,
+// which drives the same menu from the workspace card itself instead.
+const twoRepoWorkspace = { ...sampleWorkspaces[0], projectIds: ['p1', 'p2'] }
+
 /** The folder row's label inside the expanded `alpha-space` card — the element
  *  the right-click lands on. */
 function folderRow(name = 'Alpha'): HTMLElement {
@@ -44,14 +50,14 @@ describe('WorkspaceRepoRow context menu', () => {
   })
 
   it('opens on right-click with Copy Path then Copy Relative Path', () => {
-    renderSidebar()
+    renderSidebar({ workspaces: [twoRepoWorkspace] })
     fireEvent.contextMenu(folderRow())
 
     expect(menuLabels()).toEqual(['Copy Path', 'Copy Relative Path'])
   })
 
   it('does not also open the workspace card menu', () => {
-    renderSidebar()
+    renderSidebar({ workspaces: [twoRepoWorkspace] })
     fireEvent.contextMenu(folderRow())
 
     expect(screen.getByText('Copy Path')).toBeTruthy()
@@ -59,7 +65,7 @@ describe('WorkspaceRepoRow context menu', () => {
   })
 
   it('Copy Path writes the folder\'s absolute path', () => {
-    renderSidebar()
+    renderSidebar({ workspaces: [twoRepoWorkspace] })
     fireEvent.contextMenu(folderRow())
     fireEvent.click(screen.getByText('Copy Path'))
 
@@ -68,8 +74,8 @@ describe('WorkspaceRepoRow context menu', () => {
   })
 
   it('Copy Relative Path tilde-shortens a path under the preload-exposed home', () => {
-    const homeProjects = [{ ...sampleProjects[0], path: '/Users/tester/repos/alpha' }]
-    renderSidebar({ projects: homeProjects })
+    const homeProjects = [{ ...sampleProjects[0], path: '/Users/tester/repos/alpha' }, sampleProjects[1]]
+    renderSidebar({ projects: homeProjects, workspaces: [twoRepoWorkspace] })
     fireEvent.contextMenu(folderRow())
     fireEvent.click(screen.getByText('Copy Relative Path'))
 
@@ -77,7 +83,7 @@ describe('WorkspaceRepoRow context menu', () => {
   })
 
   it('Copy Relative Path stays absolute outside home', () => {
-    renderSidebar()
+    renderSidebar({ workspaces: [twoRepoWorkspace] })
     fireEvent.contextMenu(folderRow())
     fireEvent.click(screen.getByText('Copy Relative Path'))
 
@@ -85,8 +91,8 @@ describe('WorkspaceRepoRow context menu', () => {
   })
 
   it('Copy Relative Path does not claim another user\'s home', () => {
-    const otherHomeProjects = [{ ...sampleProjects[0], path: '/Users/someoneelse/repos/alpha' }]
-    renderSidebar({ projects: otherHomeProjects })
+    const otherHomeProjects = [{ ...sampleProjects[0], path: '/Users/someoneelse/repos/alpha' }, sampleProjects[1]]
+    renderSidebar({ projects: otherHomeProjects, workspaces: [twoRepoWorkspace] })
     fireEvent.contextMenu(folderRow())
     fireEvent.click(screen.getByText('Copy Relative Path'))
 
@@ -94,11 +100,8 @@ describe('WorkspaceRepoRow context menu', () => {
   })
 
   it('copies the worktree checkout, not the registered clone, in a worktree workspace', () => {
-    const worktreeWorkspaces = [
-      { ...sampleWorkspaces[0], worktreePaths: { p1: '/Users/tester/worktrees/alpha-space' } },
-      sampleWorkspaces[1],
-    ]
-    renderSidebar({ workspaces: worktreeWorkspaces })
+    const worktreeWorkspace = { ...twoRepoWorkspace, worktreePaths: { p1: '/Users/tester/worktrees/alpha-space' } }
+    renderSidebar({ workspaces: [worktreeWorkspace] })
     fireEvent.contextMenu(folderRow())
     fireEvent.click(screen.getByText('Copy Path'))
 
@@ -106,8 +109,10 @@ describe('WorkspaceRepoRow context menu', () => {
   })
 
   it('disables both items on a row with no known path', () => {
-    const ghostWorkspaces = [{ ...sampleWorkspaces[0], projectIds: ['ghost'] }]
-    renderSidebar({ workspaces: ghostWorkspaces })
+    // Two projects, not one — a one-repo workspace renders no folder row at
+    // all now, so "ghost" needs a sibling repo to still get a row to click.
+    const ghostWorkspace = { ...sampleWorkspaces[0], projectIds: ['p1', 'ghost'] }
+    renderSidebar({ workspaces: [ghostWorkspace] })
     fireEvent.contextMenu(folderRow('ghost'))
 
     for (const label of ['Copy Path', 'Copy Relative Path']) {
@@ -115,5 +120,21 @@ describe('WorkspaceRepoRow context menu', () => {
       fireEvent.click(screen.getByText(label))
     }
     expect(writeText).not.toHaveBeenCalled()
+  })
+
+  // A one-repo workspace renders no folder row, so it inherits Copy Path /
+  // Copy Relative Path onto its own card's context menu instead
+  // (WorkspaceCardMenu's `extraItems`) — this is the solo-repo replacement for
+  // the folder row's menu the other tests in this file exercise.
+  it('gives a solo workspace Copy Path / Copy Relative Path on its own card menu', () => {
+    renderSidebar()
+    const row = screen.getByText('alpha-space').closest('.sidebar-project-row')!
+    fireEvent.contextMenu(row)
+
+    expect(menuLabels()).toContain('Copy Path')
+    expect(menuLabels()).toContain('Copy Relative Path')
+
+    fireEvent.click(screen.getByText('Copy Path'))
+    expect(writeText).toHaveBeenCalledWith('/repos/alpha')
   })
 })

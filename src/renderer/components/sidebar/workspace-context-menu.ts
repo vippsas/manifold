@@ -12,6 +12,9 @@ export interface WorkspaceMenuConfig {
   copyToWorktree?: () => void
   addFolder?: () => void
   removeWorkspace: () => void
+  /** Appended in their own section before the destructive item. A solo-repo
+   *  card uses this for the path items its (now absent) folder row carried. */
+  extraItems?: MenuItem[]
 }
 
 /**
@@ -51,6 +54,8 @@ export function buildWorkspaceContextMenu(cfg: WorkspaceMenuConfig): MenuItem[] 
   // folders is inherited. The label now says exactly that much.
   if (cfg.copyToWorktree) items.push({ label: 'New Workspace, Same Folders', action: cfg.copyToWorktree })
   if (cfg.addFolder) items.push({ label: 'Add Folder…', action: cfg.addFolder })
+
+  if (cfg.extraItems?.length) items.push('separator', ...cfg.extraItems)
 
   items.push('separator', { label: 'Remove Workspace', action: cfg.removeWorkspace })
 

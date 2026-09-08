@@ -77,8 +77,8 @@ export function WorkspaceList({
     touchProject(activeWorkspaceId)
     folds.open(workspaceFoldKey(activeWorkspaceId))
     const group = groupsRef.current.find((g) => groupMembers(g).some((w) => w.id === activeWorkspaceId))
-    if (group) folds.open(group.foldKey)
-  }, [activeWorkspaceId, touchProject, folds.open])
+    if (group) folds.openGroup(group.foldKey)
+  }, [activeWorkspaceId, touchProject, folds.open, folds.openGroup])
 
   const handleRemove = useCallback((id: string): void => { void onRemoveWorkspace(id) }, [onRemoveWorkspace])
   const sessionsFor = useCallback((w: Workspace) => sessionsByWorkspace[w.id] ?? [], [sessionsByWorkspace])

@@ -21,7 +21,7 @@ beforeEach(() => {
   store = installLocalStorage()
 })
 
-const KEY = 'manifold.sidebar.openWorkspaces.v1'
+const KEY = 'manifold.sidebar.openWorkspaces.v2'
 
 describe('useWorkspaceFolds', () => {
   it('namespaces keys by what they fold', () => {
@@ -76,5 +76,29 @@ describe('useWorkspaceFolds', () => {
     const { result } = renderHook(() => useWorkspaceFolds())
     act(() => result.current.toggle('workspace:w1'))
     expect(result.current.isOpen('workspace:w1')).toBe(true)
+  })
+
+  // Repo groups default to open: the store only records the ones you closed,
+  // the inverse of how it records the cards you opened.
+  it('treats an untouched group key as open', () => {
+    const { result } = renderHook(() => useWorkspaceFolds())
+    expect(result.current.isGroupOpen('repo:p1')).toBe(true)
+  })
+
+  it('toggle closes an open group', () => {
+    const { result } = renderHook(() => useWorkspaceFolds())
+    act(() => result.current.toggle('repo:p1'))
+    expect(result.current.isGroupOpen('repo:p1')).toBe(false)
+  })
+
+  it('openGroup reopens a closed group and no-ops on an already-open one', () => {
+    const { result } = renderHook(() => useWorkspaceFolds())
+    act(() => result.current.toggle('repo:p1'))
+    expect(result.current.isGroupOpen('repo:p1')).toBe(false)
+    act(() => result.current.openGroup('repo:p1'))
+    expect(result.current.isGroupOpen('repo:p1')).toBe(true)
+    // No-op on an already-open group: nothing should throw, and it stays open.
+    act(() => result.current.openGroup('repo:p1'))
+    expect(result.current.isGroupOpen('repo:p1')).toBe(true)
   })
 })

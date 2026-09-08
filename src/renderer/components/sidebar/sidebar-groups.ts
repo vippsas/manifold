@@ -64,7 +64,10 @@ export function groupWorkspaces(
     let group = byKey.get(bucket)
     if (!group) {
       group = {
-        foldKey: primary ? repoFoldKey(primary.id) : workspaceFoldKey(workspace.id),
+        // A lone group (primary repo not registered) gets its own namespaced
+        // group key so closing the group can never also toggle its single
+        // member's card, which shares the workspace id.
+        foldKey: repoFoldKey(primary ? primary.id : `lone:${workspace.id}`),
         projectId: primary?.id ?? null,
         repoName: primary?.name ?? workspace.name,
         home: null,
@@ -74,8 +77,9 @@ export function groupWorkspaces(
       byKey.set(bucket, group)
     }
     if (!isWorktreeWorkspace(workspace) && group.home === null) {
+      // The home workspace is a member card like any other now; the group's
+      // fold belongs to the repo header above it, so foldKey stays repo-keyed.
       group.home = workspace
-      group.foldKey = workspaceFoldKey(workspace.id)
     } else if (ctx.mergedIds.has(workspace.id) && !ctx.liveIds.has(workspace.id)) {
       group.merged.push(workspace)
     } else {

@@ -25,7 +25,9 @@ describe('groupWorkspaces — shape', () => {
     expect(groups[0].repoName).toBe('kong')
     expect(groups[0].home?.id).toBe('w-kong')
     expect(ids(groups[0].worktrees)).toEqual(['w-moss'])
-    expect(groups[0].foldKey).toBe('workspace:w-kong')
+    // The group's fold belongs to the repo header, never to the home card —
+    // the header is what folds the family, and the card folds its own files.
+    expect(groups[0].foldKey).toBe('repo:p-kong')
   })
 
   it('heads a home-less repo with a repo key', () => {
@@ -50,7 +52,9 @@ describe('groupWorkspaces — shape', () => {
     const [g] = groupWorkspaces([home('w-ghost', 'ghost', ['p-none'])], projects, ctx())
     expect(g.repoName).toBe('ghost')
     expect(g.home?.id).toBe('w-ghost')
-    expect(g.foldKey).toBe('workspace:w-ghost')
+    // Namespaced so closing a lone group can't also toggle its one member's
+    // card, which shares the workspace id.
+    expect(g.foldKey).toBe('repo:lone:w-ghost')
   })
 
   it('folds merged worktrees unless one is live', () => {
