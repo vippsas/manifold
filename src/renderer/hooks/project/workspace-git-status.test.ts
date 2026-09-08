@@ -108,3 +108,48 @@ describe('useWorkspaceRepoStatuses', () => {
     expect(result.current.repos[0]?.unstaged[0]?.path).toBe('fresh.ts')
   })
 })
+
+describe('useWorkspaceRepoStatuses polling', () => {
+  it('revalidates on an interval, since no watcher covers workspace checkouts', async () => {
+    vi.useFakeTimers()
+    try {
+      mockInvoke.mockResolvedValue([status('repo-a', 'a.ts')])
+      renderHook(() => useWorkspaceRepoStatuses('ws-a'))
+      await act(async () => {})
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(mockInvoke).toHaveBeenCalledTimes(2)
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(mockInvoke).toHaveBeenCalledTimes(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not poll a hidden window, or pile a tick onto a status still in flight', async () => {
+    vi.useFakeTimers()
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    try {
+      mockInvoke.mockResolvedValue([status('repo-a', 'a.ts')])
+      renderHook(() => useWorkspaceRepoStatuses('ws-a'))
+      await act(async () => {})
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(9000) })
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+
+      // Visible again, but the next status never settles: later ticks must not stack.
+      hidden.mockReturnValue(false)
+      mockInvoke.mockReturnValue(new Promise(() => {}))
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(mockInvoke).toHaveBeenCalledTimes(2)
+      await act(async () => { await vi.advanceTimersByTimeAsync(9000) })
+      expect(mockInvoke).toHaveBeenCalledTimes(2)
+    } finally {
+      hidden.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+})
