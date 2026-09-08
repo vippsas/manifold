@@ -33,6 +33,11 @@ export interface RepoGroupProps {
 export function RepoGroup({ group, folds, filtering, activeWorkspaceId, sessionsFor, draftsFor, card }: RepoGroupProps): React.JSX.Element {
   const [showMerged, setShowMerged] = useState(false)
   const expanded = filtering || folds.isOpen(group.foldKey)
+  // A branch can be marked merged while you are still sitting in it — its agent
+  // only has to be finished, not gone. Folding it away then hides the workspace
+  // the user is *in*, so the active row overrides the fold and the disclosure
+  // reads as open (it cannot be closed again until they leave).
+  const revealMerged = showMerged || group.merged.some((w) => w.id === activeWorkspaceId)
   const summary = {
     count: group.worktrees.length + group.merged.length,
     statuses: groupStatuses(groupMembers(group).map(sessionsFor)),
@@ -72,8 +77,8 @@ export function RepoGroup({ group, folds, filtering, activeWorkspaceId, sessions
       {expanded && group.worktrees.map(renderNested)}
       {expanded && group.merged.length > 0 && (
         <>
-          <MergedFold count={group.merged.length} shown={showMerged} onToggle={() => setShowMerged((s) => !s)} />
-          {showMerged && <div className="sidebar-merged-cards">{group.merged.map(renderNested)}</div>}
+          <MergedFold count={group.merged.length} shown={revealMerged} onToggle={() => setShowMerged((s) => !s)} />
+          {revealMerged && <div className="sidebar-merged-cards">{group.merged.map(renderNested)}</div>}
         </>
       )}
     </div>

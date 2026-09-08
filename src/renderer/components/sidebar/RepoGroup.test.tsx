@@ -78,6 +78,23 @@ describe('repo tree', () => {
     expect(screen.getByRole('button', { name: 'Hide 2 merged workspaces' })).toBeInTheDocument()
   })
 
+  // A branch can be marked merged while its worktree is still the workspace you
+  // are sitting in — the agent only has to be finished, not gone. Folding it
+  // away by default would make the user's own workspace vanish from the list.
+  it('keeps the active workspace on screen even when its branch is merged', async () => {
+    mockInvoke.mockImplementation(async (channel: string) => (channel === 'workspace:list-merged' ? ['w-old'] : undefined))
+    renderSidebar({
+      workspaces: [home, wt('w-old', 'old')],
+      activeWorkspaceId: 'w-old',
+      sessionsByWorkspace: {},
+    })
+    // Waiting on the fold row proves the merged set arrived and moved w-old
+    // behind it; the row must still be showing, without anyone clicking.
+    const fold = await screen.findByRole('button', { name: /merged workspace/ })
+    expect(rowNames()).toEqual(['Alpha', 'old'])
+    expect(fold).toHaveAttribute('aria-expanded', 'true')
+  })
+
   it('never folds a merged workspace that still has a live agent', async () => {
     mockInvoke.mockImplementation(async (channel: string) => (channel === 'workspace:list-merged' ? ['w-old'] : undefined))
     renderSidebar({
