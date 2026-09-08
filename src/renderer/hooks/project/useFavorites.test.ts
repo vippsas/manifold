@@ -20,8 +20,8 @@ describe('useFavorites', () => {
     const settings = makeSettings(['w1', 'w2', 'gone'])
     const { result } = renderHook(() => useFavorites(settings, vi.fn(), workspaces))
     expect(result.current.favorites).toEqual([
-      { id: 'w1', name: 'ML Pipeline', worktree: false },
-      { id: 'w2', name: 'billing fix', worktree: false },
+      { id: 'w1', name: 'ML Pipeline', kind: 'multi' },
+      { id: 'w2', name: 'billing fix', kind: 'home' },
     ])
   })
 
@@ -34,8 +34,8 @@ describe('useFavorites', () => {
     ]
     const { result } = renderHook(() => useFavorites(makeSettings(['w1', 'w2']), vi.fn(), withWorktree))
     expect(result.current.favorites).toEqual([
-      { id: 'w1', name: 'ML Pipeline', worktree: true },
-      { id: 'w2', name: 'billing fix', worktree: false },
+      { id: 'w1', name: 'ML Pipeline', kind: 'worktree' },
+      { id: 'w2', name: 'billing fix', kind: 'home' },
     ])
   })
 
@@ -45,8 +45,8 @@ describe('useFavorites', () => {
     const settings = makeSettings([{ kind: 'repo', id: 'p1' }, { kind: 'workspace', id: 'w2' }])
     const { result } = renderHook(() => useFavorites(settings, vi.fn(), workspaces))
     expect(result.current.favorites).toEqual([
-      { id: 'w1', name: 'ML Pipeline', worktree: false },
-      { id: 'w2', name: 'billing fix', worktree: false },
+      { id: 'w1', name: 'ML Pipeline', kind: 'multi' },
+      { id: 'w2', name: 'billing fix', kind: 'home' },
     ])
   })
 

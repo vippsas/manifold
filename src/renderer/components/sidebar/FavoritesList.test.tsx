@@ -39,8 +39,8 @@ describe('FavoritesList', () => {
 
   it('renders favorite names with ⌘ badges for the first nine', () => {
     renderList([
-      { id: 'w1', name: 'ML Pipeline', worktree: false },
-      { id: 'w2', name: 'billing', worktree: false },
+      { id: 'w1', name: 'ML Pipeline', kind: 'home' },
+      { id: 'w2', name: 'billing', kind: 'home' },
     ])
     expect(screen.getByText('ML Pipeline')).toBeTruthy()
     expect(screen.getByText('billing')).toBeTruthy()
@@ -52,8 +52,8 @@ describe('FavoritesList', () => {
   // reads as a worktree up here.
   it('draws a branch for a worktree favorite and a folder for a home one', () => {
     renderList([
-      { id: 'w1', name: 'ML Pipeline', worktree: true },
-      { id: 'w2', name: 'billing', worktree: false },
+      { id: 'w1', name: 'ML Pipeline', kind: 'worktree' },
+      { id: 'w2', name: 'billing', kind: 'home' },
     ])
 
     const glyphOf = (name: string): string | null | undefined =>
@@ -61,14 +61,14 @@ describe('FavoritesList', () => {
         ?.querySelector('[data-glyph]')?.getAttribute('data-glyph')
 
     expect(glyphOf('ML Pipeline')).toBe('worktree')
-    expect(glyphOf('billing')).toBe('folder')
+    expect(glyphOf('billing')).toBe('home')
   })
 
   it('activates a favorite on click', () => {
     const onActivateFavorite = vi.fn()
-    renderList([{ id: 'w2', name: 'billing', worktree: false }], { onActivateFavorite })
+    renderList([{ id: 'w2', name: 'billing', kind: 'home' }], { onActivateFavorite })
     fireEvent.click(screen.getByText('billing'))
-    expect(onActivateFavorite).toHaveBeenCalledWith({ id: 'w2', name: 'billing', worktree: false })
+    expect(onActivateFavorite).toHaveBeenCalledWith({ id: 'w2', name: 'billing', kind: 'home' })
   })
 
   // The only way out used to be the workspace's own card further down the list,
@@ -76,7 +76,7 @@ describe('FavoritesList', () => {
   // nothing at all.
   it('removes a favorite from its own right-click menu', () => {
     const onToggleFavorite = vi.fn()
-    renderList([{ id: 'w2', name: 'billing', worktree: false }], { onToggleFavorite })
+    renderList([{ id: 'w2', name: 'billing', kind: 'home' }], { onToggleFavorite })
 
     fireEvent.contextMenu(screen.getByText('billing'))
     fireEvent.click(screen.getByText('Remove from Favorites'))
@@ -85,7 +85,7 @@ describe('FavoritesList', () => {
   })
 
   it('closes the menu after the favorite is removed', () => {
-    renderList([{ id: 'w2', name: 'billing', worktree: false }])
+    renderList([{ id: 'w2', name: 'billing', kind: 'home' }])
 
     fireEvent.contextMenu(screen.getByText('billing'))
     fireEvent.click(screen.getByText('Remove from Favorites'))
@@ -96,8 +96,8 @@ describe('FavoritesList', () => {
   it('reorders via drag-and-drop', () => {
     const onReorderFavorites = vi.fn()
     renderList([
-      { id: 'w3', name: 'api-gateway', worktree: false },
-      { id: 'w2', name: 'billing', worktree: false },
+      { id: 'w3', name: 'api-gateway', kind: 'home' },
+      { id: 'w2', name: 'billing', kind: 'home' },
     ], { onReorderFavorites })
     const apiRow = screen.getByText('api-gateway').closest('[role="button"]') as HTMLElement
     const billingRow = screen.getByText('billing').closest('[role="button"]') as HTMLElement
@@ -108,8 +108,8 @@ describe('FavoritesList', () => {
 
   it('collapses favorites to a header-only row', () => {
     renderList([
-      { id: 'w1', name: 'ML Pipeline', worktree: false },
-      { id: 'w2', name: 'billing', worktree: false },
+      { id: 'w1', name: 'ML Pipeline', kind: 'home' },
+      { id: 'w2', name: 'billing', kind: 'home' },
     ])
 
     fireEvent.click(screen.getByTitle('Collapse Favorites'))
@@ -126,8 +126,8 @@ describe('FavoritesList', () => {
 
   it('restores the persisted favorites collapsed state', () => {
     const favorites: ResolvedFavorite[] = [
-      { id: 'w1', name: 'ML Pipeline', worktree: false },
-      { id: 'w2', name: 'billing', worktree: false },
+      { id: 'w1', name: 'ML Pipeline', kind: 'home' },
+      { id: 'w2', name: 'billing', kind: 'home' },
     ]
     renderList(favorites)
 

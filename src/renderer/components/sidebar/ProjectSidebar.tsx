@@ -1,12 +1,16 @@
-import React from 'react'
+import React, { useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { FavoritesList } from './FavoritesList'
-import { SortModeGlyph } from './SidebarCardActionGlyphs'
+import { WorkingNowList } from './WorkingNowList'
+import { SearchGlyph, SortModeGlyph } from './SidebarCardActionGlyphs'
+import { SidebarFilterField } from './SidebarFilterField'
 import { useSidebarSortMode } from './sidebar-sort'
+import { useProjectRecency } from './sidebar-recency'
+import { useMergedWorkspaces } from '../../hooks/project/useMergedWorkspaces'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface ProjectSidebarProps {
@@ -60,6 +64,13 @@ export function ProjectSidebar({
   renderFolderFiles,
 }: ProjectSidebarProps): React.JSX.Element {
   const [sortMode, toggleSortMode] = useSidebarSortMode()
+  // Hoisted out of the list: the recency clock orders the groups *and* (Task 8)
+  // the Working-now section, and the merged set is one IPC answer for the whole
+  // sidebar rather than one per card.
+  const { recency, touchProject } = useProjectRecency()
+  const [filter, setFilter] = useState<string | null>(null)
+  const filtering = (filter ?? '').trim() !== ''
+  const mergedIds = useMergedWorkspaces(workspaces, sessionsByWorkspace ?? {})
   // Says the state *and* what the click does, so the mode is readable without
   // clicking. Not aria-pressed: this is a two-state mode, not an on/off.
   const sortLabel = sortMode === 'alpha'
@@ -73,6 +84,17 @@ export function ProjectSidebar({
         <div style={sidebarStyles.toolbarActions}>
           <button
             type="button"
+            onClick={() => setFilter((f) => (f === null ? '' : null))}
+            className="sidebar-toolbar-button"
+            style={sidebarStyles.toolbarButton}
+            aria-label="Filter workspaces"
+            aria-pressed={filter !== null}
+            title="Filter workspaces"
+          >
+            <SearchGlyph />
+          </button>
+          <button
+            type="button"
             onClick={toggleSortMode}
             className="sidebar-toolbar-button"
             style={sidebarStyles.toolbarButton}
@@ -83,12 +105,28 @@ export function ProjectSidebar({
           </button>
         </div>
       </div>
+      {filter !== null && (
+        <SidebarFilterField value={filter} onChange={setFilter} onClose={() => setFilter(null)} />
+      )}
       <div style={sidebarStyles.content}>
-        <FavoritesList />
+        {!filtering && <FavoritesList />}
+        {!filtering && (
+          <WorkingNowList
+            workspaces={workspaces}
+            projects={projects}
+            sessionsByWorkspace={sessionsByWorkspace ?? {}}
+            recency={recency}
+            onSelectWorkspace={onSelectWorkspace}
+          />
+        )}
         <WorkspaceList
           workspaces={workspaces}
           projects={projects}
           sortMode={sortMode}
+          recency={recency}
+          touchProject={touchProject}
+          mergedIds={mergedIds}
+          filter={filter ?? ''}
           activeWorkspaceId={activeWorkspaceId ?? null}
           activeProjectId={activeProjectId}
           sessionsByWorkspace={sessionsByWorkspace ?? {}}

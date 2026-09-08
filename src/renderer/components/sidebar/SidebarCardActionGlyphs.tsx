@@ -80,6 +80,16 @@ export function ConfigureAgentGlyph(): React.JSX.Element {
   )
 }
 
+/** The toolbar's filter toggle. */
+export function SearchGlyph(): React.JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M20 20l-4-4" />
+    </svg>
+  )
+}
+
 /** Which order the workspace list is in: descending bars with an arrow for A–Z,
  *  a clock for most-recently-used. It shows the mode you are *in*, not the one a
  *  click would switch to — the label says what the click does. */

@@ -54,7 +54,7 @@ export function FavoritesList(): React.JSX.Element | null {
           style={{ ...favoritesStyles.row, ...(dragIndex === index ? favoritesStyles.rowDragging : undefined) }}
           title={fav.name}
         >
-          <WorkspaceGlyph worktree={fav.worktree} />
+          <WorkspaceGlyph kind={fav.kind} />
           <span className="truncate" style={favoritesStyles.name}>{fav.name}</span>
           {index < 9 && <span style={favoritesStyles.badge}>⌘{index + 1}</span>}
         </div>

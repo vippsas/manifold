@@ -84,15 +84,17 @@ describe('sidebar folders', () => {
 
     renderWithFiles()
 
+    // Which cards are open is remembered too now (#902), so both remembered
+    // folders are showing again without re-opening the card above them.
     expect(screen.getByTestId('files-project-p1')).toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('Expand beta-space'))
     expect(screen.getByTestId('files-project-p2')).toBeInTheDocument()
   })
 
   // The cards are separate components. Each holding its own copy of the open set
   // would mean the later toggle saved a snapshot without the other's.
   it('saves folders opened in different cards into one remembered set', () => {
-    renderWithFiles()
+    // No active workspace, so neither card starts open and each is opened here.
+    renderWithFiles({ activeWorkspaceId: null })
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
     fireEvent.click(folderLabel('Beta')!)

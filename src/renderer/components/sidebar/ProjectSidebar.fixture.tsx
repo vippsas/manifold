@@ -72,6 +72,26 @@ const docsSession: AgentSession = {
   additionalDirs: [],
 }
 
+// storefront's branches: one open, one merged (folded), plus a repo with
+// branches but no home workspace — every shape the tree renders.
+const paymentFlow: Workspace = {
+  id: 'payment-flow', name: 'payment-flow', projectIds: ['frontend'], createdAt: '2026-07-16',
+  branchName: 'storefront/payment-flow', worktreePaths: { frontend: '/worktrees/payment-flow' },
+}
+const oldCoupons: Workspace = {
+  id: 'old-coupons', name: 'coupon-cleanup', projectIds: ['frontend'], createdAt: '2026-07-01',
+  branchName: 'storefront/coupon-cleanup', worktreePaths: { frontend: '/worktrees/coupon-cleanup' },
+}
+const orphanBranch: Workspace = {
+  id: 'orphan', name: 'rate-limits', projectIds: ['backend'], createdAt: '2026-07-17',
+  branchName: 'commerce-api/rate-limits', worktreePaths: { backend: '/worktrees/rate-limits' },
+}
+
+const waitingSession: AgentSession = {
+  id: 'session-4', projectId: 'frontend', workspaceId: paymentFlow.id, runtimeId: 'claude',
+  branchName: 'storefront/payment-flow', worktreePath: '/worktrees/payment-flow', status: 'waiting', pid: 45, additionalDirs: [],
+}
+
 function node(path: string, name: string, children?: FileTreeNode[]): FileTreeNode {
   return { path, name, isDirectory: children !== undefined, children }
 }
@@ -105,19 +125,32 @@ localStorage.setItem(
   JSON.stringify({ billing: 300, 'product-docs': 200, checkout: 100 }),
 )
 
+// The screenshot harness stubs every channel with []; this fixture needs the
+// merged fold to show, so it answers that one channel itself.
+const baseStub = window.electronAPI
+window.electronAPI = {
+  ...baseStub,
+  invoke: (channel: string, ...args: unknown[]) => {
+    if (channel === 'workspace:list-merged') return Promise.resolve([oldCoupons.id])
+    return baseStub.invoke(channel, ...args)
+  },
+}
+localStorage.setItem('manifold.sidebar.openWorkspaces.v1', JSON.stringify(['workspace:product-docs']))
+
 export default (
-  <div style={{ width: 320, height: 720, background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}>
+  <div style={{ width: 320, height: 900, background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}>
     <ProjectSidebar
       projects={projects}
       activeProjectId="frontend"
       outputtingSessionIds={new Set([workspaceSession.id])}
       onNewProject={() => undefined}
       onNewWorkspace={() => undefined}
-      workspaces={[workspace, docsWorkspace, longRepoWorkspace]}
+      workspaces={[workspace, docsWorkspace, longRepoWorkspace, paymentFlow, oldCoupons, orphanBranch]}
       activeWorkspaceId={workspace.id}
       sessionsByWorkspace={{
         [workspace.id]: [workspaceSession, inPlaceSession],
         [docsWorkspace.id]: [docsSession],
+        [paymentFlow.id]: [waitingSession],
       }}
       onSelectWorkspace={() => undefined}
       onRenameWorkspace={() => undefined}

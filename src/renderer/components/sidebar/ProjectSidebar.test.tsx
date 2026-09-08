@@ -7,6 +7,7 @@ import {
   mockInvoke,
   renderSidebar,
   folderLabel,
+  sampleSessions,
 } from './ProjectSidebar.test-helpers'
 
 beforeEach(() => {
@@ -101,7 +102,7 @@ describe('ProjectSidebar', () => {
         ?.querySelector('[data-glyph]')?.getAttribute('data-glyph')
 
     expect(glyphOf('moss')).toBe('worktree')
-    expect(glyphOf('beta-space')).toBe('folder')
+    expect(glyphOf('beta-space')).toBe('home')
   })
 
   it('counts the extra folders of a multi-folder workspace', () => {
@@ -111,7 +112,8 @@ describe('ProjectSidebar', () => {
 
     const row = screen.getByText('auth-refactor').closest('.sidebar-project-row')
 
-    expect(within(row as HTMLElement).getByText('Alpha +1')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Alpha')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('+1 Beta')).toBeInTheDocument()
   })
 
   it('shows nothing but the workspace names while none is open', () => {
@@ -122,13 +124,15 @@ describe('ProjectSidebar', () => {
     expect(folderLabel('Beta')).not.toBeInTheDocument()
   })
 
-  it('opens one workspace at a time — opening another closes the one before it', () => {
+  // Any number of cards open at once (#902): a repo tree you built up stays
+  // built up, so opening one card never closes another.
+  it('keeps every opened workspace open — opening another closes nothing', () => {
     renderSidebar()
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
 
     expect(folderLabel('Beta')).toBeInTheDocument()
-    expect(folderLabel('Alpha')).not.toBeInTheDocument()
+    expect(folderLabel('Alpha')).toBeInTheDocument()
   })
 
   it('closes a workspace from its chevron without changing the selection', () => {
@@ -175,17 +179,36 @@ describe('ProjectSidebar', () => {
     expect(within(card!).queryByText('Claude')).not.toBeInTheDocument()
   })
 
-  it('pulses a dot on the workspace name while one of its agents is outputting', () => {
-    renderSidebar({ outputtingSessionIds: new Set(['s1']) })
+  // The dot is the agents' state, not their output: waiting outranks running,
+  // because an agent that needs you is the one thing you must notice.
+  it('colours the dot by state — waiting beats running', () => {
+    renderSidebar({
+      sessionsByWorkspace: {
+        w1: [{ ...sampleSessions[0], status: 'running' }, { ...sampleSessions[1], status: 'waiting' }],
+        w2: [],
+      },
+    })
 
-    const card = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-workspace-card')
-    expect(within(card!).getByLabelText('An agent is working in this workspace')).toBeInTheDocument()
+    // 'alpha-space' now also names the row in the Working-now strip above the
+    // tree, so pin down the tree's own copy by its card wrapper.
+    const card = screen.getAllByText('alpha-space').map((el) => el.closest<HTMLElement>('.sidebar-workspace-card')).find(Boolean)!
+    const dot = within(card!).getByLabelText('An agent is waiting for you in this workspace')
+    expect(dot.className).toContain('status-dot--waiting')
   })
 
-  it('shows no dot while its agents are quiet', () => {
+  it('shows a running dot when no agent is waiting', () => {
+    renderSidebar({ sessionsByWorkspace: { w1: [{ ...sampleSessions[0], status: 'running' }], w2: [] } })
+
+    // The Working-now strip renders the same dot for the same workspace, so
+    // pick out the tree's own copy.
+    const dot = screen.getAllByLabelText('An agent is working in this workspace').find((el) => el.closest('.sidebar-workspace-card'))!
+    expect(dot.className).toContain('status-dot--running')
+  })
+
+  it('shows no dot while every agent is done', () => {
     renderSidebar()
 
-    expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   // The dot is 8px in the corner of the eye; the sweep across the name it belongs
@@ -226,16 +249,17 @@ describe('ProjectSidebar', () => {
     expect(props.onNewProject).toHaveBeenCalled()
   })
 
-  // The toolbar carries the sort toggle and nothing else — it is pinned exactly
-  // so an action cannot drift back in beside it. Both *create* actions are words
-  // in the bottom bar, where a folder-plus glyph up here read as "new workspace"
-  // to the eye and duplicated the button below.
-  it('renders just the sort toggle in the compact top toolbar', () => {
+  // The toolbar carries the filter toggle and the sort toggle and nothing else —
+  // it is pinned exactly so an action cannot drift back in beside them. Both
+  // *create* actions are words in the bottom bar, where a folder-plus glyph up
+  // here read as "new workspace" to the eye and duplicated the button below.
+  it('renders just the filter and sort toggles in the compact top toolbar', () => {
     renderSidebar()
 
     const toolbar = screen.getByRole('toolbar', { name: 'Workspace list actions' })
     const buttons = within(toolbar).getAllByRole('button')
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Filter workspaces',
       'Sorted by recently used — click to sort A–Z',
     ])
   })

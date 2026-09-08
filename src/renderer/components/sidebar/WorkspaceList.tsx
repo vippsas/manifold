@@ -1,11 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { WorkspaceCard } from './WorkspaceCard'
-import { useProjectRecency } from './sidebar-recency'
-import { sortWorkspaces, type SidebarSortMode } from './sidebar-sort'
+import { RepoGroup, type CardCommonProps } from './RepoGroup'
+import { SidebarSectionHeader } from './SidebarSectionHeader'
+import { useSidebarSectionState } from './sidebar-section-state'
+import { useWorkspaceFolds, workspaceFoldKey } from './sidebar-fold-state'
+import { filterGroups, groupMembers, groupWorkspaces, liveWorkspaceIds } from './sidebar-groups'
+import type { ProjectRecency } from './sidebar-recency'
+import type { SidebarSortMode } from './sidebar-sort'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface WorkspaceListProps {
@@ -13,6 +17,13 @@ export interface WorkspaceListProps {
   projects: Project[]
   /** How the list is ordered. Owned by ProjectSidebar, which renders the toggle. */
   sortMode: SidebarSortMode
+  /** Owned by ProjectSidebar so the Working-now section orders by the same clock. */
+  recency: ProjectRecency
+  touchProject: (workspaceId: string) => void
+  /** Worktree workspaces whose branch is merged; folded behind one row per repo. */
+  mergedIds: ReadonlySet<string>
+  /** Live filter text; blank means no filter. */
+  filter: string
   activeWorkspaceId: string | null
   activeProjectId?: string | null
   sessionsByWorkspace: Record<string, AgentSession[]>
@@ -35,58 +46,43 @@ export interface WorkspaceListProps {
   renderFolderFiles?: (source: FolderSource) => React.ReactNode
 }
 
-/** The whole Repositories sidebar. Every repo lives in a workspace — one that
- *  spans a single folder is the ordinary case, not a special one — so this is
- *  the only list of roots there is. */
+/** The Repositories section: one group per repo, headed by its home workspace
+ *  with the worktree workspaces cut off it nested beneath (#939/#940). Every
+ *  repo lives in a workspace, so this is still the only list of roots there is. */
 export function WorkspaceList({
-  workspaces,
-  projects,
-  sortMode,
-  activeWorkspaceId,
-  activeProjectId,
-  sessionsByWorkspace,
-  outputtingSessionIds,
-  drafts,
-  activeDraftId,
-  onSelectWorkspace,
-  onRenameWorkspace,
-  onRemoveWorkspace,
-  onCopyWorkspace,
-  onSelectRepo,
-  onAddProject,
-  onRemoveProject,
-  behindCounts,
-  onProjectFetched,
-  onSelectDraft,
-  onDiscardDraft,
-  renderFolderFiles,
+  workspaces, projects, sortMode, recency, touchProject, mergedIds, filter,
+  activeWorkspaceId, activeProjectId, sessionsByWorkspace, outputtingSessionIds,
+  drafts, activeDraftId, onSelectWorkspace, onRenameWorkspace, onRemoveWorkspace,
+  onCopyWorkspace, onSelectRepo, onAddProject, onRemoveProject, behindCounts,
+  onProjectFetched, onSelectDraft, onDiscardDraft, renderFolderFiles,
 }: WorkspaceListProps): React.JSX.Element {
-  // One workspace open at a time: the list reads as a column of names until you
-  // open one, and opening another closes the one before it.
-  const [expandedId, setExpandedId] = useState<string | null>(activeWorkspaceId)
-  const { recency, touchProject } = useProjectRecency()
+  const folds = useWorkspaceFolds()
+  const [sectionOpen, toggleSection] = useSidebarSectionState('repoTree', true)
+  const filtering = filter.trim() !== ''
 
-  // The visit is recorded from the workspace that ended up active, not from the
-  // click that asked for it: opening a folder inside another workspace, or a
-  // session restored at launch, moves you just as a click on the row does, and
-  // all of them have to leave the same trail for "the one I just left" to be
-  // the row under the one you are in.
+  const liveIds = useMemo(() => liveWorkspaceIds(sessionsByWorkspace), [sessionsByWorkspace])
+  const groups = useMemo(
+    () => groupWorkspaces(workspaces, projects, { mode: sortMode, recency, activeId: activeWorkspaceId, mergedIds, liveIds }),
+    [workspaces, projects, sortMode, recency, activeWorkspaceId, mergedIds, liveIds],
+  )
+  const visible = useMemo(() => (filtering ? filterGroups(groups, filter) : groups), [groups, filter, filtering])
+
+  // Entering a workspace leaves the recency trail *and* reveals it: its own
+  // card and the group it sits in open, the way an editor reveals a file. Read
+  // through a ref so a reorder never re-runs the reveal.
+  const groupsRef = useRef(groups)
+  groupsRef.current = groups
   useEffect(() => {
-    if (activeWorkspaceId) touchProject(activeWorkspaceId)
-  }, [activeWorkspaceId, touchProject])
+    if (!activeWorkspaceId) return
+    touchProject(activeWorkspaceId)
+    folds.open(workspaceFoldKey(activeWorkspaceId))
+    const group = groupsRef.current.find((g) => groupMembers(g).some((w) => w.id === activeWorkspaceId))
+    if (group) folds.open(group.foldKey)
+  }, [activeWorkspaceId, touchProject, folds.open])
 
-  const toggleExpanded = useCallback(
-    (id: string): void => setExpandedId((current) => (current === id ? null : id)),
-    [],
-  )
-
-  // Adapts the list's async remover to the card's void-returning prop. It no
-  // longer tracks which row is in flight: that flag only ever disabled the row's
-  // `×`, and removal now lives behind a menu that closes on the click.
-  const handleRemove = useCallback(
-    (id: string): void => { void onRemoveWorkspace(id) },
-    [onRemoveWorkspace],
-  )
+  const handleRemove = useCallback((id: string): void => { void onRemoveWorkspace(id) }, [onRemoveWorkspace])
+  const sessionsFor = useCallback((w: Workspace) => sessionsByWorkspace[w.id] ?? [], [sessionsByWorkspace])
+  const draftsFor = useCallback((w: Workspace) => drafts.filter((d) => w.projectIds.includes(d.projectId)), [drafts])
 
   if (workspaces.length === 0) {
     return (
@@ -96,37 +92,29 @@ export function WorkspaceList({
     )
   }
 
+  const card: CardCommonProps = {
+    projects, activeProjectId, outputtingSessionIds, activeDraftId,
+    onSelectWorkspace, onRenameWorkspace, onRemoveWorkspace: handleRemove, onCopyWorkspace,
+    onSelectRepo, onAddProject, onRemoveProject, behindCounts, onProjectFetched,
+    onSelectDraft, onDiscardDraft, renderFolderFiles,
+  }
+
   return (
     <div style={{ paddingTop: 4 }}>
-      {sortWorkspaces(workspaces, sortMode, {
-        recency,
-        activeId: activeWorkspaceId,
-        projects,
-      }).map((workspace) => (
-        <WorkspaceCard
-          key={workspace.id}
-          workspace={workspace}
-          projects={projects}
-          isActive={workspace.id === activeWorkspaceId}
-          expanded={workspace.id === expandedId}
-          onToggleExpanded={() => toggleExpanded(workspace.id)}
-          sessions={sessionsByWorkspace[workspace.id] ?? []}
-          activeProjectId={activeProjectId}
-          outputtingSessionIds={outputtingSessionIds}
-          drafts={drafts.filter((d) => workspace.projectIds.includes(d.projectId))}
-          activeDraftId={activeDraftId}
-          onSelectWorkspace={onSelectWorkspace}
-          onRenameWorkspace={onRenameWorkspace}
-          onRemoveWorkspace={handleRemove}
-          onCopyWorkspace={onCopyWorkspace}
-          onSelectRepo={onSelectRepo}
-          onAddProject={onAddProject}
-          onRemoveProject={onRemoveProject}
-          behindCounts={behindCounts}
-          onProjectFetched={onProjectFetched}
-          onSelectDraft={onSelectDraft}
-          onDiscardDraft={onDiscardDraft}
-          renderFolderFiles={renderFolderFiles}
+      <SidebarSectionHeader label="Repositories" count={visible.length} expanded={sectionOpen} onToggle={toggleSection} />
+      {sectionOpen && filtering && visible.length === 0 && (
+        <div style={sidebarStyles.empty}>No matches</div>
+      )}
+      {sectionOpen && visible.map((group) => (
+        <RepoGroup
+          key={group.foldKey}
+          group={group}
+          folds={folds}
+          filtering={filtering}
+          activeWorkspaceId={activeWorkspaceId}
+          sessionsFor={sessionsFor}
+          draftsFor={draftsFor}
+          card={card}
         />
       ))}
     </div>

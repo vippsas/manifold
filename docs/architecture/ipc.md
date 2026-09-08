@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-09-02
+updated: 2026-09-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -30,7 +30,7 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 - `src/main/ipc/search-handlers.ts` — `search:context`, `search:query`, `search:ask`, `search:view-state:*`.
 - `src/main/ipc/memory-handlers.ts` — `memory:*` (search/get/timeline/stats/delete/clear/settings), running SQLite FTS5 queries.
 - `src/main/ipc/simple-handlers.ts` — `simple:*` chat-adapter channels for the developer draft chat (`chat-messages`, `send-message`, `subscribe-chat`, status/preview/slash-command getters).
-- `src/main/ipc/workspace-handlers.ts` — `workspace:*` multi-root workspace ops, plus `workspace:get-active`/`workspace:set-active` (`workspace-handlers.ts:8`–`:12`), the getter/setter for the last selected workspace backed by `ActiveWorkspaceStore` (`src/main/store/active-workspace-store.ts:13`, persisted to `~/.manifold/active-workspace.json`) so a restart reopens where the user left off.
+- `src/main/ipc/workspace-handlers.ts` — `workspace:*` multi-root workspace ops, plus `workspace:get-active`/`workspace:set-active` (`workspace-handlers.ts:8`–`:12`), the getter/setter for the last selected workspace backed by `ActiveWorkspaceStore` (`src/main/store/active-workspace-store.ts:13`, persisted to `~/.manifold/active-workspace.json`) so a restart reopens where the user left off; and `workspace:list-merged`, which returns the ids of worktree workspaces whose primary repo + `branchName` matches a `VerdictRecord` with `outcome === 'merged'` (`verdictStore.listAll()`), the sidebar's source for its merged fold — only the recorder's activity-gated outcome counts, so an empty branch never reports merged.
 - `src/main/ipc/plugin-handlers.ts` — `plugins:*` view/contribution/config/tree-view bridge. Verdicts are no longer read over renderer IPC: the `manifold.statistics` plugin reads them through the built-in `verdicts:read` capability (`HOST_VERDICTS`, see `plugins.md`).
 
 Most handler modules ship a sibling `*.test.ts` exercising its channels in isolation (the `register*Handlers` functions are unit-testable against a mock `IpcDependencies`).

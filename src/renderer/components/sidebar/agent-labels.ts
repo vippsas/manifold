@@ -65,10 +65,13 @@ export interface WorkspaceRowLabel {
   repo: string | null
   /** The workspace's own name, with a redundant repo prefix removed. */
   name: string
+  /** The repos beyond the primary, as a muted sub-label: the one extra repo's
+   *  name (`+1 kong`) or a count (`+3`). Null for a single-repo workspace. */
+  extra: string | null
 }
 
 /** What a sidebar workspace row reads as: the repo it belongs to, dimmed, then
- *  its own name — `kong / moss`.
+ *  its own name, then any extra repos — `kong / moss  +1 apex`.
  *
  *  The repo comes from projectIds[0], never from parsing the name. Only some
  *  stored names carry their branch prefix — a promoted worktree keeps whatever
@@ -76,10 +79,14 @@ export interface WorkspaceRowLabel {
  *  outright — so the name alone cannot say which repo a row belongs to. */
 export function workspaceRowLabel(workspace: Workspace, projects: Project[]): WorkspaceRowLabel {
   const primary = projects.find((p) => p.id === workspace.projectIds[0])
-  if (!primary) return { repo: null, name: workspace.name }
+  if (!primary) return { repo: null, name: workspace.name, extra: null }
 
-  const extra = workspace.projectIds.length - 1
-  const repo = extra > 0 ? `${primary.name} +${extra}` : primary.name
+  const extraIds = workspace.projectIds.slice(1)
+  const extra = extraIds.length === 0
+    ? null
+    : extraIds.length === 1
+      ? `+1 ${projects.find((p) => p.id === extraIds[0])?.name ?? ''}`.trimEnd()
+      : `+${extraIds.length}`
 
   // Derived from the path, the way the branch namer derives it, so the strip
   // matches the prefix the branch actually carries.
@@ -89,5 +96,22 @@ export function workspaceRowLabel(workspace: Workspace, projects: Project[]): Wo
     : workspace.name
 
   // A home workspace is named after its repo; saying it twice adds nothing.
-  return name.toLowerCase() === repo.toLowerCase() ? { repo: null, name } : { repo, name }
+  const repo = name.toLowerCase() === primary.name.toLowerCase() ? null : primary.name
+  return { repo, name, extra }
+}
+
+export type RowStatus = 'waiting' | 'running' | 'error'
+
+/** The one state a row's dot shows for its agents: waiting beats running — an
+ *  agent that needs you matters more than one that is busy — and error shows
+ *  only when nothing is alive. `done` shows nothing. */
+export function rowStatus(sessions: readonly Pick<AgentSession, 'status'>[]): RowStatus | null {
+  if (sessions.some((s) => s.status === 'waiting')) return 'waiting'
+  if (sessions.some((s) => s.status === 'running')) return 'running'
+  if (sessions.some((s) => s.status === 'error')) return 'error'
+  return null
+}
+
+export function isLive(sessions: readonly Pick<AgentSession, 'status'>[]): boolean {
+  return sessions.some((s) => s.status === 'running' || s.status === 'waiting')
 }
