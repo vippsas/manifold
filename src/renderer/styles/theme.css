@@ -1243,6 +1243,53 @@ select:focus-visible {
   margin-right: 2px;
 }
 
+/* `14 merged · show`: one quiet row per repo for the branches that are done.
+   Indented to the nested glyph column, with the guide ending at its midline so
+   it closes the family visually. */
+.sidebar-merged-fold {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  margin: 1px 8px;
+  padding: 0 8px 0 36px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--type-ui-caption);
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-merged-fold::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 0;
+  bottom: 50%;
+  width: 1px;
+  background: var(--tree-indent-guide);
+}
+
+.sidebar-merged-fold:hover {
+  color: var(--text-primary);
+}
+
+.sidebar-merged-fold__count {
+  color: color-mix(in srgb, var(--accent), transparent 45%);
+}
+
+/* Revealed merged cards read as history, not work. */
+.sidebar-merged-cards .sidebar-project-row {
+  color: var(--text-muted);
+}
+
+.sidebar-repo-group-header:hover {
+  color: var(--text-secondary);
+}
+
 .sidebar-agent-main > .sidebar-item-actions {
   position: absolute;
   right: 0;

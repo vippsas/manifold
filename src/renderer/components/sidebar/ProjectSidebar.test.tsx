@@ -124,13 +124,15 @@ describe('ProjectSidebar', () => {
     expect(folderLabel('Beta')).not.toBeInTheDocument()
   })
 
-  it('opens one workspace at a time — opening another closes the one before it', () => {
+  // Any number of cards open at once (#902): a repo tree you built up stays
+  // built up, so opening one card never closes another.
+  it('keeps every opened workspace open — opening another closes nothing', () => {
     renderSidebar()
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
 
     expect(folderLabel('Beta')).toBeInTheDocument()
-    expect(folderLabel('Alpha')).not.toBeInTheDocument()
+    expect(folderLabel('Alpha')).toBeInTheDocument()
   })
 
   it('closes a workspace from its chevron without changing the selection', () => {

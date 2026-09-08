@@ -7,6 +7,8 @@ import { WorkspaceList } from './WorkspaceList'
 import { FavoritesList } from './FavoritesList'
 import { SortModeGlyph } from './SidebarCardActionGlyphs'
 import { useSidebarSortMode } from './sidebar-sort'
+import { useProjectRecency } from './sidebar-recency'
+import { useMergedWorkspaces } from '../../hooks/project/useMergedWorkspaces'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface ProjectSidebarProps {
@@ -60,6 +62,11 @@ export function ProjectSidebar({
   renderFolderFiles,
 }: ProjectSidebarProps): React.JSX.Element {
   const [sortMode, toggleSortMode] = useSidebarSortMode()
+  // Hoisted out of the list: the recency clock orders the groups *and* (Task 8)
+  // the Working-now section, and the merged set is one IPC answer for the whole
+  // sidebar rather than one per card.
+  const { recency, touchProject } = useProjectRecency()
+  const mergedIds = useMergedWorkspaces(workspaces, sessionsByWorkspace ?? {})
   // Says the state *and* what the click does, so the mode is readable without
   // clicking. Not aria-pressed: this is a two-state mode, not an on/off.
   const sortLabel = sortMode === 'alpha'
@@ -89,6 +96,10 @@ export function ProjectSidebar({
           workspaces={workspaces}
           projects={projects}
           sortMode={sortMode}
+          recency={recency}
+          touchProject={touchProject}
+          mergedIds={mergedIds}
+          filter=""
           activeWorkspaceId={activeWorkspaceId ?? null}
           activeProjectId={activeProjectId}
           sessionsByWorkspace={sessionsByWorkspace ?? {}}
