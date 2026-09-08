@@ -267,35 +267,55 @@ describe('ProjectSidebar', () => {
     expect(props.onNewProject).toHaveBeenCalled()
   })
 
-  // The toolbar carries the filter toggle and the sort toggle and nothing else —
-  // it is pinned exactly so an action cannot drift back in beside them. Both
-  // *create* actions are words in the bottom bar, where a folder-plus glyph up
-  // here read as "new workspace" to the eye and duplicated the button below.
-  it('renders the filter, sort and collapse-all toggles in the compact top toolbar', () => {
+  // The toolbar is pinned exactly so an action cannot drift in beside these. The
+  // `+` sits right after the label — "Workspaces +" reads as "add one" — while
+  // the view toggles stay a right-aligned cluster.
+  it('renders the new-workspace plus, then the filter, sort and collapse-all toggles in the top toolbar', () => {
     renderSidebar()
 
     const toolbar = screen.getByRole('toolbar', { name: 'Workspace list actions' })
     const buttons = within(toolbar).getAllByRole('button')
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'New Workspace',
       'Filter workspaces',
       'Sorted by recently used — click to sort A–Z',
       'Collapse all repositories',
     ])
   })
 
-  // New Repo before New Workspace: a workspace is built out of repos, so the
-  // prerequisite reads first, and the accented workspace CTA keeps the edge.
+  // New Repo before New Agent: a repo is the prerequisite for anything else, so
+  // it reads first, and the accented agent CTA keeps the edge.
   it('names both create actions in the bottom bar, prerequisite first', () => {
     renderSidebar()
 
-    const bar = screen.getByRole('button', { name: 'New Workspace' }).parentElement
+    const bar = screen.getByRole('button', { name: 'New Agent' }).parentElement
     const buttons = within(bar!).getAllByRole('button')
-    expect(buttons.map((button) => button.textContent)).toEqual(['+ New Repo', '+ New Workspace'])
+    expect(buttons.map((button) => button.textContent)).toEqual(['+ New Repo', '+ New Agent'])
+  })
+
+  // To the user a second workspace over the same folders *is* a new, isolated
+  // agent — so the footer says that, and acts on the workspace that is selected.
+  it('starts a New Agent as a same-folders workspace of the active workspace', () => {
+    const { props } = renderSidebar({ activeWorkspaceId: 'w2' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Agent' }))
+
+    expect(props.onCopyWorkspace).toHaveBeenCalledWith('w2')
+  })
+
+  it('disables New Agent while no workspace is selected', () => {
+    const { props } = renderSidebar({ activeWorkspaceId: null })
+
+    const button = screen.getByRole('button', { name: 'New Agent' })
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(props.onCopyWorkspace).not.toHaveBeenCalled()
   })
 
   // A fork glyph and a folder-plus glyph used to sit here, each meaning nothing
-  // to a new user until a native `title` caught up a second later. One `+` now
-  // opens the menu, where the same actions are named in words.
+  // to a new user until a native `title` caught up a second later. One `⋯` now
+  // opens the menu, where the remaining actions are named in words. Same-folders
+  // creation is no longer among them: it is the footer's New Agent.
   it('runs the workspace actions from the words in the row menu', () => {
     const { props } = renderSidebar()
     const header = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
@@ -303,12 +323,11 @@ describe('ProjectSidebar', () => {
       within(header!).getByRole('button', { name: 'Actions for alpha-space' })
 
     fireEvent.click(actions())
-    fireEvent.click(screen.getByText('New Workspace, Same Folders'))
-    fireEvent.click(actions())
+    expect(screen.queryByText('New Workspace, Same Folders')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('Add Folder…'))
 
-    expect(props.onCopyWorkspace).toHaveBeenCalledWith('w1')
     expect(props.onAddProjectToWorkspace).toHaveBeenCalledWith('w1')
+    expect(props.onCopyWorkspace).not.toHaveBeenCalled()
   })
 
   // The row's whole action surface: the disclosure, the repo's fetch pill
@@ -420,18 +439,19 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectWorkspace).toHaveBeenCalledWith('w1')
   })
 
-  it('renders a New Workspace action that calls onNewWorkspace', () => {
+  it('renders a New Workspace action in the header that calls onNewWorkspace', () => {
     const { props } = renderSidebar()
 
-    fireEvent.click(screen.getByLabelText('New Workspace'))
+    const toolbar = screen.getByRole('toolbar', { name: 'Workspace list actions' })
+    fireEvent.click(within(toolbar).getByLabelText('New Workspace'))
 
     expect(props.onNewWorkspace).toHaveBeenCalled()
   })
 
   // Its own bar below the scrolling list, not the list's last row: with enough
   // workspaces to scroll, a row would leave the viewport and take the only way
-  // to create a workspace with it.
-  it.each(['New Repo', 'New Workspace'])('keeps %s outside the scrolling list', (label) => {
+  // to create with it.
+  it.each(['New Repo', 'New Agent'])('keeps %s outside the scrolling list', (label) => {
     renderSidebar()
 
     const button = screen.getByLabelText(label)

@@ -9,7 +9,6 @@ export interface WorkspaceMenuConfig {
   toggleFavorite?: () => void
   /** Starts the row's inline rename. Absent when the card cannot be renamed. */
   rename?: () => void
-  copyToWorktree?: () => void
   addFolder?: () => void
   removeWorkspace: () => void
   /** Appended in their own section before the destructive item. A solo-repo
@@ -34,8 +33,11 @@ export function buildWorkspaceContextMenu(cfg: WorkspaceMenuConfig): MenuItem[] 
   const items: MenuItem[] = []
 
   // Deliberately no "New Agent" item: starting an agent belongs to the agent
-  // group's tab bar, and offering it here too made the row's menu read as a
-  // second, competing way to do the same thing.
+  // group's tab bar and the sidebar footer, and offering it here too made the
+  // row's menu read as a second, competing way to do the same thing. The same
+  // sent "New Workspace, Same Folders" away: to the user that action *is* a new,
+  // isolated agent, so it now lives in the footer as `+ New Agent`, acting on
+  // whichever workspace is selected.
   if (cfg.toggleFavorite) {
     items.push(
       {
@@ -47,12 +49,6 @@ export function buildWorkspaceContextMenu(cfg: WorkspaceMenuConfig): MenuItem[] 
   }
 
   if (cfg.rename) items.push({ label: 'Rename…', action: cfg.rename })
-  // Not "Copy to New Worktree", which misread twice: from a worktree row it
-  // sounded like nesting a worktree inside one, and "copy" promised the current
-  // work came along. Neither is true — the new workspace is cut from the repo's
-  // clone at its base branch (`workspace-worktrees.ts:61`), and only the set of
-  // folders is inherited. The label now says exactly that much.
-  if (cfg.copyToWorktree) items.push({ label: 'New Workspace, Same Folders', action: cfg.copyToWorktree })
   if (cfg.addFolder) items.push({ label: 'Add Folder…', action: cfg.addFolder })
 
   if (cfg.extraItems?.length) items.push('separator', ...cfg.extraItems)

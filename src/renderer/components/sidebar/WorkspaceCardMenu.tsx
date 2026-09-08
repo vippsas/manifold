@@ -11,7 +11,6 @@ export interface WorkspaceCardMenuProps {
   isFavorite?: boolean
   onToggleFavorite?: () => void
   onRename?: (seed: string) => void
-  onCopyToWorktree?: () => void
   onAddFolder?: () => void
   onRemoveWorkspace: () => void
   /** Present only on a workspace spanning one repo — see `soloPath` below. */
@@ -29,7 +28,7 @@ export interface WorkspaceCardMenuProps {
  *  folder rows, where each path belongs to a named repo. */
 export function WorkspaceCardMenu({
   position, workspaceId, renameSeed, isFavorite, onToggleFavorite, onRename,
-  onCopyToWorktree, onAddFolder, onRemoveWorkspace, soloPath, isSoloRepo, onClose,
+  onAddFolder, onRemoveWorkspace, soloPath, isSoloRepo, onClose,
 }: WorkspaceCardMenuProps): React.JSX.Element {
   return (
     <ContextMenu
@@ -39,7 +38,6 @@ export function WorkspaceCardMenu({
         isFavorite,
         toggleFavorite: onToggleFavorite,
         rename: onRename ? () => onRename(renameSeed) : undefined,
-        copyToWorktree: onCopyToWorktree,
         addFolder: onAddFolder,
         removeWorkspace: onRemoveWorkspace,
         extraItems: isSoloRepo

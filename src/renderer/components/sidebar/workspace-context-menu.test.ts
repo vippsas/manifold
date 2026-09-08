@@ -36,30 +36,28 @@ describe('buildWorkspaceContextMenu', () => {
     const items = buildWorkspaceContextMenu({
       ...required,
       rename: vi.fn(),
-      copyToWorktree: vi.fn(),
       addFolder: vi.fn(),
     })
     expect(labels(items)).toEqual([
       'Add to Favorites',
       '---',
       'Rename…',
-      'New Workspace, Same Folders',
       'Add Folder…',
       '---',
       'Remove Workspace',
     ])
   })
 
-  // Starting an agent lives on the agent group's tab bar and nowhere else; a
-  // second route from this menu read as a competing way to do the same thing.
-  it('offers no way to start an agent', () => {
+  // Starting an agent lives on the agent group's tab bar and the sidebar footer's
+  // New Agent, nowhere else; a route from this menu read as a competing way to do
+  // the same thing — which is also why "New Workspace, Same Folders" left it.
+  it('offers no way to start an agent or a same-folders workspace', () => {
     const items = buildWorkspaceContextMenu({
       ...required,
       rename: vi.fn(),
-      copyToWorktree: vi.fn(),
       addFolder: vi.fn(),
     })
-    expect(labels(items).some((label) => /agent/i.test(label))).toBe(false)
+    expect(labels(items).some((label) => /agent|workspace, same/i.test(label))).toBe(false)
   })
 
   it('omits actions whose handler is absent', () => {
@@ -84,11 +82,9 @@ describe('buildWorkspaceContextMenu', () => {
   it('drops the favorites item, and its separator, without a toggle handler', () => {
     const items = buildWorkspaceContextMenu({
       removeWorkspace: vi.fn(),
-      copyToWorktree: vi.fn(),
       addFolder: vi.fn(),
     })
     expect(labels(items)).toEqual([
-      'New Workspace, Same Folders',
       'Add Folder…',
       '---',
       'Remove Workspace',

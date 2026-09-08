@@ -10,7 +10,7 @@ import { isWorktreeWorkspace } from '../../../shared/workspace-types'
  *  checkout of its own, and every agent cut for it names it (`session-creator.ts:224`),
  *  so an agent that names no workspace is by definition working in the repos'
  *  own clones — never in that checkout. Placing it by repo alone put it in both:
- *  a second workspace over the same folders ("New Workspace, Same Folders")
+ *  a second workspace over the same folders (the footer's "+ New Agent")
  *  adopted the clone's agent, became its `primarySession`, and so opened on
  *  another workspace's agent — the wrong branch, the wrong folder — instead of
  *  the empty view offering to start one, with both sidebar rows lit for the one

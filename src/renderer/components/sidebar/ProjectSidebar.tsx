@@ -6,7 +6,7 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { FavoritesList } from './FavoritesList'
 import { WorkingNowList } from './WorkingNowList'
-import { CollapseAllGlyph, SearchGlyph, SortModeGlyph } from './SidebarCardActionGlyphs'
+import { CollapseAllGlyph, NewAgentGlyph, SearchGlyph, SortModeGlyph } from './SidebarCardActionGlyphs'
 import { SidebarFilterField } from './SidebarFilterField'
 import { useSidebarSortMode } from './sidebar-sort'
 import { useProjectRecency } from './sidebar-recency'
@@ -26,6 +26,8 @@ export interface ProjectSidebarProps {
   onSelectWorkspace: (id: string) => void
   onRenameWorkspace?: (id: string, name: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
+  /** Cuts a new workspace over the same folders as `id` — what the footer's
+   *  `+ New Agent` does to the selected workspace. */
   onCopyWorkspace?: (id: string) => void
   onSelectWorkspaceRepo?: (workspaceId: string, projectId: string) => void
   onAddProjectToWorkspace?: (workspaceId: string) => void | Promise<void>
@@ -85,6 +87,18 @@ export function ProjectSidebar({
     <div style={sidebarStyles.root}>
       <div role="toolbar" aria-label="Workspace list actions" style={sidebarStyles.actionToolbar}>
         <span style={sidebarStyles.toolbarLabel}>Workspaces</span>
+        {onNewWorkspace && (
+          <button
+            type="button"
+            onClick={onNewWorkspace}
+            className="sidebar-toolbar-button"
+            style={sidebarStyles.toolbarNewButton}
+            aria-label="New Workspace"
+            title="New Workspace"
+          >
+            <NewAgentGlyph />
+          </button>
+        )}
         <div style={sidebarStyles.toolbarActions}>
           <button
             type="button"
@@ -150,7 +164,6 @@ export function ProjectSidebar({
           onSelectWorkspace={onSelectWorkspace}
           onRenameWorkspace={onRenameWorkspace}
           onRemoveWorkspace={onRemoveWorkspace}
-          onCopyWorkspace={onCopyWorkspace}
           onSelectRepo={onSelectWorkspaceRepo}
           onAddProject={onAddProjectToWorkspace}
           onRemoveProject={onRemoveProjectFromWorkspace}
@@ -171,15 +184,19 @@ export function ProjectSidebar({
         >
           + New Repo
         </button>
-        {onNewWorkspace && (
+        {onCopyWorkspace && (
           <button
             type="button"
-            onClick={onNewWorkspace}
-            className="sidebar-new-workspace-button"
-            style={sidebarStyles.newWorkspaceButton}
-            aria-label="New Workspace"
+            onClick={() => { if (activeWorkspaceId) onCopyWorkspace(activeWorkspaceId) }}
+            disabled={!activeWorkspaceId}
+            className="sidebar-new-agent-button"
+            style={sidebarStyles.newAgentButton}
+            aria-label="New Agent"
+            title={activeWorkspaceId
+              ? 'Start an isolated agent: a fresh workspace over the selected workspace’s folders'
+              : 'Select a workspace first'}
           >
-            + New Workspace
+            + New Agent
           </button>
         )}
       </div>

@@ -1,7 +1,7 @@
 ---
 description: How Manifold groups repositories into a Workspace — a place to work that owns one checkout of every repo it spans, so agents join a workspace instead of cutting worktrees of their own.
 covers: [src/main/workspace]
-updated: 2026-09-02
+updated: 2026-09-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -61,8 +61,8 @@ disclose a workspace's folders before any agent has run in it. It requires at le
 (`:42`). Initial creation sets `absorbHomeWorkspaces`, so after the combined checkout exists it
 removes each selected repo's empty, standalone one-folder home record (`AppShell.tsx:318`,
 `workspace-manager.ts:58`, `:67`). Homes with agents, multi-folder homes, and worktree workspaces are preserved;
-"New Workspace, Same Folders" omits the flag and therefore remains a deliberate parallel
-checkout (`App.tsx:312`). `adoptProject()` / `adoptOrphanProjects()` are the exception: they
+the sidebar footer's "+ New Agent" (`copyWorkspaceToWorktree`) omits the flag and therefore
+remains a deliberate parallel checkout (`App.tsx:347`). `adoptProject()` / `adoptOrphanProjects()` are the exception: they
 build a *home* workspace, which is the clone and so has nothing to cut
 (`workspace-manager.ts:142`, `:154`, `:198`).
 

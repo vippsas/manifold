@@ -329,9 +329,11 @@ export function App(): React.JSX.Element {
     if (activeWorkspaceId === id) setActiveWorkspaceId(null)
   }, [activeWorkspaceId, removeProject, removeWorkspace, setActiveWorkspaceId, workspaces])
 
-  // "New Workspace, Same Folders": a new workspace over the same folders. It
-  // inherits the folders and the runtime and nothing else — the checkout is cut
-  // from each repo's own clone at its base branch, so no work carries over.
+  // The sidebar footer's "+ New Agent": a new workspace over the selected
+  // workspace's folders. To the user that is a new, isolated agent; to the model
+  // it is a sibling workspace that inherits the folders and the runtime and
+  // nothing else — the checkout is cut from each repo's own clone at its base
+  // branch, so no work carries over.
   // Creation cuts the worktrees eagerly, so by the time it lands in the sidebar
   // it is a real place on a fresh branch — entering it drops you on its empty
   // agent view.

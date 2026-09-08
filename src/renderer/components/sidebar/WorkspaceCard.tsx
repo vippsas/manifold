@@ -49,7 +49,6 @@ export interface WorkspaceCardProps {
   onRenameWorkspace?: (id: string, name: string) => void
   /** Takes no event: the context menu calls it too, and a menu item has none. */
   onRemoveWorkspace: (id: string) => void
-  onCopyWorkspace?: (id: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void | Promise<void>
   onRemoveProject?: (workspaceId: string, projectId: string) => void
@@ -83,7 +82,6 @@ export function WorkspaceCard({
   onSelectWorkspace,
   onRenameWorkspace,
   onRemoveWorkspace,
-  onCopyWorkspace,
   onSelectRepo,
   onAddProject,
   onRemoveProject,
@@ -286,7 +284,6 @@ export function WorkspaceCard({
           isFavorite={dock?.isFavorite(workspace.id)}
           onToggleFavorite={dock ? () => dock.onToggleFavorite(workspace.id) : undefined}
           onRename={onRenameWorkspace ? (seed) => setNameDraft(seed) : undefined}
-          onCopyToWorktree={onCopyWorkspace ? () => onCopyWorkspace(workspace.id) : undefined}
           onAddFolder={onAddProject ? () => void onAddProject(workspace.id) : undefined}
           onRemoveWorkspace={() => onRemoveWorkspace(workspace.id)}
           soloPath={soloPath}
