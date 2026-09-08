@@ -76,10 +76,13 @@ blocker; the best-effort async steps (unwatch files, close the renderer server) 
 (`app-lifecycle.ts:88`).
 
 **Window creation.** `createWindow()` (`window-factory.ts:53`) resolves the theme type/background
-from the saved theme, builds a 1400×900 `BrowserWindow` with a `hiddenInset` title bar and
-context isolation, then hardens `<webview>`s: `will-attach-webview` strips the preload, forces
-isolation, and rejects any non-localhost `src` (`window-factory.ts:77`). It loads the renderer
-from `ELECTRON_RENDERER_URL` (dev: electron-vite; prod: the loopback server), falling back to
+from the saved theme, builds a `BrowserWindow` sized to the primary display's work area
+(`screen.getPrimaryDisplay().workArea`, spread as `x`/`y`/`width`/`height` — so the window opens
+filling the screen below the menu bar and above the Dock, with `minWidth`/`minHeight` 800×600
+still applying on resize) with a `hiddenInset` title bar and context isolation, then hardens
+`<webview>`s: `will-attach-webview` strips the preload, forces isolation, and rejects any
+non-localhost `src` (`window-factory.ts:77`). It loads the renderer from
+`ELECTRON_RENDERER_URL` (dev: electron-vite; prod: the loopback server), falling back to
 `file://` only if the server failed to bind (`window-factory.ts:142`). External links are
 diverted to the system browser via `setWindowOpenHandler` + `will-navigate`. The application
 menu is set last.
