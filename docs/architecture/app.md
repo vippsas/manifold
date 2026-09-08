@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-09-02
+updated: 2026-09-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -30,7 +30,7 @@ dev-server manager that powers live preview of generated (simple-mode) apps.
 - `src/main/app/dev-server-manager.ts` — `DevServerManager`: simple-mode dev server lifecycle, print-mode follow-up turns, and slash-command probing.
 - `src/main/app/mode-switcher.ts` — `ModeSwitcher`: `app:switch-mode` between `developer`/`simple`, plus `theme:changed` and `app:consume-pending-launch`.
 - `src/main/app/local-renderer-server.ts` — `startLocalRendererServer()`: a static loopback HTTP server so the renderer has a real `http://127.0.0.1` origin in production.
-- `src/main/app/shell-path.ts` — `loadShellPath()`: resolves the login-shell `PATH` (macOS) so spawned agent binaries are found.
+- `src/main/app/shell-path.ts` — `loadShellPath()`: resolves the login-shell `PATH` (macOS) so spawned agent binaries are found, then appends well-known binary dirs including nvm's default node bin.
 - `src/main/app/dev-profile.ts` — `configureDevProfilePaths()`: isolates dev runs into a separate userData profile.
 - `src/main/app/power-manager.ts` — `PowerManager`: wraps `powerSaveBlocker` for "Keep Mac Awake".
 - `src/main/app/debug-log.ts` — `DebugLogger` / `debugLog()`: buffered async append to `~/.manifold/debug.log`.
@@ -164,5 +164,6 @@ return a fallback without caching so the next call retries the live API (`getRel
 - **WSL uses software rendering.** Before Electron readiness, Linux enables `disable-dev-shm-usage`; WSL detection via `WSL_DISTRO_NAME` or `WSL_INTEROP` additionally calls `app.disableHardwareAcceleration()` to avoid WSLg Viz/GPU-process crashes without penalizing native Linux (`linux-rendering.ts:6-17`).
 - **WSL skips native beep.** `app:beep` remains enabled on macOS and native Linux, but WSL returns without calling Electron's native sound path; repeated kernel crashes showed a null browser-process instruction pointer about ten seconds after an agent stopped outputting (`notification-sound.ts:1-8`, `ipc-handlers.ts:52-54`).
 - **`loadShellPath` must not source `.zshrc`.** Interactive rc files hang when launched from Spotlight with no TTY; it asks the login shell for `$PATH` only, then appends known binary dirs as a fallback (`shell-path.ts:9`).
+- **nvm-installed agent CLIs need an explicit PATH entry.** Because `.zshrc` is never sourced, and nvm is initialized there, a GUI-launched app sees no `~/.nvm/versions/node/*/bin` — so a `claude` installed as an npm global under nvm reports "not installed" in the runtime picker (`runtimes.ts:71`). `nvmDefaultBinDir()` resolves the version `~/.nvm/alias/default` names (exact, or a `20`/`20.19` prefix), falling back to the newest installed version for named aliases like `lts/iron` it cannot resolve without nvm itself (`shell-path.ts:80`).
 - **Local renderer server is production-only and best-effort.** It exists so embed providers (YouTube, Vimeo, …) accept a real `http://127.0.0.1` origin instead of `file://`; if it fails to bind, the window falls back to `file://` and those embeds will fail (`window-factory.ts:142`).
 - **Webviews are restricted to localhost.** `will-attach-webview` rejects any non-localhost `src` (host-anchored regex) and strips the preload (`window-factory.ts:77`); GUEST_VIEW `ERR_ABORTED (-3)` noise is deliberately suppressed via the `console.error` monkey-patch at `window-factory.ts:14`.

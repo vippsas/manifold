@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { readdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { debugLog } from './debug-log'
 
@@ -42,6 +43,7 @@ export function loadShellPath(): void {
     '/opt/homebrew/bin',               // Homebrew ARM (codex, git, node)
     '/opt/homebrew/sbin',              // Homebrew system tools
     '/usr/local/bin',                  // Homebrew Intel / system tools
+    ...nvmDefaultBinDir(),             // npm global installs under nvm (claude, codex, gemini)
   ]
   const currentPath = process.env.PATH ?? ''
   const pathSet = new Set(currentPath.split(':'))
@@ -58,6 +60,7 @@ function _appendCommonLinuxDirs(): void {
     join(home, '.local', 'bin'),   // npm global installs (claude, codex)
     '/usr/local/bin',
     '/usr/bin',
+    ...nvmDefaultBinDir(),
   ]
   const currentPath = process.env.PATH ?? ''
   const pathSet = new Set(currentPath.split(':'))
@@ -66,4 +69,44 @@ function _appendCommonLinuxDirs(): void {
     process.env.PATH = currentPath + ':' + missing.join(':')
     debugLog(`[startup] linux: appended ${missing.length} dirs to PATH: ${missing.join(', ')}`)
   }
+}
+
+/**
+ * nvm is initialized from .zshrc/.bashrc — interactive rc files a login shell
+ * never sources — so npm-global CLIs installed under nvm (claude, codex, gemini)
+ * are invisible to the PATH resolved above. Work out the version nvm would
+ * default to and return its bin dir, or nothing when nvm isn't installed.
+ */
+function nvmDefaultBinDir(): string[] {
+  const versionsDir = join(homedir(), '.nvm', 'versions', 'node')
+  let installed: string[]
+  try {
+    installed = readdirSync(versionsDir)
+      .filter((entry) => /^v\d/.test(entry))
+      .sort(byVersionDesc)
+  } catch {
+    return []
+  }
+  if (installed.length === 0) return []
+
+  let alias: string | undefined
+  try {
+    alias = readFileSync(join(homedir(), '.nvm', 'alias', 'default'), 'utf8').trim()
+  } catch {
+    // no default alias — newest installed version it is
+  }
+  // An alias is a version ('v20.19.6'), a prefix ('20', '20.19') or a named
+  // alias we can't resolve without nvm itself ('lts/iron'); fall back to newest.
+  const wanted = alias?.startsWith('v') ? alias : `v${alias}`
+  const match = alias
+    ? installed.find((v) => v === wanted || v.startsWith(`${wanted}.`))
+    : undefined
+  return [join(versionsDir, match ?? installed[0], 'bin')]
+}
+
+function byVersionDesc(a: string, b: string): number {
+  const parse = (v: string) => v.slice(1).split('.').map(Number)
+  const [ax, ay, az] = parse(a)
+  const [bx, by, bz] = parse(b)
+  return (bx - ax) || (by - ay) || (bz - az)
 }
