@@ -1,7 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged for macOS and x64 WSL2/Linux, and released.
 covers: [package.json]
-updated: 2026-07-30
+updated: 2026-09-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -148,6 +148,16 @@ Pushing the `v*` tag is the trigger for the real build: `release-dmg.yml` runs o
 with the Apple signing/notarization secrets, and uploads the `.dmg`/`.zip`/`.yml`/`.blockmap`
 to the GitHub release (`release-dmg.yml:38-59`). So locally `dist` exists for one-off
 packaging, but the canonical release artifacts come from CI on tag push.
+
+**electron-builder must be ≥ 26.16.1** (`package.json:131`, `^26.16.1`). Up to 26.15.3 it
+passed the certificate's import password (`CSC_KEY_PASSWORD`) to
+`security set-key-partition-list -k` instead of the temporary keychain's own generated
+password (upstream electron-userland/electron-builder#10066, fixed by #10101, v26 backport
+#10172). Older macOS runners did not verify that password on an already-unlocked keychain;
+the `macos-latest` image build of 2026-08-31 (Darwin 25.6) does, and the v0.2.117 release run
+died at signing with `SecKeychainUnlock: The user name or passphrase you entered is not
+correct`. Note that npm's `latest` dist-tag for electron-builder still points at 26.15.3 — the
+fixed line is published under the `v26` tag, so `npm update` will not pick it up on its own.
 
 ## Key types and entry points
 
