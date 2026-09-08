@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useWorkspaceFolds, workspaceFoldKey, repoFoldKey } from './sidebar-fold-state'
+import { useWorkspaceFolds, workspaceFoldKey, repoFoldKey, __resetFoldStateForTests } from './sidebar-fold-state'
 
 function installLocalStorage(): Map<string, string> {
   const store = new Map<string, string>()
@@ -16,7 +16,10 @@ function installLocalStorage(): Map<string, string> {
 }
 
 let store: Map<string, string>
-beforeEach(() => { store = installLocalStorage() })
+beforeEach(() => {
+  __resetFoldStateForTests()
+  store = installLocalStorage()
+})
 
 const KEY = 'manifold.sidebar.openWorkspaces.v1'
 

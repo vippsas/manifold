@@ -48,6 +48,12 @@ function commit(next: Set<string>): void {
   for (const listener of listeners) listener()
 }
 
+/** For tests only: reset the module-level unstored state to avoid test-order
+ *  dependencies. Tests must call this in beforeEach. */
+export function __resetFoldStateForTests(): void {
+  unstored = null
+}
+
 /** Which workspace cards are open, remembered across launches. Any number at
  *  once — opening one never closes another (#902). `open` is idempotent and is
  *  what activation calls, so entering a workspace reveals it without shutting
