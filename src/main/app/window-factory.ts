@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, nativeTheme, shell } from 'electron'
+import { BrowserWindow, Menu, nativeTheme, screen, shell } from 'electron'
 import { join } from 'node:path'
 import { debugLog } from './debug-log'
 import { buildAppMenu } from './app-menu'
@@ -57,9 +57,12 @@ export function createWindow(deps: WindowFactoryDeps): BrowserWindow {
   const theme = settings.theme ?? DEFAULT_THEME
   nativeTheme.themeSource = resolveThemeType(theme)
 
+  // Open filling the screen's usable area (work area excludes the macOS menu
+  // bar and Dock), so the window never starts smaller than the display.
+  const { workArea } = screen.getPrimaryDisplay()
+
   const win = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    ...workArea,
     minWidth: 800,
     minHeight: 600,
     title: 'Manifold',
