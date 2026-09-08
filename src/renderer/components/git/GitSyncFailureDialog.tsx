@@ -7,8 +7,8 @@ type GitSyncFailure = Extract<GitSyncResult, { ok: false }>
 
 interface GitSyncFailureDialogProps {
   repoName: string
-  failure: GitSyncFailure
-  onShowCommandOutput: () => void
+  failure: GitSyncFailure | { failedCommand: 'fetch'; message: string }
+  onShowCommandOutput?: () => void
   onClose: () => void
 }
 
@@ -29,7 +29,9 @@ export function GitSyncFailureDialog({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const operation = failure.failedCommand === 'pull' ? 'pulling remote changes' : 'pushing local commits'
+  const isFetch = failure.failedCommand === 'fetch'
+  const title = isFetch ? 'Git refresh failed' : 'Git sync failed'
+  const operation = isFetch ? 'fetching remote changes' : failure.failedCommand === 'pull' ? 'pulling remote changes' : 'pushing local commits'
 
   return createPortal(
     <div
@@ -41,8 +43,8 @@ export function GitSyncFailureDialog({
     >
       <div style={styles.panel}>
         <div style={styles.header}>
-          <h2 id="git-sync-failure-title" style={styles.title}>Git sync failed</h2>
-          <button type="button" style={styles.closeButton} onClick={onClose} aria-label="Close Git sync failure">&times;</button>
+          <h2 id="git-sync-failure-title" style={styles.title}>{title}</h2>
+          <button type="button" style={styles.closeButton} onClick={onClose} aria-label={isFetch ? 'Close Git refresh failure' : 'Close Git sync failure'}>&times;</button>
         </div>
         <div style={styles.body}>
           <WarningGlyph />
@@ -50,9 +52,9 @@ export function GitSyncFailureDialog({
           <pre style={styles.reason}>{failure.message}</pre>
         </div>
         <div style={styles.footer}>
-          <button type="button" style={styles.cancelButton} onClick={onClose}>Cancel</button>
-          <button ref={actionRef} type="button" style={styles.primaryButton} onClick={onShowCommandOutput}>
-            Show Command Output
+          {onShowCommandOutput && <button type="button" style={styles.cancelButton} onClick={onClose}>Cancel</button>}
+          <button ref={actionRef} type="button" style={styles.primaryButton} onClick={onShowCommandOutput ?? onClose}>
+            {onShowCommandOutput ? 'Show Command Output' : 'Close'}
           </button>
         </div>
       </div>
