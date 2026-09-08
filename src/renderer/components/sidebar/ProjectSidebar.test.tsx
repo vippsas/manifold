@@ -101,7 +101,7 @@ describe('ProjectSidebar', () => {
         ?.querySelector('[data-glyph]')?.getAttribute('data-glyph')
 
     expect(glyphOf('moss')).toBe('worktree')
-    expect(glyphOf('beta-space')).toBe('folder')
+    expect(glyphOf('beta-space')).toBe('home')
   })
 
   it('counts the extra folders of a multi-folder workspace', () => {

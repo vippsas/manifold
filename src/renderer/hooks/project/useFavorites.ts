@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import type { ManifoldSettings, ResolvedFavorite, StoredFavorite } from '../../../shared/types'
-import { isWorktreeWorkspace, type Workspace } from '../../../shared/workspace-types'
+import { workspaceGlyphKind, type Workspace } from '../../../shared/workspace-types'
 import { normalizeFavorites } from './normalize-favorites'
 
 export interface UseFavoritesResult {
@@ -33,7 +33,7 @@ export function useFavorites(
     const out: ResolvedFavorite[] = []
     for (const id of raw) {
       const workspace = resolve(id)
-      if (workspace) out.push({ id, name: workspace.name, worktree: isWorktreeWorkspace(workspace) })
+      if (workspace) out.push({ id, name: workspace.name, kind: workspaceGlyphKind(workspace) })
     }
     return out
   }, [raw, resolve])

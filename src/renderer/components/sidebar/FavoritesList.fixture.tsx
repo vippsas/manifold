@@ -4,8 +4,8 @@ import { DockStateContext, type DockAppState } from '../editor/editor-shell/dock
 
 const dock = {
   favorites: [
-    { id: 'w1', name: 'ai-labs', worktree: false },
-    { id: 'w2', name: 'billing', worktree: true },
+    { id: 'w1', name: 'ai-labs', kind: 'home' },
+    { id: 'w2', name: 'billing', kind: 'worktree' },
   ],
   onActivateFavorite: () => undefined,
   onReorderFavorites: () => undefined,

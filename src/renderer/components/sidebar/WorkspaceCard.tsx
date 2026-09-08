@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
-import { isWorktreeWorkspace, type Workspace } from '../../../shared/workspace-types'
+import { workspaceGlyphKind, type Workspace } from '../../../shared/workspace-types'
 import { ContextMenu } from '../common/ContextMenu'
 import { Tooltip } from '../common/Tooltip'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
@@ -154,7 +154,7 @@ export function WorkspaceCard({
           title={expanded ? 'Collapse workspace' : 'Expand workspace'}
         >
           <span className="sidebar-workspace-toggle__glyph">
-            <WorkspaceGlyph active={isActive} worktree={isWorktreeWorkspace(workspace)} />
+            <WorkspaceGlyph active={isActive} kind={workspaceGlyphKind(workspace)} />
           </span>
           <span className="sidebar-workspace-toggle__chevron">
             <FilesChevronGlyph expanded={expanded} />

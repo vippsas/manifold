@@ -33,6 +33,15 @@ export function isWorktreeWorkspace(workspace: Workspace): boolean {
   return workspace.worktreePaths !== undefined
 }
 
+/** Which glyph a workspace row leads with. `multi` wins: a workspace spanning
+ *  several repos reads as a cross-repo task whether or not it owns its checkouts. */
+export type WorkspaceGlyphKind = 'home' | 'worktree' | 'multi'
+
+export function workspaceGlyphKind(workspace: Workspace): WorkspaceGlyphKind {
+  if (workspace.projectIds.length > 1) return 'multi'
+  return isWorktreeWorkspace(workspace) ? 'worktree' : 'home'
+}
+
 /** Git status of one repo checkout in a workspace — one section of the Source
  *  Control view, which lists every member repo the way VS Code's SCM view
  *  lists the repos of a multi-root workspace. */
