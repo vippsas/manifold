@@ -200,6 +200,7 @@ export function WorkspaceCard({
               <span className={`truncate ${sweep}`.trim()} style={{ minWidth: 0 }}>
                 {label.name}
               </span>
+              {label.extra && <span className="sidebar-row-extra">{label.extra}</span>}
             </span>
             {isWorking && (
               <span

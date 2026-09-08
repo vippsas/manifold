@@ -111,7 +111,8 @@ describe('ProjectSidebar', () => {
 
     const row = screen.getByText('auth-refactor').closest('.sidebar-project-row')
 
-    expect(within(row as HTMLElement).getByText('Alpha +1')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Alpha')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('+1 Beta')).toBeInTheDocument()
   })
 
   it('shows nothing but the workspace names while none is open', () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
-import { nextAgentName, workspaceRowLabel } from './agent-labels'
+import { nextAgentName, workspaceRowLabel, rowStatus, isLive } from './agent-labels'
 
 function project(name: string, id = name): Project {
   return { id, name, path: `/repos/${name}`, baseBranch: 'main', addedAt: '2026-08-07T00:00:00.000Z' }
@@ -22,42 +22,51 @@ const PROJECTS = [project('kong'), project('manifold'), project('platform-ai'), 
 describe('workspaceRowLabel', () => {
   it('drops the repo when the name already is the repo (home workspace)', () => {
     expect(workspaceRowLabel(workspace('vops', ['vops'], false), PROJECTS))
-      .toEqual({ repo: null, name: 'vops' })
+      .toEqual({ repo: null, name: 'vops', extra: null })
   })
 
   it('strips a redundant branch prefix off the name', () => {
     expect(workspaceRowLabel(workspace('kong/moss', ['kong']), PROJECTS))
-      .toEqual({ repo: 'kong', name: 'moss' })
+      .toEqual({ repo: 'kong', name: 'moss', extra: null })
   })
 
   it('labels a name that never carried a prefix', () => {
     expect(workspaceRowLabel(workspace('jessheim-4', ['manifold']), PROJECTS))
-      .toEqual({ repo: 'manifold', name: 'jessheim-4' })
+      .toEqual({ repo: 'manifold', name: 'jessheim-4', extra: null })
   })
 
-  it('counts the extra repos of a multi-repo workspace', () => {
+  it('names the one extra repo of a two-repo workspace, and counts more', () => {
+    expect(workspaceRowLabel(workspace('sandnes', ['platform-ai', 'kong']), PROJECTS))
+      .toEqual({ repo: 'platform-ai', name: 'sandnes', extra: '+1 kong' })
     expect(workspaceRowLabel(workspace('sandnes', ['platform-ai', 'kong', 'manifold']), PROJECTS))
-      .toEqual({ repo: 'platform-ai +2', name: 'sandnes' })
+      .toEqual({ repo: 'platform-ai', name: 'sandnes', extra: '+2' })
+  })
+
+  // A multi-repo *home* workspace named after its primary: the repo is still
+  // redundant with the name, only the extra survives.
+  it('drops the repo but keeps the extra on a multi-repo home workspace', () => {
+    expect(workspaceRowLabel(workspace('kong', ['kong', 'manifold'], false), PROJECTS))
+      .toEqual({ repo: null, name: 'kong', extra: '+1 manifold' })
   })
 
   it('labels a renamed home workspace, since the name no longer says the repo', () => {
     expect(workspaceRowLabel(workspace('main dev', ['kong'], false), PROJECTS))
-      .toEqual({ repo: 'kong', name: 'main dev' })
+      .toEqual({ repo: 'kong', name: 'main dev', extra: null })
   })
 
   it('matches the repo prefix case-insensitively', () => {
     expect(workspaceRowLabel(workspace('Kong/Moss', ['kong']), PROJECTS))
-      .toEqual({ repo: 'kong', name: 'Moss' })
+      .toEqual({ repo: 'kong', name: 'Moss', extra: null })
   })
 
   it('invents no label when the primary repo is not registered', () => {
     expect(workspaceRowLabel(workspace('ghost/oslo', ['ghost']), PROJECTS))
-      .toEqual({ repo: null, name: 'ghost/oslo' })
+      .toEqual({ repo: null, name: 'ghost/oslo', extra: null })
   })
 
   it('invents no label for a workspace with no repos', () => {
     expect(workspaceRowLabel(workspace('empty', []), PROJECTS))
-      .toEqual({ repo: null, name: 'empty' })
+      .toEqual({ repo: null, name: 'empty', extra: null })
   })
 })
 
@@ -105,5 +114,27 @@ describe('nextAgentName', () => {
 
   it('falls back to the runtime id for an unknown runtime', () => {
     expect(nextAgentName('mystery', [])).toBe('mystery')
+  })
+})
+
+describe('rowStatus', () => {
+  const s = (...statuses: Array<'running' | 'waiting' | 'done' | 'error'>) => statuses.map((status) => ({ status }))
+
+  it('is null when nothing is alive or failed', () => {
+    expect(rowStatus([])).toBeNull()
+    expect(rowStatus(s('done', 'done'))).toBeNull()
+  })
+
+  // An agent that needs you outranks one that is busy.
+  it('prefers waiting over running over error', () => {
+    expect(rowStatus(s('running', 'waiting'))).toBe('waiting')
+    expect(rowStatus(s('running', 'error'))).toBe('running')
+    expect(rowStatus(s('done', 'error'))).toBe('error')
+  })
+
+  it('isLive is true for running or waiting only', () => {
+    expect(isLive(s('done', 'error'))).toBe(false)
+    expect(isLive(s('done', 'waiting'))).toBe(true)
+    expect(isLive(s('running'))).toBe(true)
   })
 })
