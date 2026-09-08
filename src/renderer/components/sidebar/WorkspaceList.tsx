@@ -57,7 +57,7 @@ export function WorkspaceList({
   onProjectFetched, onSelectDraft, onDiscardDraft, renderFolderFiles,
 }: WorkspaceListProps): React.JSX.Element {
   const folds = useWorkspaceFolds()
-  const [sectionOpen, toggleSection] = useSidebarSectionState('repositories', true)
+  const [sectionOpen, toggleSection] = useSidebarSectionState('repoTree', true)
   const filtering = filter.trim() !== ''
 
   const liveIds = useMemo(() => liveWorkspaceIds(sessionsByWorkspace), [sessionsByWorkspace])

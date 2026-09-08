@@ -5,7 +5,7 @@ import type { Workspace } from '../../../shared/workspace-types'
 import { WorkspaceCard, type WorkspaceCardProps } from './WorkspaceCard'
 import { RepoGroupHeader } from './RepoGroupHeader'
 import { MergedFold } from './MergedFold'
-import { groupMembers, groupStatuses, type RepoGroup as RepoGroupModel } from './sidebar-groups'
+import { groupStatuses, type RepoGroup as RepoGroupModel } from './sidebar-groups'
 import { workspaceFoldKey } from './sidebar-fold-state'
 import type { RowStatus } from './agent-labels'
 
@@ -40,7 +40,7 @@ export function RepoGroup({ group, folds, filtering, activeWorkspaceId, sessions
   const revealMerged = showMerged || group.merged.some((w) => w.id === activeWorkspaceId)
   const summary = {
     count: group.worktrees.length + group.merged.length,
-    statuses: groupStatuses(groupMembers(group).map(sessionsFor)),
+    statuses: groupStatuses([...group.worktrees, ...group.merged].map(sessionsFor)),
   }
 
   const renderCard = (
@@ -66,7 +66,7 @@ export function RepoGroup({ group, folds, filtering, activeWorkspaceId, sessions
 
   const renderNested = (workspace: Workspace): React.JSX.Element => {
     const key = workspaceFoldKey(workspace.id)
-    return renderCard(workspace, true, filtering || folds.isOpen(key), () => folds.toggle(key))
+    return renderCard(workspace, true, folds.isOpen(key), () => folds.toggle(key))
   }
 
   return (

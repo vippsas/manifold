@@ -2,6 +2,7 @@ import { vi } from 'vitest'
 import { render, within } from '@testing-library/react'
 import React from 'react'
 import { ProjectSidebar, type ProjectSidebarProps } from './ProjectSidebar'
+import { __resetFoldStateForTests } from './sidebar-fold-state'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 import type { DockAppState } from '../editor/editor-shell/dock-panel-types'
 import type { Workspace } from '../../../shared/workspace-types'
@@ -10,6 +11,7 @@ import type { Project, AgentSession } from '../../../shared/types'
 export const mockInvoke = vi.fn()
 
 export function installLocalStorage(): void {
+  __resetFoldStateForTests()
   const store = new Map<string, string>()
   const storage: Storage = {
     get length() {
