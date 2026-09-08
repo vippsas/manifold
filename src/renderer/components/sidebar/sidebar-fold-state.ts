@@ -3,6 +3,9 @@ import { useCallback, useEffect, useState } from 'react'
 // v2: the group fold moved from the home workspace's key onto the repo
 // header's own `repo:<projectId>` key, so v1 entries would name folds that no
 // longer exist. A fresh key starts everyone collapsed rather than half-migrated.
+// Presence means *open* for every key, group and card alike: repos start
+// collapsed, so the sidebar opens as an index of repos rather than a wall of
+// every workspace at once.
 const STORAGE_KEY = 'manifold.sidebar.openWorkspaces.v2'
 
 /** A workspace card. A home card's key also folds the worktrees under its repo. */
@@ -63,10 +66,9 @@ export function __resetFoldStateForTests(): void {
  *  it when it was already showing. */
 export function useWorkspaceFolds(): {
   isOpen: (key: string) => boolean
-  isGroupOpen: (key: string) => boolean
   toggle: (key: string) => void
   open: (key: string) => void
-  openGroup: (key: string) => void
+  collapseAllGroups: () => void
 } {
   const [openKeys, setOpenKeys] = useState<Set<string>>(readOpen)
 
@@ -78,11 +80,6 @@ export function useWorkspaceFolds(): {
 
   const isOpen = useCallback((key: string): boolean => openKeys.has(key), [openKeys])
 
-  /** A **repo group** defaults to open, so a repo never hides its own
-   *  workspaces until you say so — the store records the groups you closed,
-   *  the inverse of how it records the cards you opened. Card state stays on
-   *  `isOpen`; only the group fold reads this. */
-  const isGroupOpen = useCallback((key: string): boolean => !openKeys.has(key), [openKeys])
 
   const toggle = useCallback((key: string): void => {
     const next = new Set(readOpen())
@@ -96,15 +93,15 @@ export function useWorkspaceFolds(): {
     commit(new Set(current).add(key))
   }, [])
 
-  /** Reveals a group whatever its stored state — the inverse of `open`, since
-   *  a group's presence in the set means *closed*. */
-  const openGroup = useCallback((key: string): void => {
+  /** Folds every repo away in one go, leaving the cards' own state alone —
+   *  the sidebar's "give me the index back" gesture after a session of
+   *  opening things. Group keys are the `repo:`-prefixed ones (`repoFoldKey`). */
+  const collapseAllGroups = useCallback((): void => {
     const current = readOpen()
-    if (!current.has(key)) return
-    const next = new Set(current)
-    next.delete(key)
+    const next = new Set([...current].filter((key) => !key.startsWith('repo:')))
+    if (next.size === current.size) return
     commit(next)
   }, [])
 
-  return { isOpen, isGroupOpen, toggle, open, openGroup }
+  return { isOpen, toggle, open, collapseAllGroups }
 }

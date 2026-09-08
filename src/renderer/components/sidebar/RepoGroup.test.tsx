@@ -37,18 +37,36 @@ describe('repo tree', () => {
     }
   })
 
-  // A repo that hides its own workspaces by default would cost a click on the
-  // commonest case — a repo with nothing but its clone.
-  it('opens groups by default and remembers the ones you close', () => {
-    const first = renderSidebar({ workspaces: [home, wt('w-oslo', 'oslo')], activeWorkspaceId: null, sessionsByWorkspace: {} })
-    expect(rowNames()).toEqual(['main', 'oslo'])
+  // Repos ship collapsed, so the sidebar opens as an index of repos rather
+  // than a wall of every workspace at once. `seedGroupsOpen: false` opts out of
+  // the helper's convenience seeding to see the real first-run state.
+  it('starts with every repo collapsed and remembers the ones you open', () => {
+    const args = { workspaces: [home, wt('w-oslo', 'oslo')], activeWorkspaceId: null, sessionsByWorkspace: {}, seedGroupsOpen: false }
+    const first = renderSidebar(args)
+    expect(headerNames()).toEqual(['Alpha'])
+    expect(rowNames()).toEqual([])
 
     fireEvent.click(header('Alpha'))
-    expect(rowNames()).toEqual([])
+    expect(rowNames()).toEqual(['main', 'oslo'])
 
     first.unmount()
-    renderSidebar({ workspaces: [home, wt('w-oslo', 'oslo')], activeWorkspaceId: null, sessionsByWorkspace: {} })
+    renderSidebar(args)
+    expect(rowNames()).toEqual(['main', 'oslo'])
+  })
+
+  it('collapses every repo at once from the toolbar', () => {
+    renderSidebar({
+      workspaces: [home, wt('w-oslo', 'oslo'), beta],
+      activeWorkspaceId: null,
+      sessionsByWorkspace: {},
+    })
+    expect(rowNames()).toEqual(['main', 'oslo', 'beta-space'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all repositories' }))
+
     expect(rowNames()).toEqual([])
+    // The headers stay: collapsing hides workspaces, not the repos themselves.
+    expect(headerNames()).toEqual(['Alpha', 'Beta'])
   })
 
   // A workspace with no repos is a clone of nothing: it keeps its own name,

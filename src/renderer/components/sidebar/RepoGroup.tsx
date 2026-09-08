@@ -16,7 +16,7 @@ export type CardCommonProps = Omit<
 
 export interface RepoGroupProps {
   group: RepoGroupModel
-  folds: { isOpen: (key: string) => boolean; isGroupOpen: (key: string) => boolean; toggle: (key: string) => void }
+  folds: { isOpen: (key: string) => boolean; toggle: (key: string) => void }
   /** Filtering forces the group open; the merged fold is already gone from a
    *  filtered group (filterGroups moves hits inline). */
   filtering: boolean
@@ -38,7 +38,7 @@ export interface RepoGroupProps {
  *  branches still sit behind `MergedFold`. */
 export function RepoGroup({ group, folds, filtering, activeWorkspaceId, sessionsFor, draftsFor, card }: RepoGroupProps): React.JSX.Element {
   const [showMerged, setShowMerged] = useState(false)
-  const expanded = filtering || folds.isGroupOpen(group.foldKey)
+  const expanded = filtering || folds.isOpen(group.foldKey)
   // A branch can be marked merged while you are still sitting in it — its agent
   // only has to be finished, not gone. Folding it away then hides the workspace
   // the user is *in*, so the active row overrides the fold and the disclosure

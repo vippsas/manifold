@@ -80,6 +80,19 @@ export function ConfigureAgentGlyph(): React.JSX.Element {
   )
 }
 
+/** The toolbar's collapse-all control: two chevrons closing on a centre line,
+ *  the affordance every tree view teaches. Deliberately not a folder-with-minus
+ *  — a folder glyph in this toolbar would read as one of the rows below it. */
+export function CollapseAllGlyph(): React.JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 4l4 4 4-4" />
+      <path d="M4 12h16" />
+      <path d="M8 20l4-4 4 4" />
+    </svg>
+  )
+}
+
 /** The toolbar's filter toggle. */
 export function SearchGlyph(): React.JSX.Element {
   return (

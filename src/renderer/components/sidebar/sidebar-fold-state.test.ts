@@ -78,27 +78,36 @@ describe('useWorkspaceFolds', () => {
     expect(result.current.isOpen('workspace:w1')).toBe(true)
   })
 
-  // Repo groups default to open: the store only records the ones you closed,
-  // the inverse of how it records the cards you opened.
-  it('treats an untouched group key as open', () => {
+  // Repos start collapsed, so the sidebar opens as an index of repos rather
+  // than every workspace at once — the same rule as cards, no inversion.
+  it('treats an untouched group key as collapsed', () => {
     const { result } = renderHook(() => useWorkspaceFolds())
-    expect(result.current.isGroupOpen('repo:p1')).toBe(true)
+    expect(result.current.isOpen('repo:p1')).toBe(false)
+    act(() => result.current.toggle('repo:p1'))
+    expect(result.current.isOpen('repo:p1')).toBe(true)
   })
 
-  it('toggle closes an open group', () => {
+  it('collapseAllGroups folds every repo and leaves card folds alone', () => {
     const { result } = renderHook(() => useWorkspaceFolds())
-    act(() => result.current.toggle('repo:p1'))
-    expect(result.current.isGroupOpen('repo:p1')).toBe(false)
+    act(() => {
+      result.current.open('repo:p1')
+      result.current.open('repo:lone:w9')
+      result.current.open('workspace:w1')
+    })
+    expect(result.current.isOpen('repo:p1')).toBe(true)
+
+    act(() => result.current.collapseAllGroups())
+
+    expect(result.current.isOpen('repo:p1')).toBe(false)
+    expect(result.current.isOpen('repo:lone:w9')).toBe(false)
+    // A card's own fold is its business; collapsing the repos must not reach it.
+    expect(result.current.isOpen('workspace:w1')).toBe(true)
   })
 
-  it('openGroup reopens a closed group and no-ops on an already-open one', () => {
+  it('collapseAllGroups is a no-op when no group is open', () => {
     const { result } = renderHook(() => useWorkspaceFolds())
-    act(() => result.current.toggle('repo:p1'))
-    expect(result.current.isGroupOpen('repo:p1')).toBe(false)
-    act(() => result.current.openGroup('repo:p1'))
-    expect(result.current.isGroupOpen('repo:p1')).toBe(true)
-    // No-op on an already-open group: nothing should throw, and it stays open.
-    act(() => result.current.openGroup('repo:p1'))
-    expect(result.current.isGroupOpen('repo:p1')).toBe(true)
+    act(() => result.current.open('workspace:w1'))
+    act(() => result.current.collapseAllGroups())
+    expect(result.current.isOpen('workspace:w1')).toBe(true)
   })
 })

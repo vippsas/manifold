@@ -492,10 +492,19 @@ select:focus-visible {
   visibility: hidden;
 }
 
-/* The dot's colour is the agents' state: turquoise running, amber waiting —
-   the one state you must notice — ruby error. Running and waiting breathe; an
-   error holds still. `done` draws no dot at all. Each sets `--effect-glow` so
-   the pulse blooms in its own colour rather than the accent's. */
+/* The dot's colour is the agents' state: turquoise running, amber waiting,
+   ruby error; `done` draws no dot at all.
+   **Only `running` breathes.** The pulse means activity, and activity is the
+   one thing `waiting` is not: `detectStatus` reports 'waiting' from the mere
+   presence of a prompt character (`agent/status-detector.ts`), which an agent
+   sitting idle at its composer satisfies forever — and status is only
+   re-evaluated when new PTY output arrives (`session-stream-wirer.ts`), so
+   nothing ever comes along to end it. A pulse there blinked indefinitely at
+   agents doing nothing. Amber already carries "this one may want you"; motion
+   on top of it only cried wolf.
+   This also keeps the status bar honest: it renders `status-dot--<status>`
+   straight from the active session (`git/StatusBar.tsx`), so animating
+   'waiting' set the bottom-of-window dot blinking too. */
 .status-dot--running {
   --effect-glow: var(--status-running);
   background: var(--status-running);
@@ -503,9 +512,7 @@ select:focus-visible {
 }
 
 .status-dot--waiting {
-  --effect-glow: var(--status-waiting);
   background: var(--status-waiting);
-  animation: core-pulse 2s ease-in-out infinite;
 }
 
 .status-dot--error {
@@ -2273,7 +2280,7 @@ select:focus-visible {
 
 /* ─── Reduced motion: instrumentation effects go static ─── */
 @media (prefers-reduced-motion: reduce) {
-  .status-dot--active, .status-dot--running, .status-dot--waiting {
+  .status-dot--active, .status-dot--running {
     animation: none;
   }
 

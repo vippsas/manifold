@@ -6,10 +6,11 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { FavoritesList } from './FavoritesList'
 import { WorkingNowList } from './WorkingNowList'
-import { SearchGlyph, SortModeGlyph } from './SidebarCardActionGlyphs'
+import { CollapseAllGlyph, SearchGlyph, SortModeGlyph } from './SidebarCardActionGlyphs'
 import { SidebarFilterField } from './SidebarFilterField'
 import { useSidebarSortMode } from './sidebar-sort'
 import { useProjectRecency } from './sidebar-recency'
+import { useWorkspaceFolds } from './sidebar-fold-state'
 import { useMergedWorkspaces } from '../../hooks/project/useMergedWorkspaces'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
@@ -71,6 +72,9 @@ export function ProjectSidebar({
   const [filter, setFilter] = useState<string | null>(null)
   const filtering = (filter ?? '').trim() !== ''
   const mergedIds = useMergedWorkspaces(workspaces, sessionsByWorkspace ?? {})
+  // Shares one module-level set with the copy inside WorkspaceList, so
+  // collapsing from the toolbar lands on the same folds the tree reads.
+  const folds = useWorkspaceFolds()
   // Says the state *and* what the click does, so the mode is readable without
   // clicking. Not aria-pressed: this is a two-state mode, not an on/off.
   const sortLabel = sortMode === 'alpha'
@@ -102,6 +106,16 @@ export function ProjectSidebar({
             title={sortLabel}
           >
             <SortModeGlyph mode={sortMode} />
+          </button>
+          <button
+            type="button"
+            onClick={folds.collapseAllGroups}
+            className="sidebar-toolbar-button"
+            style={sidebarStyles.toolbarButton}
+            aria-label="Collapse all repositories"
+            title="Collapse all repositories"
+          >
+            <CollapseAllGlyph />
           </button>
         </div>
       </div>

@@ -275,7 +275,7 @@ describe('ProjectSidebar', () => {
   // it is pinned exactly so an action cannot drift back in beside them. Both
   // *create* actions are words in the bottom bar, where a folder-plus glyph up
   // here read as "new workspace" to the eye and duplicated the button below.
-  it('renders just the filter and sort toggles in the compact top toolbar', () => {
+  it('renders the filter, sort and collapse-all toggles in the compact top toolbar', () => {
     renderSidebar()
 
     const toolbar = screen.getByRole('toolbar', { name: 'Workspace list actions' })
@@ -283,6 +283,7 @@ describe('ProjectSidebar', () => {
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Filter workspaces',
       'Sorted by recently used — click to sort A–Z',
+      'Collapse all repositories',
     ])
   })
 
