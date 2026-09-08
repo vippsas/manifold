@@ -118,6 +118,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'workspace:spawn-agent',
   'workspace:get-active',
   'workspace:set-active',
+  'workspace:list-merged',
   'simple:chat-messages',
   'simple:send-message',
   'simple:subscribe-chat',

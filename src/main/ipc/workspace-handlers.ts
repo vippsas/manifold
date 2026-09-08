@@ -3,7 +3,7 @@ import type { WorkspaceCreateOptions, WorkspaceSpawnAgentOptions } from '../../s
 import type { IpcDependencies } from './types'
 
 export function registerWorkspaceHandlers(deps: IpcDependencies): void {
-  const { workspaceManager, activeWorkspaceStore } = deps
+  const { workspaceManager, activeWorkspaceStore, verdictStore } = deps
 
   ipcMain.handle('workspace:get-active', () => activeWorkspaceStore.get())
 
@@ -12,6 +12,23 @@ export function registerWorkspaceHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('workspace:list', () => workspaceManager.list())
+
+  // Worktree workspaces whose branch a verdict recorded as merged, for the
+  // sidebar's merged fold. Only the recorder's `merged` outcome counts: it is
+  // gated on the session having produced work (verdict-recorder.ts), so an
+  // empty branch — trivially an ancestor of its base — never folds a live
+  // workspace. Matched on primary repo + branch, the two things a verdict and a
+  // workspace both name.
+  ipcMain.handle('workspace:list-merged', (): string[] => {
+    const merged = new Set(
+      verdictStore.listAll()
+        .filter((r) => r.outcome === 'merged')
+        .map((r) => `${r.projectId}\n${r.branch}`),
+    )
+    return workspaceManager.list()
+      .filter((w) => w.branchName !== undefined && w.projectIds.length > 0 && merged.has(`${w.projectIds[0]}\n${w.branchName}`))
+      .map((w) => w.id)
+  })
 
   ipcMain.handle('workspace:create', (_e, options: WorkspaceCreateOptions) => workspaceManager.create(options))
 
