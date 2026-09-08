@@ -356,8 +356,10 @@ export function App(): React.JSX.Element {
     if (created.projectIds[0]) setActiveProject(created.projectIds[0])
     // The new workspace has no agents yet; landing on the source's agent would
     // look like nothing happened. An empty agent view is the new place asking
-    // to be used.
+    // to be used — and since the button said "New Agent", the dialog that picks
+    // the harness opens straight away, defaulting to the source's runtime.
     setActiveSession(null)
+    setNewAgentTarget({ workspaceId: created.id })
   }, [createWorkspace, setActiveProject, setActiveSession, workspaces])
 
   const dockState: DockAppState = {

@@ -212,4 +212,101 @@ describe('useAgentSession', () => {
     })
   })
 
+  // The sessions list is per *repo*, but the view is per *workspace*. Entering a
+  // workspace with no agent of its own (the footer's "+ New Agent", or clicking
+  // an empty worktree workspace) clears the selection on purpose to show the
+  // empty agent view. A resync must not undo that by promoting the repo's first
+  // session — that agent lives in another workspace, and showing it there also
+  // auto-resumed it (the "+ New Agent opened on a different workspace's agent" bug).
+  it('keeps a deliberately cleared selection empty across a sessions-changed resync', async () => {
+    const s1 = makeSession('s1', 'p1')
+    const s2 = makeSession('s2', 'p1')
+    mockInvoke.mockImplementation((channel: string) =>
+      Promise.resolve(channel === 'agent:sessions' ? [s1, s2] : undefined))
+
+    const { result } = renderHook(() => useAgentSession('p1'))
+    await waitFor(() => expect(result.current.activeSessionId).toBe('s1'))
+
+    act(() => { result.current.setActiveSession(null) })
+    expect(result.current.activeSessionId).toBeNull()
+
+    act(() => { getListener('agent:sessions-changed')({ projectId: 'p1' }) })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(2))
+
+    expect(result.current.activeSessionId).toBeNull()
+  })
+
+  it('keeps a deliberately cleared selection empty when the repo switches, ignoring the remembered agent', async () => {
+    const p1a = makeSession('s1', 'p1')
+    const p2a = makeSession('s3', 'p2')
+    mockInvoke.mockImplementation((channel: string, arg: string) => {
+      if (channel !== 'agent:sessions') return Promise.resolve(undefined)
+      return Promise.resolve(arg === 'p1' ? [p1a] : [p2a])
+    })
+
+    const { result, rerender } = renderHook(({ pid }) => useAgentSession(pid), {
+      initialProps: { pid: 'p1' as string | null },
+    })
+    await waitFor(() => expect(result.current.activeSessionId).toBe('s1'))
+
+    rerender({ pid: 'p2' })
+    await waitFor(() => expect(result.current.activeSessionId).toBe('s3'))
+
+    // Enter an empty workspace of repo p1: the project moves and the selection
+    // is cleared in the same render, as App's enterWorkspace does.
+    act(() => { result.current.setActiveSession(null) })
+    rerender({ pid: 'p1' })
+    await waitFor(() => expect(result.current.sessions).toEqual([p1a]))
+
+    expect(result.current.activeSessionId).toBeNull()
+  })
+
+  // Spawning is the usual thing to do from the empty view: the new agent must be
+  // selected even though the resync it triggers lands before any effect ran.
+  it('selects an agent spawned right after a clear', async () => {
+    const s1 = makeSession('s1', 'p1')
+    const s2 = makeSession('s2', 'p1')
+    let listed = [s1]
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'agent:sessions') return Promise.resolve(listed)
+      if (channel === 'agent:spawn') { listed = [s1, s2]; return Promise.resolve(s2) }
+      return Promise.resolve(undefined)
+    })
+
+    const { result } = renderHook(() => useAgentSession('p1'))
+    await waitFor(() => expect(result.current.activeSessionId).toBe('s1'))
+
+    act(() => { result.current.setActiveSession(null) })
+    await act(async () => {
+      await result.current.spawnAgent({ projectId: 'p1', runtimeId: 'codex' } as never)
+    })
+    await waitFor(() => expect(result.current.sessions).toEqual([s1, s2]))
+
+    expect(result.current.activeSessionId).toBe('s2')
+  })
+
+  // Clearing is sticky only until something is selected again; a later resync
+  // then behaves as before.
+  it('lets a resync fall back to the first session again once an agent was selected after a clear', async () => {
+    const s1 = makeSession('s1', 'p1')
+    const s2 = makeSession('s2', 'p1')
+    mockInvoke.mockImplementation((channel: string) =>
+      Promise.resolve(channel === 'agent:sessions' ? [s1, s2] : undefined))
+
+    const { result } = renderHook(() => useAgentSession('p1'))
+    await waitFor(() => expect(result.current.activeSessionId).toBe('s1'))
+
+    act(() => { result.current.setActiveSession(null) })
+    act(() => { result.current.setActiveSession('s2') })
+    expect(result.current.activeSessionId).toBe('s2')
+
+    // s2 vanishes from the list: the fallback to the first session is wanted here.
+    mockInvoke.mockImplementation((channel: string) =>
+      Promise.resolve(channel === 'agent:sessions' ? [s1] : undefined))
+    act(() => { getListener('agent:sessions-changed')({ projectId: 'p1' }) })
+    await waitFor(() => expect(result.current.sessions).toEqual([s1]))
+
+    expect(result.current.activeSessionId).toBe('s1')
+  })
+
 })
