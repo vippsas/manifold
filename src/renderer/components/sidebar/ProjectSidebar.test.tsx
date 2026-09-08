@@ -249,16 +249,17 @@ describe('ProjectSidebar', () => {
     expect(props.onNewProject).toHaveBeenCalled()
   })
 
-  // The toolbar carries the sort toggle and nothing else — it is pinned exactly
-  // so an action cannot drift back in beside it. Both *create* actions are words
-  // in the bottom bar, where a folder-plus glyph up here read as "new workspace"
-  // to the eye and duplicated the button below.
-  it('renders just the sort toggle in the compact top toolbar', () => {
+  // The toolbar carries the filter toggle and the sort toggle and nothing else —
+  // it is pinned exactly so an action cannot drift back in beside them. Both
+  // *create* actions are words in the bottom bar, where a folder-plus glyph up
+  // here read as "new workspace" to the eye and duplicated the button below.
+  it('renders just the filter and sort toggles in the compact top toolbar', () => {
     renderSidebar()
 
     const toolbar = screen.getByRole('toolbar', { name: 'Workspace list actions' })
     const buttons = within(toolbar).getAllByRole('button')
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Filter workspaces',
       'Sorted by recently used — click to sort A–Z',
     ])
   })
