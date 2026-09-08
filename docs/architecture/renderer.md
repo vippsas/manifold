@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-09-03
+updated: 2026-09-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -190,7 +190,11 @@ checkout is deliberately untouched. Idle the button is a quiet `↻`; once the b
 trails origin it becomes an accent pill carrying the count, capped at `9+`
 (`ProjectSidebar.styles.ts` `fetchPill`). Fetch state is per row — `useFetchProject`
 (`hooks/project/useFetchProject.ts`) holds the in-flight flag and the outcome, which
-renders under the row and clears itself after 5s. The count itself is *not* per row:
+renders under the row on success and clears itself after 5s. Failures instead open
+the same portaled dialog as status-bar sync, titled **Git refresh failed**, with the
+repo name and error text (`WorkspaceRepoRow.tsx:126`, `GitSyncFailureDialog.tsx:37`).
+They remain until dismissed with Close, ×, Escape, or the backdrop; the success
+timeout never clears an error (`hooks/project/useFetchProject.ts:52`). The count itself is *not* per row:
 `useBranchStaleness` probes the **active project only**, throttled to 3 minutes and
 re-armed on window focus (`App.tsx:164`), and its `behindCounts` reach the row through
 `DockAppState` → `ProjectSidebar` → `WorkspaceList` → `WorkspaceCard`; a successful fetch

@@ -8,6 +8,7 @@ import { buildRepoRowContextMenu } from './repo-row-context-menu'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { FilesChevronGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
 import { RepoFetchButton } from './RepoFetchButton'
+import { GitSyncFailureDialog } from '../git/GitSyncFailureDialog'
 import { useFetchProject } from '../../hooks/project/useFetchProject'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
@@ -122,11 +123,18 @@ export function WorkspaceRepoRow({
           onClose={menu.close}
         />
       )}
-      {(fetch.result || fetch.error) && (
+      {fetch.error && (
+        <GitSyncFailureDialog
+          repoName={repoName}
+          failure={{ failedCommand: 'fetch', message: fetch.error }}
+          onClose={fetch.dismissError}
+        />
+      )}
+      {fetch.result && (
         <div style={sidebarStyles.fetchMessage}>
-          {fetch.error ?? (fetch.result!.commitCount > 0
-            ? `Updated ${fetch.result!.updatedBranch}: ${fetch.result!.commitCount} new commit${fetch.result!.commitCount === 1 ? '' : 's'}`
-            : `${fetch.result!.updatedBranch} is up to date`)}
+          {fetch.result.commitCount > 0
+            ? `Updated ${fetch.result.updatedBranch}: ${fetch.result.commitCount} new commit${fetch.result.commitCount === 1 ? '' : 's'}`
+            : `${fetch.result.updatedBranch} is up to date`}
         </div>
       )}
       {filesOpen && renderFolderFiles && (

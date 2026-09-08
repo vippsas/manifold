@@ -59,6 +59,21 @@ describe('useFetchProject', () => {
     expect(onFetched).not.toHaveBeenCalled()
   })
 
+  it('keeps failures until dismissed, beyond the success message timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      mockInvoke.mockRejectedValue(new Error('fatal: unable to access remote'))
+      const { result } = renderHook(() => useFetchProject('p1'))
+      await act(async () => { await result.current.fetchProject() })
+      act(() => { vi.advanceTimersByTime(5000) })
+      expect(result.current.error).toBe('fatal: unable to access remote')
+      act(() => { result.current.dismissError() })
+      expect(result.current.error).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('clears the message five seconds later', async () => {
     vi.useFakeTimers()
     try {

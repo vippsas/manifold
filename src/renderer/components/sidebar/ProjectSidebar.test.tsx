@@ -457,12 +457,17 @@ describe('ProjectSidebar', () => {
     expect(await screen.findByText('Updated main: 3 new commits')).toBeInTheDocument()
   })
 
-  it('reports why a fetch failed', async () => {
+  it('reports fetch failures in a dismissible modal outside the sidebar', async () => {
     mockInvoke.mockRejectedValue(new Error('fatal: unable to access remote'))
-    renderSidebar()
+    const { container } = renderSidebar()
 
     fireEvent.click(screen.getByRole('button', { name: 'Fetch Alpha' }))
 
-    expect(await screen.findByText('fatal: unable to access remote')).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog', { name: 'Git refresh failed' })
+    expect(within(dialog).getByText('fatal: unable to access remote')).toBeInTheDocument()
+    expect(within(dialog).getByText('Manifold could not finish fetching remote changes for Alpha.')).toBeInTheDocument()
+    expect(container).not.toContainElement(dialog)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

@@ -8,6 +8,7 @@ export interface UseFetchProjectResult {
   isFetching: boolean
   result: FetchResult | null
   error: string | null
+  dismissError: () => void
   fetchProject: () => Promise<void>
 }
 
@@ -17,8 +18,7 @@ export interface UseFetchProjectResult {
  * workspace's checkout of it: it refreshes the branch new work is cut from,
  * which is the branch "behind origin" is measured against.
  *
- * The outcome — "Updated main: 3 new commits", or why it failed — lingers on
- * the row for a few seconds and then clears itself.
+ * Success lingers on the row for a few seconds; failures stay until dismissed.
  */
 export function useFetchProject(
   projectId: string,
@@ -32,6 +32,7 @@ export function useFetchProject(
   onFetchedRef.current = onFetched
 
   useEffect(() => () => clearTimeout(timer.current), [])
+  const dismissError = useCallback(() => setError(null), [])
 
   const fetchProject = useCallback(async (): Promise<void> => {
     setIsFetching(true)
@@ -48,10 +49,9 @@ export function useFetchProject(
       setIsFetching(false)
       timer.current = setTimeout(() => {
         setResult(null)
-        setError(null)
       }, MESSAGE_LINGER_MS)
     }
   }, [projectId])
 
-  return { isFetching, result, error, fetchProject }
+  return { isFetching, result, error, dismissError, fetchProject }
 }
