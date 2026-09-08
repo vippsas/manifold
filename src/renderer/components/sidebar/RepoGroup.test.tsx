@@ -49,7 +49,9 @@ describe('repo tree', () => {
       activeWorkspaceId: null,
       sessionsByWorkspace: { 'w-oslo': [{ ...sampleSessions[0], status: 'waiting' }] },
     })
-    const row = screen.getByText('Alpha').closest<HTMLElement>('.sidebar-project-row')!
+    // 'Alpha' also names the repo prefix on w-oslo's Working-now row, so pin
+    // down the repo group's own header by its row wrapper.
+    const row = screen.getAllByText('Alpha').map((el) => el.closest<HTMLElement>('.sidebar-project-row')).find(Boolean)!
     expect(within(row).getByText('2')).toBeInTheDocument()
     expect(row.querySelector('.status-dot--waiting.status-dot--small')).not.toBeNull()
   })
@@ -102,7 +104,10 @@ describe('repo tree', () => {
       activeWorkspaceId: 'w-home',
       sessionsByWorkspace: { 'w-old': [{ ...sampleSessions[0], status: 'running' }] },
     })
-    await screen.findByText('old')
+    // 'old' also names its Working-now row now that it has a live agent, so
+    // wait for the tree's own copy — the one the merged-check settles into —
+    // rather than the first match.
+    await screen.findByText((content, el) => content === 'old' && el?.closest('.sidebar-project-row') != null)
     expect(screen.queryByRole('button', { name: /merged workspaces/ })).not.toBeInTheDocument()
   })
 })

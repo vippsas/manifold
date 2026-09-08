@@ -5,6 +5,7 @@ import type { Workspace } from '../../../shared/workspace-types'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceList } from './WorkspaceList'
 import { FavoritesList } from './FavoritesList'
+import { WorkingNowList } from './WorkingNowList'
 import { SortModeGlyph } from './SidebarCardActionGlyphs'
 import { useSidebarSortMode } from './sidebar-sort'
 import { useProjectRecency } from './sidebar-recency'
@@ -92,6 +93,13 @@ export function ProjectSidebar({
       </div>
       <div style={sidebarStyles.content}>
         <FavoritesList />
+        <WorkingNowList
+          workspaces={workspaces}
+          projects={projects}
+          sessionsByWorkspace={sessionsByWorkspace ?? {}}
+          recency={recency}
+          onSelectWorkspace={onSelectWorkspace}
+        />
         <WorkspaceList
           workspaces={workspaces}
           projects={projects}

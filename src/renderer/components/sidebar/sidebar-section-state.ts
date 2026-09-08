@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 
 const STORAGE_KEY = 'manifold.sidebar.sections.v1'
 
-export type SidebarSectionKey = 'favorites' | 'workspaces' | 'withAgents' | 'repositories'
+export type SidebarSectionKey = 'favorites' | 'workspaces' | 'working' | 'repositories'
 
 type SidebarSectionState = Partial<Record<SidebarSectionKey, boolean>>
 
@@ -17,7 +17,7 @@ function readSectionState(): SidebarSectionState {
     if (!parsed || typeof parsed !== 'object') return {}
 
     const state: SidebarSectionState = {}
-    for (const key of ['favorites', 'workspaces', 'withAgents', 'repositories'] satisfies SidebarSectionKey[]) {
+    for (const key of ['favorites', 'workspaces', 'working', 'repositories'] satisfies SidebarSectionKey[]) {
       const value = (parsed as Record<string, unknown>)[key]
       if (typeof value === 'boolean') state[key] = value
     }

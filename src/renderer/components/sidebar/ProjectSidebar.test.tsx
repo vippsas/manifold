@@ -189,7 +189,9 @@ describe('ProjectSidebar', () => {
       },
     })
 
-    const card = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-workspace-card')
+    // 'alpha-space' now also names the row in the Working-now strip above the
+    // tree, so pin down the tree's own copy by its card wrapper.
+    const card = screen.getAllByText('alpha-space').map((el) => el.closest<HTMLElement>('.sidebar-workspace-card')).find(Boolean)!
     const dot = within(card!).getByLabelText('An agent is waiting for you in this workspace')
     expect(dot.className).toContain('status-dot--waiting')
   })
@@ -197,7 +199,10 @@ describe('ProjectSidebar', () => {
   it('shows a running dot when no agent is waiting', () => {
     renderSidebar({ sessionsByWorkspace: { w1: [{ ...sampleSessions[0], status: 'running' }], w2: [] } })
 
-    expect(screen.getByLabelText('An agent is working in this workspace').className).toContain('status-dot--running')
+    // The Working-now strip renders the same dot for the same workspace, so
+    // pick out the tree's own copy.
+    const dot = screen.getAllByLabelText('An agent is working in this workspace').find((el) => el.closest('.sidebar-workspace-card'))!
+    expect(dot.className).toContain('status-dot--running')
   })
 
   it('shows no dot while every agent is done', () => {
