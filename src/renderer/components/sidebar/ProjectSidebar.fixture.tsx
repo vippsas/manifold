@@ -127,11 +127,13 @@ localStorage.setItem(
 
 // The screenshot harness stubs every channel with []; this fixture needs the
 // merged fold to show, so it answers that one channel itself.
-const api = (window as unknown as { electronAPI: { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> } }).electronAPI
-;(window as unknown as { electronAPI: unknown }).electronAPI = {
-  ...api,
-  invoke: (channel: string, ...args: unknown[]) =>
-    channel === 'workspace:list-merged' ? Promise.resolve([oldCoupons.id]) : api.invoke(channel, ...args),
+const baseStub = window.electronAPI
+window.electronAPI = {
+  ...baseStub,
+  invoke: (channel: string, ...args: unknown[]) => {
+    if (channel === 'workspace:list-merged') return Promise.resolve([oldCoupons.id])
+    return baseStub.invoke(channel, ...args)
+  },
 }
 localStorage.setItem('manifold.sidebar.openWorkspaces.v1', JSON.stringify(['workspace:product-docs']))
 
