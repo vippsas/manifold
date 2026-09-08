@@ -1,6 +1,6 @@
 import type { AgentSession, Project } from '../../../shared/types'
 import { isWorktreeWorkspace, type Workspace } from '../../../shared/workspace-types'
-import { isLive, rowStatus, type RowStatus } from './agent-labels'
+import { isLive } from './agent-labels'
 import { repoFoldKey, workspaceFoldKey } from './sidebar-fold-state'
 import type { ProjectRecency } from './sidebar-recency'
 import { sortWorkspaces, type SidebarSortMode } from './sidebar-sort'
@@ -40,13 +40,6 @@ export function liveWorkspaceIds(sessionsByWorkspace: Record<string, AgentSessio
 
 export function groupMembers(group: RepoGroup): Workspace[] {
   return [group.home, ...group.worktrees, ...group.merged].filter((w): w is Workspace => w !== null)
-}
-
-/** Every distinct agent state under a group, most urgent first — what a
- *  collapsed parent shows as small dots. */
-export function groupStatuses(sessionLists: readonly AgentSession[][]): RowStatus[] {
-  const present = new Set(sessionLists.map(rowStatus).filter((s): s is RowStatus => s !== null))
-  return (['waiting', 'running', 'error'] as const).filter((s) => present.has(s))
 }
 
 export function groupWorkspaces(

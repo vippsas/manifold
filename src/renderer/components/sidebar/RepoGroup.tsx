@@ -5,7 +5,7 @@ import type { Workspace } from '../../../shared/workspace-types'
 import { WorkspaceCard, type WorkspaceCardProps } from './WorkspaceCard'
 import { RepoGroupHeader } from './RepoGroupHeader'
 import { MergedFold } from './MergedFold'
-import { groupStatuses, type RepoGroup as RepoGroupModel } from './sidebar-groups'
+import { type RepoGroup as RepoGroupModel } from './sidebar-groups'
 import { workspaceFoldKey } from './sidebar-fold-state'
 
 /** Everything a card needs that is the same for every card in the list. */
@@ -22,6 +22,8 @@ export interface RepoGroupProps {
   filtering: boolean
   activeWorkspaceId: string | null
   sessionsFor: (workspace: Workspace) => AgentSession[]
+  /** Whether any agent in this workspace is producing output right now. */
+  workingIn: (workspace: Workspace) => boolean
   draftsFor: (workspace: Workspace) => DraftChat[]
   card: CardCommonProps
 }
@@ -36,7 +38,7 @@ export interface RepoGroupProps {
  *  two of them repeating the repo's name. Splitting them gives every chevron
  *  exactly one job, and puts every workspace of a repo at one depth. Merged
  *  branches still sit behind `MergedFold`. */
-export function RepoGroup({ group, folds, filtering, activeWorkspaceId, sessionsFor, draftsFor, card }: RepoGroupProps): React.JSX.Element {
+export function RepoGroup({ group, folds, filtering, activeWorkspaceId, sessionsFor, workingIn, draftsFor, card }: RepoGroupProps): React.JSX.Element {
   const [showMerged, setShowMerged] = useState(false)
   const expanded = filtering || folds.isOpen(group.foldKey)
   // A branch can be marked merged while you are still sitting in it — its agent
@@ -45,10 +47,10 @@ export function RepoGroup({ group, folds, filtering, activeWorkspaceId, sessions
   // reads as open (it cannot be closed again until they leave).
   const revealMerged = showMerged || group.merged.some((w) => w.id === activeWorkspaceId)
   // The header is not a workspace, so its summary counts every card below it,
-  // the clone included — and its dots are drawn from exactly those same
-  // members, so the two halves of one summary can never disagree.
+  // the clone included — and its dot is drawn from exactly those same members,
+  // so the two halves of one summary can never disagree.
   const members = [group.home, ...group.worktrees, ...group.merged].filter((w): w is Workspace => w !== null)
-  const summary = { count: members.length, statuses: groupStatuses(members.map(sessionsFor)) }
+  const summary = { count: members.length, working: members.some((w) => workingIn(w)) }
 
   const renderCard = (
     workspace: Workspace,

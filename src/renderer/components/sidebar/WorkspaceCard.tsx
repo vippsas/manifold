@@ -10,7 +10,7 @@ import { sidebarStyles } from './ProjectSidebar.styles'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { FilesChevronGlyph, WorkspaceActionsGlyph } from './SidebarCardActionGlyphs'
 import { useFolderDisclosure } from './folder-disclosure'
-import { rowStatus, workspaceRowLabel, type RowStatus } from './agent-labels'
+import { workspaceRowLabel } from './agent-labels'
 import { WorkspaceRowLabel } from './WorkspaceRowLabel'
 import { WorkspaceCardChildren } from './WorkspaceCardChildren'
 import { WorkspaceNameInput } from './WorkspaceNameInput'
@@ -32,9 +32,9 @@ export interface WorkspaceCardProps {
   /** A worktree card under its repo's home card: indented, guide line, repo
    *  prefix dropped since the parent said it. */
   nested?: boolean
-  /** Shown on a collapsed home card: how many branches hang under it and which
-   *  agent states are present among them. */
-  summary?: { count: number; statuses: RowStatus[] }
+  /** Shown on a collapsed card: how many workspaces hang under it, and whether
+   *  any of them is producing output. */
+  summary?: { count: number; working: boolean }
   /** Replaces the displayed name without touching the stored one. The clone
    *  card uses it to read as the branch it sits on, since the repo's own name
    *  is already said by the group header above it. Rename still edits the
@@ -196,8 +196,7 @@ export function WorkspaceCard({
           <WorkspaceRowLabel
             label={displayLabel}
             showRepo={!nested}
-            status={rowStatus(sessions)}
-            sweeping={isWorking}
+            working={isWorking}
             onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(label.name) }}
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
           />
@@ -205,7 +204,7 @@ export function WorkspaceCard({
         {summary && !expanded && summary.count > 0 && (
           <span className="sidebar-group-summary" aria-hidden="true">
             <span className="sidebar-group-count">{summary.count}</span>
-            {summary.statuses.map((s) => <span key={s} className={`status-dot status-dot--${s} status-dot--small`} />)}
+            {summary.working && <span className="status-dot status-dot--active status-dot--small" />}
           </span>
         )}
         {/* One control, not a cluster. The `×` that used to sit here is now

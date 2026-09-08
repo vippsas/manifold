@@ -1,15 +1,14 @@
 import React from 'react'
 import { sidebarStyles } from './ProjectSidebar.styles'
 import { FilesChevronGlyph, RepoGlyph } from './SidebarCardActionGlyphs'
-import type { RowStatus } from './agent-labels'
 
 export interface RepoGroupHeaderProps {
   name: string
   expanded: boolean
   onToggle: () => void
   /** Every workspace in the group, the clone included — the header is not one
-   *  of them, so it counts them all. */
-  summary: { count: number; statuses: RowStatus[] }
+   *  of them, so it counts them all — plus whether any is producing output. */
+  summary: { count: number; working: boolean }
 }
 
 /** Heads a repo's group of workspaces. It is a **fold, not a workspace**: it
@@ -46,7 +45,7 @@ export function RepoGroupHeader({ name, expanded, onToggle, summary }: RepoGroup
       {!expanded && summary.count > 0 && (
         <span className="sidebar-group-summary" aria-hidden="true">
           <span className="sidebar-group-count">{summary.count}</span>
-          {summary.statuses.map((s) => <span key={s} className={`status-dot status-dot--${s} status-dot--small`} />)}
+          {summary.working && <span className="status-dot status-dot--active status-dot--small" />}
         </span>
       )}
     </div>

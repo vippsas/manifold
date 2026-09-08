@@ -119,19 +119,28 @@ describe('repo tree', () => {
     expect(rowNames()).toEqual(['main', 'oslo'])
   })
 
-  it('shows a count and the agents’ states on a collapsed header', () => {
-    renderSidebar({
-      workspaces: [home, wt('w-oslo', 'oslo'), wt('w-bergen', 'bergen')],
-      activeWorkspaceId: null,
-      sessionsByWorkspace: { 'w-oslo': [{ ...sampleSessions[0], status: 'waiting' }] },
-    })
-    fireEvent.click(header('Alpha'))
+  it('shows a count on a collapsed header, and a dot only while work is flowing', () => {
+    const workspaces = [home, wt('w-oslo', 'oslo'), wt('w-bergen', 'bergen')]
+    const sessionsByWorkspace = { 'w-oslo': [{ ...sampleSessions[0], id: 's-oslo', status: 'waiting' as const }] }
 
-    const row = document.querySelector<HTMLElement>('.sidebar-repo-group-header')!
+    const quiet = renderSidebar({ workspaces, activeWorkspaceId: null, sessionsByWorkspace })
+    fireEvent.click(header('Alpha'))
+    const row = () => document.querySelector<HTMLElement>('.sidebar-repo-group-header')!
     // Three, not two: the header is not one of the workspaces it counts, so
-    // the clone counts as well — and the dots come from those same members.
-    expect(within(row).getByText('3')).toBeInTheDocument()
-    expect(row.querySelector('.status-dot--waiting.status-dot--small')).not.toBeNull()
+    // the clone counts as well.
+    expect(within(row()).getByText('3')).toBeInTheDocument()
+    // A live-but-quiet agent gets no dot — status alone never lights it.
+    expect(row().querySelector('.status-dot')).toBeNull()
+    quiet.unmount()
+
+    renderSidebar({
+      workspaces,
+      activeWorkspaceId: null,
+      sessionsByWorkspace,
+      outputtingSessionIds: new Set(['s-oslo']),
+      seedGroupsOpen: false,
+    })
+    expect(row().querySelector('.status-dot--active.status-dot--small')).not.toBeNull()
   })
 
   it('heads a repo with a muted, unselectable header — even with no clone', () => {

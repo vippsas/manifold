@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { AgentSession, Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
-import { filterGroups, groupStatuses, groupWorkspaces, liveWorkspaceIds, type GroupContext } from './sidebar-groups'
+import { filterGroups, groupWorkspaces, liveWorkspaceIds, type GroupContext } from './sidebar-groups'
 
 const projects: Project[] = [
   { id: 'p-apex', name: 'apex', path: '/repos/apex', baseBranch: 'main', addedAt: '2024-01-01' },
@@ -93,7 +93,7 @@ describe('groupWorkspaces — order', () => {
   })
 })
 
-describe('liveWorkspaceIds / groupStatuses', () => {
+describe('liveWorkspaceIds', () => {
   const s = (id: string, status: AgentSession['status']): AgentSession =>
     ({ id, projectId: 'p', runtimeId: 'claude', branchName: 'b', worktreePath: '/', status, pid: 1, additionalDirs: [] })
 
@@ -102,11 +102,6 @@ describe('liveWorkspaceIds / groupStatuses', () => {
       .toEqual(new Set(['b', 'c']))
   })
 
-  it('reports each distinct status once, most urgent first', () => {
-    expect(groupStatuses([[s('1', 'running')], [s('2', 'error')], [s('3', 'running'), s('4', 'waiting')]]))
-      .toEqual(['waiting', 'running', 'error'])
-    expect(groupStatuses([[s('1', 'done')]])).toEqual([])
-  })
 })
 
 describe('filterGroups', () => {

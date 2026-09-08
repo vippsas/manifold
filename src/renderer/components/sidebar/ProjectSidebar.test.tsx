@@ -205,36 +205,32 @@ describe('ProjectSidebar', () => {
     expect(within(card!).queryByText('Claude')).not.toBeInTheDocument()
   })
 
-  // The dot is the agents' state, not their output: waiting outranks running,
-  // because an agent that needs you is the one thing you must notice.
-  it('colours the dot by state — waiting beats running', () => {
+  // The dot is *activity*, not status: it appears while an agent here is
+  // producing output and clears two seconds after the last chunk. Status is no
+  // proxy for it — 'waiting' sticks at an idle composer and 'running' is the
+  // fallback when nothing matches, so a status-driven dot sat lit forever on
+  // agents doing nothing.
+  it('pulses a dot on the workspace name while one of its agents is outputting', () => {
+    renderSidebar({ outputtingSessionIds: new Set(['s1']) })
+
+    const card = screen.getAllByText('alpha-space').map((el) => el.closest<HTMLElement>('.sidebar-workspace-card')).find(Boolean)!
+    const dot = within(card).getByLabelText('An agent is working in this workspace')
+    expect(dot.className).toContain('status-dot--active')
+  })
+
+  it('shows no dot for a live agent that is not producing output', () => {
     renderSidebar({
-      sessionsByWorkspace: {
-        w1: [{ ...sampleSessions[0], status: 'running' }, { ...sampleSessions[1], status: 'waiting' }],
-        w2: [],
-      },
+      outputtingSessionIds: new Set<string>(),
+      sessionsByWorkspace: { w1: [{ ...sampleSessions[0], status: 'waiting' }], w2: [] },
     })
 
-    // 'alpha-space' now also names the row in the Working-now strip above the
-    // tree, so pin down the tree's own copy by its card wrapper.
-    const card = screen.getAllByText('alpha-space').map((el) => el.closest<HTMLElement>('.sidebar-workspace-card')).find(Boolean)!
-    const dot = within(card!).getByLabelText('An agent is waiting for you in this workspace')
-    expect(dot.className).toContain('status-dot--waiting')
+    expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
   })
 
-  it('shows a running dot when no agent is waiting', () => {
-    renderSidebar({ sessionsByWorkspace: { w1: [{ ...sampleSessions[0], status: 'running' }], w2: [] } })
-
-    // The Working-now strip renders the same dot for the same workspace, so
-    // pick out the tree's own copy.
-    const dot = screen.getAllByLabelText('An agent is working in this workspace').find((el) => el.closest('.sidebar-workspace-card'))!
-    expect(dot.className).toContain('status-dot--running')
-  })
-
-  it('shows no dot while every agent is done', () => {
+  it('shows no dot while its agents are quiet', () => {
     renderSidebar()
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
   })
 
   // The dot is 8px in the corner of the eye; the sweep across the name it belongs

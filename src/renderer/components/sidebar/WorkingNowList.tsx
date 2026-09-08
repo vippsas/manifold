@@ -37,13 +37,18 @@ export interface WorkingNowListProps {
   workspaces: Workspace[]
   projects: Project[]
   sessionsByWorkspace: Record<string, AgentSession[]>
+  /** Sessions producing output right now — what the row's dot and sweep read,
+   *  the same self-clearing signal the tree's rows use. Membership of this
+   *  section still comes from status, which is what makes a quiet-but-live
+   *  agent listed here without a dot on it. */
+  outputtingSessionIds?: Set<string>
   recency: ProjectRecency
   onSelectWorkspace: (id: string) => void
 }
 
 /** The strip above the tree that says what is alive right now. Flat, so each
  *  row keeps its repo prefix; hidden entirely when nothing is running. */
-export function WorkingNowList({ workspaces, projects, sessionsByWorkspace, recency, onSelectWorkspace }: WorkingNowListProps): React.JSX.Element | null {
+export function WorkingNowList({ workspaces, projects, sessionsByWorkspace, outputtingSessionIds, recency, onSelectWorkspace }: WorkingNowListProps): React.JSX.Element | null {
   const [expanded, toggleExpanded] = useSidebarSectionState('working', true)
   const rows = workingNowRows(workspaces, sessionsByWorkspace, recency)
   if (rows.length === 0) return null
@@ -51,7 +56,7 @@ export function WorkingNowList({ workspaces, projects, sessionsByWorkspace, rece
   return (
     <div style={favoritesStyles.section}>
       <SidebarSectionHeader label="Working now" count={rows.length} expanded={expanded} onToggle={toggleExpanded} />
-      {expanded && rows.map(({ workspace, status }) => (
+      {expanded && rows.map(({ workspace }) => (
         <div
           key={workspace.id}
           role="button"
@@ -65,7 +70,11 @@ export function WorkingNowList({ workspaces, projects, sessionsByWorkspace, rece
           }}
         >
           <WorkspaceGlyph kind={workspaceGlyphKind(workspace)} />
-          <WorkspaceRowLabel label={workspaceRowLabel(workspace, projects)} showRepo status={status} sweeping={false} />
+          <WorkspaceRowLabel
+            label={workspaceRowLabel(workspace, projects)}
+            showRepo
+            working={(sessionsByWorkspace[workspace.id] ?? []).some((s) => outputtingSessionIds?.has(s.id))}
+          />
         </div>
       ))}
       <div style={sidebarStyles.sectionDivider} />

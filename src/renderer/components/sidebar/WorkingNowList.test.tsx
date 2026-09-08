@@ -41,7 +41,9 @@ describe('WorkingNowList', () => {
     )
     expect(screen.getByText('Working now')).toBeInTheDocument()
     expect(screen.getByText('kong')).toBeInTheDocument()
-    expect(screen.getByLabelText('An agent is waiting for you in this workspace').className).toContain('status-dot--waiting')
+    // Membership comes from status; the dot comes from output. A workspace can
+    // legitimately be listed here with no dot on it.
+    expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('moss'))
     expect(onSelect).toHaveBeenCalledWith('a')
   })
