@@ -492,6 +492,32 @@ select:focus-visible {
   visibility: hidden;
 }
 
+/* The dot's colour is the agents' state: turquoise running, amber waiting —
+   the one state you must notice — ruby error. Running and waiting breathe; an
+   error holds still. `done` draws no dot at all. Each sets `--effect-glow` so
+   the pulse blooms in its own colour rather than the accent's. */
+.status-dot--running {
+  --effect-glow: var(--status-running);
+  background: var(--status-running);
+  animation: core-pulse 2s ease-in-out infinite;
+}
+
+.status-dot--waiting {
+  --effect-glow: var(--status-waiting);
+  background: var(--status-waiting);
+  animation: core-pulse 2s ease-in-out infinite;
+}
+
+.status-dot--error {
+  background: var(--status-error);
+}
+
+/* The dots a collapsed group shows for the agents under it. */
+.status-dot--small {
+  width: 6px;
+  height: 6px;
+}
+
 .dock-tab {
   display: flex;
   align-items: center;
@@ -1163,6 +1189,58 @@ select:focus-visible {
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
+}
+
+/* The repos beyond a workspace's primary, as a quiet trailing note: `+1 kong`
+   or `+3`. Never truncates — the name gives first. */
+.sidebar-row-extra {
+  margin-left: 6px;
+  flex-shrink: 0;
+  font-size: var(--type-ui-caption);
+  color: var(--text-muted);
+}
+
+/* A worktree workspace nested under its repo's home card: one 14px step in,
+   with a 1px guide down the glyph column so the branches read as hanging off
+   the row above. The repo prefix is dropped on these rows — the parent said it. */
+.sidebar-item-row--nested {
+  padding-left: 22px;
+}
+
+.sidebar-item-row--nested::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--tree-indent-guide);
+}
+
+/* Nested cards stack tight; only the group as a whole keeps the card gap. */
+.sidebar-project-group--has-agents.sidebar-workspace-card--nested {
+  margin-bottom: 0;
+}
+
+/* A nested card's own folder rows step in with it. Margin, not padding: the
+   row sets its 16px padding inline, and margin adds to that without fighting it. */
+.sidebar-workspace-card--nested .sidebar-repo-row {
+  margin-left: 14px;
+}
+
+/* Count + state dots on a collapsed home card, right of the label. */
+.sidebar-group-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.sidebar-group-count {
+  font-size: var(--type-ui-caption);
+  color: var(--text-muted);
+  margin-right: 2px;
 }
 
 .sidebar-agent-main > .sidebar-item-actions {
@@ -2148,7 +2226,7 @@ select:focus-visible {
 
 /* ─── Reduced motion: instrumentation effects go static ─── */
 @media (prefers-reduced-motion: reduce) {
-  .status-dot--active {
+  .status-dot--active, .status-dot--running, .status-dot--waiting {
     animation: none;
   }
 

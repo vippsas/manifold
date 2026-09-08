@@ -12,7 +12,8 @@ import { DraftAgentItem } from './DraftAgentItem'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { FilesChevronGlyph, WorkspaceActionsGlyph } from './SidebarCardActionGlyphs'
 import { projectFolderKey, useFolderDisclosure } from './folder-disclosure'
-import { workspaceRowLabel } from './agent-labels'
+import { rowStatus, workspaceRowLabel, type RowStatus } from './agent-labels'
+import { WorkspaceRowLabel } from './WorkspaceRowLabel'
 import { WorkspaceRepoRow } from './WorkspaceRepoRow'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
@@ -20,10 +21,17 @@ export interface WorkspaceCardProps {
   workspace: Workspace
   projects: Project[]
   isActive: boolean
-  /** Whether this card shows its folders and drafts. Only one card in the list
-   *  is expanded at a time, so the list owns the state. */
+  /** Whether this card shows its folders and drafts — and, on a home card, the
+   *  worktree workspaces under its repo. Read from the persisted fold store by
+   *  the group that renders it. */
   expanded: boolean
   onToggleExpanded: () => void
+  /** A worktree card under its repo's home card: indented, guide line, repo
+   *  prefix dropped since the parent said it. */
+  nested?: boolean
+  /** Shown on a collapsed home card: how many branches hang under it and which
+   *  agent states are present among them. */
+  summary?: { count: number; statuses: RowStatus[] }
   sessions: AgentSession[]
   activeProjectId?: string | null
   outputtingSessionIds?: Set<string>
@@ -56,6 +64,8 @@ export function WorkspaceCard({
   isActive,
   expanded,
   onToggleExpanded,
+  nested = false,
+  summary,
   sessions,
   activeProjectId,
   outputtingSessionIds,
@@ -106,7 +116,6 @@ export function WorkspaceCard({
   // a pulsing dot by the name, plus a highlight sweeping the name itself, so the
   // signal carries even when the eye is not on the dot.
   const isWorking = sessions.some((s) => outputtingSessionIds?.has(s.id))
-  const sweep = isWorking ? 'sidebar-label-working' : ''
 
   // The row opens the workspace it names; the chevron alone can close it again,
   // so selecting the workspace never hides what is under it.
@@ -124,7 +133,7 @@ export function WorkspaceCard({
   }
 
   return (
-    <div className={`sidebar-project-group sidebar-project-group--has-agents sidebar-workspace-card${isActive ? ' sidebar-project-group--active' : ''}`}>
+    <div className={`sidebar-project-group sidebar-project-group--has-agents sidebar-workspace-card${nested ? ' sidebar-workspace-card--nested' : ''}${isActive ? ' sidebar-project-group--active' : ''}`}>
       <div
         onClick={selectAndExpand}
         onContextMenu={menu.open}
@@ -137,7 +146,7 @@ export function WorkspaceCard({
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
-        className={`sidebar-item-row sidebar-project-row${isActive ? ' sidebar-item-row--active' : ''}`}
+        className={`sidebar-item-row sidebar-project-row${nested ? ' sidebar-item-row--nested' : ''}${isActive ? ' sidebar-item-row--active' : ''}`}
         style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined) }}
         title={label.repo ? `${label.repo}/${label.name}` : label.name}
       >
@@ -176,40 +185,19 @@ export function WorkspaceCard({
             aria-label="Workspace name"
           />
         ) : (
-          <span
-            className="sidebar-row-label"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}
+          <WorkspaceRowLabel
+            label={label}
+            showRepo={!nested}
+            status={rowStatus(sessions)}
+            sweeping={isWorking}
             onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(label.name) }}
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
-          >
-            {/* Own group, so the label's 6px gap spaces the dot off the name
-                without also prising the repo, the "/" and the name apart. */}
-            {/* The sweep goes on each segment, never on this wrapper: one
-                `background-clip: text` element paints everything beneath it from
-                a single gradient, which flattened the repo to the name's
-                contrast and swallowed the "/". Per segment, each keeps its own
-                colour as the sweep's base, and `background-attachment: fixed`
-                (theme.css) is what still makes the three read as one band. */}
-            <span style={sidebarStyles.rowLabelPath}>
-              {label.repo && (
-                <>
-                  <span className={sweep} style={sidebarStyles.rowRepo}>{label.repo}</span>
-                  <span className={sweep} style={sidebarStyles.rowRepoSep}>/</span>
-                </>
-              )}
-              <span className={`truncate ${sweep}`.trim()} style={{ minWidth: 0 }}>
-                {label.name}
-              </span>
-              {label.extra && <span className="sidebar-row-extra">{label.extra}</span>}
-            </span>
-            {isWorking && (
-              <span
-                className="status-dot status-dot--active"
-                role="status"
-                aria-label="An agent is working in this workspace"
-                title="An agent is working in this workspace"
-              />
-            )}
+          />
+        )}
+        {summary && !expanded && summary.count > 0 && (
+          <span className="sidebar-group-summary" aria-hidden="true">
+            <span className="sidebar-group-count">{summary.count}</span>
+            {summary.statuses.map((s) => <span key={s} className={`status-dot status-dot--${s} status-dot--small`} />)}
           </span>
         )}
         {/* One control, not a cluster. The `×` that used to sit here is now

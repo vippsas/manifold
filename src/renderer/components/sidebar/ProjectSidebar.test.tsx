@@ -7,6 +7,7 @@ import {
   mockInvoke,
   renderSidebar,
   folderLabel,
+  sampleSessions,
 } from './ProjectSidebar.test-helpers'
 
 beforeEach(() => {
@@ -176,17 +177,31 @@ describe('ProjectSidebar', () => {
     expect(within(card!).queryByText('Claude')).not.toBeInTheDocument()
   })
 
-  it('pulses a dot on the workspace name while one of its agents is outputting', () => {
-    renderSidebar({ outputtingSessionIds: new Set(['s1']) })
+  // The dot is the agents' state, not their output: waiting outranks running,
+  // because an agent that needs you is the one thing you must notice.
+  it('colours the dot by state — waiting beats running', () => {
+    renderSidebar({
+      sessionsByWorkspace: {
+        w1: [{ ...sampleSessions[0], status: 'running' }, { ...sampleSessions[1], status: 'waiting' }],
+        w2: [],
+      },
+    })
 
     const card = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-workspace-card')
-    expect(within(card!).getByLabelText('An agent is working in this workspace')).toBeInTheDocument()
+    const dot = within(card!).getByLabelText('An agent is waiting for you in this workspace')
+    expect(dot.className).toContain('status-dot--waiting')
   })
 
-  it('shows no dot while its agents are quiet', () => {
+  it('shows a running dot when no agent is waiting', () => {
+    renderSidebar({ sessionsByWorkspace: { w1: [{ ...sampleSessions[0], status: 'running' }], w2: [] } })
+
+    expect(screen.getByLabelText('An agent is working in this workspace').className).toContain('status-dot--running')
+  })
+
+  it('shows no dot while every agent is done', () => {
     renderSidebar()
 
-    expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   // The dot is 8px in the corner of the eye; the sweep across the name it belongs
