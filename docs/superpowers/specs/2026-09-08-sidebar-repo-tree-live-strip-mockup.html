@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manifold — Workspaces sidebar proposals</title>
+<style>
+:root{
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, Menlo, monospace;
+  --radius-xs:2px;--radius-sm:5px;--radius-md:8px;
+  --space-xs:4px;--space-sm:8px;--space-md:14px;--space-lg:20px;
+  --type-ui:13px;--type-ui-small:12px;--type-ui-caption:11px;--type-ui-micro:10px;--type-label:11px;
+  --tracking-wide:0.1em;
+  --control-height:28px;
+  /* Manifold Dark (theme.css defaults mirror data/Manifold Dark.json) */
+  --bg-primary:#06080f;--bg-secondary:#0d1220;--bg-sidebar:#090d18;--bg-input:#121a2e;
+  --text-primary:#e6ecf7;--text-secondary:#a7b4cc;--text-muted:#5e6b82;
+  --accent:#e2c275;--accent-subtle:rgba(226,194,117,0.16);
+  --success:#66bb6a;--warning:#ffa726;--error:#ef5350;
+  --status-done:var(--success);--status-waiting:var(--warning);--status-error:var(--error);--status-running:#7fc8e8;
+  --border:#1e2a40;--divider:#1e2a40;
+  --tree-hover:rgba(226,194,117,0.051);--tree-indent-guide:#1e2a40;
+  --list-hover-bg:var(--tree-hover);
+  --sidebar-active-bg:var(--accent-subtle);--sidebar-active-border:rgba(226,194,117,0.122);
+  --control-bg:var(--bg-input);--control-border:var(--border);
+  --bg-elevated:#15171d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#03040a;color:var(--text-primary);font-family:var(--font-sans);font-size:var(--type-ui);line-height:1.4;-webkit-font-smoothing:antialiased;padding:28px 24px 60px}
+h1{font-size:18px;font-weight:600;margin-bottom:4px}
+.lede{color:var(--text-secondary);font-size:13px;max-width:980px;margin-bottom:22px}
+.board{display:grid;grid-template-columns:repeat(4,340px);gap:22px;align-items:start}
+.col h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px 2px;display:flex;gap:8px;align-items:center}
+.col h2 .tag{font-size:10px;letter-spacing:.06em;padding:1px 6px;border-radius:999px;border:1px solid var(--border);color:var(--text-secondary);text-transform:none}
+.col h2 .tag.rec{border-color:color-mix(in srgb,var(--accent),transparent 50%);color:var(--accent)}
+.notes{margin-top:12px;color:var(--text-secondary);font-size:12px;line-height:1.5}
+.notes b{color:var(--text-primary);font-weight:600}
+.notes li{margin:0 0 6px 16px}
+.notes .con{color:var(--text-muted)}
+
+/* ── the sidebar frame ── */
+.sidebar{width:340px;background:var(--bg-sidebar);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.08)}
+.toolbar{display:flex;align-items:center;gap:var(--space-xs);min-height:32px;padding:var(--space-xs) var(--space-sm);margin-top:10px}
+.toolbar .label{padding-left:8px;font-size:var(--type-ui-small);font-weight:500;color:var(--text-muted)}
+.toolbar .acts{margin-left:auto;display:flex;gap:var(--space-xs)}
+.tbtn{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);color:var(--text-secondary)}
+.tbtn.on{color:var(--accent);background:var(--accent-subtle)}
+.content{padding:var(--space-xs) 0 6px}
+.footer{display:flex;gap:var(--space-xs);padding:var(--space-xs) var(--space-sm) var(--space-sm);border-top:1px solid var(--border)}
+.fbtn{flex:1 0 120px;height:var(--control-height);display:flex;align-items:center;justify-content:center;font-size:var(--type-ui-small);border-radius:var(--radius-sm);border:1px solid var(--control-border);color:var(--text-secondary);white-space:nowrap}
+.fbtn.acc{border-color:color-mix(in srgb,var(--accent),transparent 70%);color:var(--accent)}
+
+/* filter field */
+.filter{margin:2px 12px 6px;height:26px;display:flex;align-items:center;gap:6px;padding:0 8px;border:1px solid var(--control-border);background:var(--control-bg);border-radius:var(--radius-sm);color:var(--text-muted);font-size:var(--type-ui-small)}
+.filter .kbd{margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);opacity:.8}
+
+/* section header */
+.sec{display:flex;align-items:center;gap:4px;padding:0 var(--space-sm);margin:0 var(--space-sm) var(--space-xs);font-size:var(--type-label);font-weight:500;letter-spacing:var(--tracking-wide);text-transform:uppercase;color:color-mix(in srgb,var(--accent),transparent 60%)}
+.sec .cnt{color:color-mix(in srgb,var(--accent),transparent 60%);margin-left:4px;letter-spacing:0}
+.sec .chev{width:10px;height:10px}
+.sec .right{margin-left:auto;display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-size:var(--type-ui-caption)}
+.sec .hint{color:var(--text-muted);font-weight:400}
+.divider{height:1px;background:color-mix(in srgb,var(--accent),transparent 94%);margin:var(--space-sm) var(--space-xs)}
+
+/* rows */
+.row{display:flex;align-items:center;gap:var(--space-xs);min-height:28px;margin:1px 8px;padding:0 8px;font-size:var(--type-ui-small);color:var(--text-secondary);position:relative;border-radius:var(--radius-sm);white-space:nowrap}
+.row .ico{width:14px;height:14px;flex-shrink:0;color:var(--text-secondary);margin-right:4px}
+.row .repo{color:var(--text-muted);flex-shrink:0;max-width:20ch;overflow:hidden;text-overflow:ellipsis}
+.row .sep{color:var(--text-muted);opacity:.55;margin:0 3px}
+.row .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.row .name.hi{color:var(--text-primary)}
+.row .plus{color:var(--text-muted);font-size:var(--type-ui-caption);margin-left:5px}
+.row .badge{margin-left:auto;font-family:var(--font-mono);font-size:var(--type-ui-caption);color:var(--text-muted);flex-shrink:0}
+.row .more{flex-shrink:0;color:var(--text-muted);width:16px;text-align:center;letter-spacing:1px}
+.row.fav{gap:8px;padding:6px var(--space-sm);font-weight:600}
+.row.active{color:var(--text-primary)}
+.row.hover{background:var(--list-hover-bg);color:var(--text-primary)}
+.row.child{margin-left:8px;padding-left:22px}
+.row.child::before{content:'';position:absolute;left:14px;top:0;bottom:0;width:1px;background:var(--tree-indent-guide)}
+.row.child.last::before{bottom:50%}
+.row.dim{color:var(--text-muted)}
+.row.dim .ico{color:var(--text-muted)}
+.row.parent .name{color:var(--text-primary);font-weight:500}
+.row.parent .cnt{color:var(--text-muted);font-size:var(--type-ui-caption);margin-left:6px}
+.chev{width:10px;height:10px;flex-shrink:0;color:var(--text-muted)}
+.chev.open{transform:rotate(90deg)}
+.chevslot{width:14px;display:inline-flex;justify-content:center;flex-shrink:0;margin-right:4px}
+
+/* active card: 2px accent rail + wash (theme.css:955-990) */
+.card.active{position:relative;margin:2px 8px;border-radius:var(--radius-sm)}
+.card.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;z-index:3;border-radius:var(--radius-sm) 0 0 var(--radius-sm);background:var(--accent)}
+.card.active>.row{margin-inline:0;background:var(--sidebar-active-bg);color:var(--text-primary)}
+.card.active>.row .ico{color:var(--accent)}
+
+/* status dot */
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--accent);margin-left:auto}
+.dot.run{background:var(--status-running);animation:core-pulse 2s ease-in-out infinite}
+.dot.wait{background:var(--status-waiting)}
+.dot.done{background:var(--status-done);opacity:.7}
+.dot.err{background:var(--status-error)}
+.dot.before{margin-left:0;margin-right:2px;width:6px;height:6px}
+.dots{margin-left:auto;display:flex;gap:3px;align-items:center}
+.dots .dot{margin-left:0;width:6px;height:6px}
+@keyframes core-pulse{0%,100%{opacity:.5;transform:scale(1);box-shadow:0 0 3px 0 rgba(127,200,232,.3)}50%{opacity:1;transform:scale(1.18);box-shadow:0 0 6px 2px rgba(127,200,232,.6),0 0 13px 4px rgba(127,200,232,.25)}}
+
+.fold{display:flex;align-items:center;gap:6px;margin:1px 8px 1px 30px;padding:0 8px;min-height:24px;font-size:var(--type-ui-caption);color:var(--text-muted);position:relative}
+.fold::before{content:'';position:absolute;left:-8px;top:0;bottom:50%;width:1px;background:var(--tree-indent-guide)}
+.fold u{text-decoration:none;color:color-mix(in srgb,var(--accent),transparent 45%)}
+.ellipsis{color:var(--text-muted);font-size:var(--type-ui-caption);padding:6px 24px;font-style:italic}
+</style>
+</head>
+<body>
+<h1>Workspaces sidebar — organisation proposals</h1>
+<p class="lede">Same real data in every column (your 33 repos, 70 workspaces, favourites, one active workspace, three agents alive). Rendered with the Manifold Dark tokens and the existing row, glyph, section and active-card treatments, so what you see is what the sidebar would actually paint.</p>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="g-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="g-branch" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M6 3v12"/><circle cx="18" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M18 8.6a9 9 0 0 1-9 9"/></g></symbol>
+    <symbol id="g-multi" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="3" width="11" height="11" rx="2"/><path d="M10 21h9a2 2 0 0 0 2-2v-9"/><path d="M14 10h3a2 2 0 0 1 2 2v3"/></g></symbol>
+    <symbol id="g-home" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></g></symbol>
+    <symbol id="g-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 1.8"/></g></symbol>
+    <symbol id="g-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></g></symbol>
+    <symbol id="g-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="g-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<div class="board">
+
+<!-- ═══════════════ CURRENT ═══════════════ -->
+<div class="col">
+  <h2>Today <span class="tag">flat, recency-sorted</span></h2>
+  <div class="sidebar">
+    <div class="toolbar"><span class="label">Workspaces</span><div class="acts"><span class="tbtn"><svg width="14" height="14"><use href="#g-clock"/></svg></span></div></div>
+    <div class="content">
+      <div class="sec"><svg class="chev open"><use href="#g-chev"/></svg>Favorites<span class="cnt">4</span></div>
+      <div class="row fav"><svg class="ico"><use href="#g-folder"/></svg><span class="name hi">buildtounderstand.org</span><span class="badge">⌘1</span></div>
+      <div class="row fav"><svg class="ico"><use href="#g-folder"/></svg><span class="name hi">me</span><span class="badge">⌘2</span></div>
+      <div class="row fav"><svg class="ico"><use href="#g-folder"/></svg><span class="name hi">manifold</span><span class="badge">⌘3</span></div>
+      <div class="row fav"><svg class="ico"><use href="#g-folder"/></svg><span class="name hi">manifold-landingpage</span><span class="badge">⌘4</span></div>
+      <div class="divider"></div>
+      <div class="card active"><div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vce-context</span><span class="sep">/</span><span class="name">M365 Agent Builder</span><span class="more">···</span></div></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vce-context +1</span><span class="sep">/</span><span class="name">ai identity</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">vce-context</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vce-context +1</span><span class="sep">/</span><span class="name">stt research</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">manifold +1</span><span class="sep">/</span><span class="name">viola agent</span><span class="dot run"></span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">manifold</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">manifold</span><span class="sep">/</span><span class="name">session cost</span><span class="dot run"></span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vce-context</span><span class="sep">/</span><span class="name">Førde</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">omnigent</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">manifold-landingpage</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">trancefjord</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vce-context</span><span class="sep">/</span><span class="name">Florø</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">buildtounderstand.org</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="repo">me +1</span><span class="sep">/</span><span class="name">me</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">kong</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">autocoder-framework</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">cloud-platform-decisions</span></div>
+      <div class="ellipsis">… 17 more home rows …</div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vissper-oss</span><span class="sep">/</span><span class="name">remove-openai-direct-prov…</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vissper-oss</span><span class="sep">/</span><span class="name">Stjørdal</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vissper-oss</span><span class="sep">/</span><span class="name">remove-openai-provider-ta…</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vissper-oss</span><span class="sep">/</span><span class="name">review-remove-openai-pro…</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vissper-oss</span><span class="sep">/</span><span class="name">drop-openai-from-readme</span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vissper-oss</span><span class="sep">/</span><span class="name">drop-openai-from-readme-2</span></div>
+      <div class="ellipsis">… 11 more vissper-oss rows …</div>
+    </div>
+    <div class="footer"><span class="fbtn">+ New Repo</span><span class="fbtn acc">+ New Workspace</span></div>
+  </div>
+  <div class="notes"><ul>
+    <li><b>Family scatters.</b> manifold, its two worktrees and vce-context's seven land wherever recency puts them.</li>
+    <li><b>Repo prefix on every row</b> eats the width; the part that differs is what gets truncated.</li>
+    <li><b>No liveness.</b> Two agents are running and nothing above the fold says so.</li>
+    <li><b>One list, three populations:</b> repos you merely registered, tasks you're on, and a graveyard of pipeline worktrees.</li>
+  </ul></div>
+</div>
+
+<!-- ═══════════════ A: REPO TREE ═══════════════ -->
+<div class="col">
+  <h2>A · Repo tree <span class="tag">#939 / #940</span></h2>
+  <div class="sidebar">
+    <div class="toolbar"><span class="label">Workspaces</span><div class="acts"><span class="tbtn"><svg width="14" height="14"><use href="#g-clock"/></svg></span></div></div>
+    <div class="content">
+      <div class="sec"><svg class="chev"><use href="#g-chev"/></svg>Favorites<span class="cnt">4</span></div>
+      <div class="divider"></div>
+
+      <!-- vce-context: expanded, holds the active workspace -->
+      <div class="row parent"><span class="chevslot"><svg class="chev open"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">vce-context</span><span class="cnt">8</span></div>
+      <div class="row child dim"><svg class="ico"><use href="#g-home"/></svg><span class="name">main</span></div>
+      <div class="card active"><div class="row child"><svg class="ico"><use href="#g-branch"/></svg><span class="name">M365 Agent Builder</span><span class="more">···</span></div></div>
+      <div class="row child"><svg class="ico"><use href="#g-multi"/></svg><span class="name">ai identity</span><span class="plus">+1 vce-cli</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-multi"/></svg><span class="name">stt research</span><span class="plus">+1</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-branch"/></svg><span class="name">Førde</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-branch"/></svg><span class="name">Florø</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-branch"/></svg><span class="name">roadmap-ai</span></div>
+      <div class="row child last"><svg class="ico"><use href="#g-branch"/></svg><span class="name">vibber</span></div>
+
+      <!-- manifold: expanded, two live agents -->
+      <div class="row parent"><span class="chevslot"><svg class="chev open"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">manifold</span><span class="cnt">3</span></div>
+      <div class="row child dim"><svg class="ico"><use href="#g-home"/></svg><span class="name">main</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-multi"/></svg><span class="name">viola agent</span><span class="plus">+1</span><span class="dot run"></span></div>
+      <div class="row child last"><svg class="ico"><use href="#g-branch"/></svg><span class="name">session cost</span><span class="dot wait"></span></div>
+
+      <!-- collapsed repos: count + activity dots -->
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">vissper-oss</span><span class="cnt">17</span><span class="dots"><span class="dot run"></span></span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">platform-ai</span><span class="cnt">4</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">cloud-platform-decisions</span><span class="cnt">3</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">buildtounderstand.org</span><span class="cnt">2</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">kong</span><span class="cnt">2</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">platform-ai-planner</span><span class="cnt">2</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">vce-backstage</span><span class="cnt">2</span></div>
+      <!-- leaf repos: home only, no chevron -->
+      <div class="row parent"><span class="chevslot"></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">me</span><span class="plus">+1</span></div>
+      <div class="row parent"><span class="chevslot"></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">omnigent</span></div>
+      <div class="row parent"><span class="chevslot"></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">manifold-landingpage</span></div>
+      <div class="row parent"><span class="chevslot"></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">trancefjord</span></div>
+      <div class="row parent"><span class="chevslot"></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">autocoder-framework</span></div>
+      <div class="ellipsis">… 15 more repos (home only) …</div>
+    </div>
+    <div class="footer"><span class="fbtn">+ New Repo</span><span class="fbtn acc">+ New Workspace</span></div>
+  </div>
+  <div class="notes"><ul>
+    <li><b>One parent row per repo</b>, children = home first (shown as its branch, <i>main</i>), then worktrees. Prefix gone: the parent says it once.</li>
+    <li><b>Fold state per repo, persisted</b>; collapsed parents still show count + live dots so vissper-oss's running agent is visible without opening it.</li>
+    <li><b>Multi-repo workspaces</b> get the linked glyph and a real name; <i>+1 vce-cli</i> is a sub-label, not the title.</li>
+    <li><b>Group promotion:</b> in recency mode the active repo's whole family rises, not one row.</li>
+    <li class="con">Con: 20 home-only repos still form a long tail of leaves. Fine at 33 repos; noisy at 60.</li>
+  </ul></div>
+</div>
+
+<!-- ═══════════════ B: ACTIVITY TIERS ═══════════════ -->
+<div class="col">
+  <h2>B · Activity tiers <span class="tag">flat, no tree</span></h2>
+  <div class="sidebar">
+    <div class="toolbar"><span class="label">Workspaces</span><div class="acts"><span class="tbtn"><svg width="14" height="14"><use href="#g-clock"/></svg></span></div></div>
+    <div class="content">
+      <div class="filter"><svg width="12" height="12"><use href="#g-search"/></svg>Filter workspaces<span class="kbd">⌘⇧O</span></div>
+
+      <div class="sec"><svg class="chev open"><use href="#g-chev"/></svg>Working now<span class="cnt">3</span></div>
+      <div class="row"><svg class="ico"><use href="#g-multi"/></svg><span class="repo">manifold</span><span class="sep">/</span><span class="name hi">viola agent</span><span class="dot run"></span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">manifold</span><span class="sep">/</span><span class="name hi">session cost</span><span class="dot wait"></span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vissper-oss</span><span class="sep">/</span><span class="name hi">remove-openai-direct-provider</span><span class="dot run"></span></div>
+      <div class="divider"></div>
+
+      <div class="sec"><svg class="chev open"><use href="#g-chev"/></svg>Recent<span class="cnt">7 days</span></div>
+      <!-- soft grouping: prefix on first of a run, indent guide on the rest -->
+      <div class="card active"><div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vce-context</span><span class="sep">/</span><span class="name">M365 Agent Builder</span><span class="more">···</span></div></div>
+      <div class="row child"><svg class="ico"><use href="#g-multi"/></svg><span class="name">ai identity</span><span class="plus">+1</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-multi"/></svg><span class="name">stt research</span><span class="plus">+1</span></div>
+      <div class="row child last"><svg class="ico"><use href="#g-branch"/></svg><span class="name">Førde</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">omnigent</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">manifold-landingpage</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">buildtounderstand.org</span></div>
+      <div class="row child last"><svg class="ico"><use href="#g-branch"/></svg><span class="name">revise-adoption-evidence</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">me</span><span class="plus">+1</span></div>
+      <div class="row"><svg class="ico"><use href="#g-folder"/></svg><span class="name">kong</span></div>
+      <div class="divider"></div>
+
+      <div class="sec"><svg class="chev"><use href="#g-chev"/></svg>Earlier<span class="cnt">55</span><span class="right hint">A–Z</span></div>
+    </div>
+    <div class="footer"><span class="fbtn">+ New Repo</span><span class="fbtn acc">+ New Workspace</span></div>
+  </div>
+  <div class="notes"><ul>
+    <li><b>Three tiers by what you're doing:</b> agents alive → touched this week → everything else, collapsed and alphabetical.</li>
+    <li><b>Working now</b> is computed, not curated; dot colour = agent status (running / waiting / done / error), data the sidebar already receives.</li>
+    <li><b>Soft grouping:</b> the repo prefix prints once per run of same-repo rows; followers hang off an indent guide. No parent rows, no fold state.</li>
+    <li><b>Filter field</b> replaces scrolling through 70 rows; type-to-jump also covers "Earlier".</li>
+    <li class="con">Con: a repo's family still splits across tiers (manifold in Working now <i>and</i> Recent). Time-based buckets shift under you.</li>
+  </ul></div>
+</div>
+
+<!-- ═══════════════ C: HYBRID ═══════════════ -->
+<div class="col">
+  <h2>C · Tree + live strip <span class="tag rec">recommended</span></h2>
+  <div class="sidebar">
+    <div class="toolbar"><span class="label">Workspaces</span><div class="acts"><span class="tbtn"><svg width="14" height="14"><use href="#g-search"/></svg></span><span class="tbtn"><svg width="14" height="14"><use href="#g-clock"/></svg></span></div></div>
+    <div class="content">
+      <div class="sec"><svg class="chev open"><use href="#g-chev"/></svg>Favorites<span class="cnt">4</span></div>
+      <div class="row fav"><svg class="ico"><use href="#g-folder"/></svg><span class="name hi">buildtounderstand.org</span><span class="badge">⌘1</span></div>
+      <div class="row fav"><svg class="ico"><use href="#g-multi"/></svg><span class="name hi">me</span><span class="badge">⌘2</span></div>
+      <div class="row fav"><svg class="ico"><use href="#g-folder"/></svg><span class="name hi">manifold</span><span class="badge">⌘3</span></div>
+      <div class="row fav"><svg class="ico"><use href="#g-folder"/></svg><span class="name hi">manifold-landingpage</span><span class="badge">⌘4</span></div>
+      <div class="divider"></div>
+
+      <div class="sec"><svg class="chev open"><use href="#g-chev"/></svg>Working now<span class="cnt">3</span></div>
+      <div class="row"><svg class="ico"><use href="#g-multi"/></svg><span class="repo">manifold</span><span class="sep">/</span><span class="name hi">viola agent</span><span class="dot run"></span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">manifold</span><span class="sep">/</span><span class="name hi">session cost</span><span class="dot wait"></span></div>
+      <div class="row"><svg class="ico"><use href="#g-branch"/></svg><span class="repo">vissper-oss</span><span class="sep">/</span><span class="name hi">remove-openai-direct-provider</span><span class="dot run"></span></div>
+      <div class="divider"></div>
+
+      <div class="sec"><svg class="chev open"><use href="#g-chev"/></svg>Repositories<span class="cnt">33</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev open"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">vce-context</span><span class="cnt">8</span></div>
+      <div class="row child dim"><svg class="ico"><use href="#g-home"/></svg><span class="name">main</span></div>
+      <div class="card active"><div class="row child"><svg class="ico"><use href="#g-branch"/></svg><span class="name">M365 Agent Builder</span><span class="more">···</span></div></div>
+      <div class="row child"><svg class="ico"><use href="#g-multi"/></svg><span class="name">ai identity</span><span class="plus">+1 vce-cli</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-multi"/></svg><span class="name">stt research</span><span class="plus">+1</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-branch"/></svg><span class="name">Førde</span></div>
+      <div class="row child last"><svg class="ico"><use href="#g-branch"/></svg><span class="name">Florø</span></div>
+      <div class="fold"><u>2 merged</u> · roadmap-ai, vibber</div>
+
+      <div class="row parent"><span class="chevslot"><svg class="chev open"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">vissper-oss</span><span class="cnt">17</span></div>
+      <div class="row child"><svg class="ico"><use href="#g-branch"/></svg><span class="name">remove-openai-direct-provider</span><span class="dot run"></span></div>
+      <div class="row child"><svg class="ico"><use href="#g-branch"/></svg><span class="name">Stjørdal</span></div>
+      <div class="row child last"><svg class="ico"><use href="#g-branch"/></svg><span class="name">drop-openai-from-readme-2</span></div>
+      <div class="fold"><u>14 merged</u> · show</div>
+
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">manifold</span><span class="cnt">3</span><span class="dots"><span class="dot run"></span><span class="dot wait"></span></span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">platform-ai</span><span class="cnt">4</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">cloud-platform-decisions</span><span class="cnt">3</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">buildtounderstand.org</span><span class="cnt">2</span></div>
+      <div class="row parent"><span class="chevslot"><svg class="chev"><use href="#g-chev"/></svg></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">kong</span><span class="cnt">2</span></div>
+      <div class="row parent"><span class="chevslot"></span><svg class="ico"><use href="#g-folder"/></svg><span class="name">omnigent</span></div>
+      <div class="ellipsis">… 25 more repos …</div>
+    </div>
+    <div class="footer"><span class="fbtn">+ New Repo</span><span class="fbtn acc">+ New Workspace</span></div>
+  </div>
+  <div class="notes"><ul>
+    <li><b>A's tree as the backbone</b> (repo parents, persisted folds, multi-repo glyph + name) with <b>B's "Working now" strip</b> pinned above it. Everything alive is visible in three rows; the tree below is stable and never reorders under you.</li>
+    <li><b>Merged worktrees fold away.</b> The verdict store already knows a branch is merged (isBranchMerged / gh reconcile); those rows collapse into one muted <i>N merged</i> line per repo, so 14 of vissper-oss's 17 rows stop costing screen. Click to reveal or clean up.</li>
+    <li><b>Search moves into the toolbar</b> as an icon that unfolds a filter field, keeping the 32px header quiet.</li>
+    <li><b>Favorites stay</b> exactly as today (⌘1–4); they're the only user-curated list and cost 4 rows.</li>
+    <li class="con">Con: three sections is the ceiling. Nothing else should be added above the tree.</li>
+  </ul></div>
+</div>
+
+</div>
+</body>
+</html>
