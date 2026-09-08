@@ -13,14 +13,91 @@ const rowNames = (): string[] =>
   Array.from(document.querySelectorAll('.sidebar-project-row'))
     .map((row) => within(row as HTMLElement).getByRole('button', { name: /^(Expand|Collapse) / }).getAttribute('aria-label')!.replace(/^(Expand|Collapse) /, ''))
 
+/** The repo header rows, which are folds rather than workspaces and so carry
+ *  no `.sidebar-project-row`. */
+const headerNames = (): string[] =>
+  Array.from(document.querySelectorAll('.sidebar-repo-group-header'))
+    .map((row) => row.getAttribute('aria-label')!.replace(/^(Expand|Collapse) /, ''))
+
+const header = (name: string): HTMLElement =>
+  screen.getByRole('button', { name: new RegExp(`^(Expand|Collapse) ${name}$`) })
+
 describe('repo tree', () => {
-  it('nests a repo’s worktrees under its home card, closed until opened', () => {
+  // The repo is a header, not a workspace: the clone hangs under it as a peer
+  // of its branches, so every row inside a group is the same kind of thing.
+  it('hangs every workspace of a repo under its header, clone first', () => {
     renderSidebar({ workspaces: [home, wt('w-oslo', 'oslo'), beta], activeWorkspaceId: null, sessionsByWorkspace: {} })
 
-    expect(rowNames()).toEqual(['Alpha', 'beta-space'])
-    fireEvent.click(screen.getByLabelText('Expand Alpha'))
-    expect(rowNames()).toEqual(['Alpha', 'oslo', 'beta-space'])
-    expect(screen.getByText('oslo').closest('.sidebar-item-row')!.className).toContain('sidebar-item-row--nested')
+    expect(headerNames()).toEqual(['Alpha', 'Beta'])
+    // 'main' is Alpha's base branch: the clone's own name only repeated the
+    // repo, so the row answers "which branch?" instead.
+    expect(rowNames()).toEqual(['main', 'oslo', 'beta-space'])
+    for (const name of ['main', 'oslo']) {
+      expect(screen.getByText(name).closest('.sidebar-item-row')!.className).toContain('sidebar-item-row--nested')
+    }
+  })
+
+  // Repos ship collapsed, so the sidebar opens as an index of repos rather
+  // than a wall of every workspace at once. `seedGroupsOpen: false` opts out of
+  // the helper's convenience seeding to see the real first-run state.
+  it('starts with every repo collapsed and remembers the ones you open', () => {
+    const args = { workspaces: [home, wt('w-oslo', 'oslo')], activeWorkspaceId: null, sessionsByWorkspace: {}, seedGroupsOpen: false }
+    const first = renderSidebar(args)
+    expect(headerNames()).toEqual(['Alpha'])
+    expect(rowNames()).toEqual([])
+
+    fireEvent.click(header('Alpha'))
+    expect(rowNames()).toEqual(['main', 'oslo'])
+
+    first.unmount()
+    renderSidebar(args)
+    expect(rowNames()).toEqual(['main', 'oslo'])
+  })
+
+  it('collapses every repo at once from the toolbar', () => {
+    renderSidebar({
+      workspaces: [home, wt('w-oslo', 'oslo'), beta],
+      activeWorkspaceId: null,
+      sessionsByWorkspace: {},
+    })
+    expect(rowNames()).toEqual(['main', 'oslo', 'beta-space'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all repositories' }))
+
+    expect(rowNames()).toEqual([])
+    // The headers stay: collapsing hides workspaces, not the repos themselves.
+    expect(headerNames()).toEqual(['Alpha', 'Beta'])
+  })
+
+  // A workspace with no repos is a clone of nothing: it keeps its own name,
+  // since no header is naming a repo above it.
+  it('leaves a workspace with no repos named after itself', () => {
+    renderSidebar({
+      workspaces: [{ id: 'w-none', name: 'scratch', projectIds: [], createdAt: '2024-01-01' }],
+      activeWorkspaceId: null,
+      sessionsByWorkspace: {},
+    })
+    expect(rowNames()).toEqual(['scratch'])
+  })
+
+  // With no base branch recorded, falling back to the workspace's own name
+  // would reprint the repo's name under a header already showing it.
+  it('reads a clone with no base branch as “clone”, not the repo’s name again', () => {
+    renderSidebar({
+      projects: [{ id: 'p1', name: 'Alpha', path: '/repos/alpha', baseBranch: '', addedAt: '2024-01-01' }],
+      workspaces: [home],
+      activeWorkspaceId: null,
+      sessionsByWorkspace: {},
+    })
+    expect(rowNames()).toEqual(['clone'])
+  })
+
+  // Renaming a clone is information the base branch cannot carry, and this row
+  // is the only place that name appears.
+  it('keeps a renamed clone’s own name instead of its branch', () => {
+    const renamed = { ...home, name: 'main dev' }
+    renderSidebar({ workspaces: [renamed], activeWorkspaceId: null, sessionsByWorkspace: {} })
+    expect(rowNames()).toEqual(['main dev'])
   })
 
   // The parent names the repo once; the child must not repeat it.
@@ -30,40 +107,53 @@ describe('repo tree', () => {
     expect(within(row).queryByText('Alpha')).not.toBeInTheDocument()
   })
 
-  it('opens the group holding the active workspace', () => {
-    renderSidebar({ workspaces: [home, wt('w-oslo', 'oslo')], activeWorkspaceId: 'w-oslo', sessionsByWorkspace: {} })
-    expect(rowNames()).toEqual(['Alpha', 'oslo'])
-  })
-
-  it('remembers folds across a remount', () => {
+  // Entering a workspace has to reveal it, even inside a group the user closed
+  // earlier — otherwise the sidebar shows no row for where they are.
+  it('reopens a closed group that holds the active workspace', () => {
     const first = renderSidebar({ workspaces: [home, wt('w-oslo', 'oslo')], activeWorkspaceId: null, sessionsByWorkspace: {} })
-    fireEvent.click(screen.getByLabelText('Expand Alpha'))
+    fireEvent.click(header('Alpha'))
+    expect(rowNames()).toEqual([])
     first.unmount()
-    renderSidebar({ workspaces: [home, wt('w-oslo', 'oslo')], activeWorkspaceId: null, sessionsByWorkspace: {} })
-    expect(rowNames()).toEqual(['Alpha', 'oslo'])
+
+    renderSidebar({ workspaces: [home, wt('w-oslo', 'oslo')], activeWorkspaceId: 'w-oslo', sessionsByWorkspace: {} })
+    expect(rowNames()).toEqual(['main', 'oslo'])
   })
 
-  it('shows a count and the agents’ states on a collapsed home card', () => {
+  it('shows a count on a collapsed header, and a dot only while work is flowing', () => {
+    const workspaces = [home, wt('w-oslo', 'oslo'), wt('w-bergen', 'bergen')]
+    const sessionsByWorkspace = { 'w-oslo': [{ ...sampleSessions[0], id: 's-oslo', status: 'waiting' as const }] }
+
+    const quiet = renderSidebar({ workspaces, activeWorkspaceId: null, sessionsByWorkspace })
+    fireEvent.click(header('Alpha'))
+    const row = () => document.querySelector<HTMLElement>('.sidebar-repo-group-header')!
+    // Three, not two: the header is not one of the workspaces it counts, so
+    // the clone counts as well.
+    expect(within(row()).getByText('3')).toBeInTheDocument()
+    // A live-but-quiet agent gets no dot — status alone never lights it.
+    expect(row().querySelector('.status-dot')).toBeNull()
+    quiet.unmount()
+
     renderSidebar({
-      workspaces: [home, wt('w-oslo', 'oslo'), wt('w-bergen', 'bergen')],
+      workspaces,
       activeWorkspaceId: null,
-      sessionsByWorkspace: { 'w-oslo': [{ ...sampleSessions[0], status: 'waiting' }] },
+      sessionsByWorkspace,
+      outputtingSessionIds: new Set(['s-oslo']),
+      seedGroupsOpen: false,
     })
-    // 'Alpha' also names the repo prefix on w-oslo's Working-now row, so pin
-    // down the repo group's own header by its row wrapper.
-    const row = screen.getAllByText('Alpha').map((el) => el.closest<HTMLElement>('.sidebar-project-row')).find(Boolean)!
-    expect(within(row).getByText('2')).toBeInTheDocument()
-    expect(row.querySelector('.status-dot--waiting.status-dot--small')).not.toBeNull()
+    expect(row().querySelector('.status-dot--active.status-dot--small')).not.toBeNull()
   })
 
-  it('heads a repo that has branches but no home workspace with a muted, unselectable header', () => {
+  it('heads a repo with a muted, unselectable header — even with no clone', () => {
     const onSelectWorkspace = vi.fn()
     renderSidebar({ workspaces: [wt('w-oslo', 'oslo'), beta], activeWorkspaceId: null, sessionsByWorkspace: {}, onSelectWorkspace })
-    const header = screen.getByRole('button', { name: 'Expand Alpha' })
-    expect(header.className).toContain('sidebar-repo-group-header')
-    fireEvent.click(header)
-    expect(onSelectWorkspace).not.toHaveBeenCalled()
+    const alpha = header('Alpha')
+    expect(alpha.className).toContain('sidebar-repo-group-header')
     expect(rowNames()).toEqual(['oslo', 'beta-space'])
+
+    // It folds; it never selects. Clicking it must not enter a workspace.
+    fireEvent.click(alpha)
+    expect(onSelectWorkspace).not.toHaveBeenCalled()
+    expect(rowNames()).toEqual(['beta-space'])
   })
 
   it('folds merged worktrees behind one row and reveals them on click', async () => {
@@ -74,9 +164,9 @@ describe('repo tree', () => {
       sessionsByWorkspace: {},
     })
     const fold = await screen.findByRole('button', { name: 'Show 2 merged workspaces' })
-    expect(rowNames()).toEqual(['Alpha', 'oslo'])
+    expect(rowNames()).toEqual(['main', 'oslo'])
     fireEvent.click(fold)
-    expect(rowNames()).toEqual(['Alpha', 'oslo', 'old', 'older'])
+    expect(rowNames()).toEqual(['main', 'oslo', 'old', 'older'])
     expect(screen.getByRole('button', { name: 'Hide 2 merged workspaces' })).toBeInTheDocument()
   })
 
@@ -93,7 +183,7 @@ describe('repo tree', () => {
     // Waiting on the fold row proves the merged set arrived and moved w-old
     // behind it; the row must still be showing, without anyone clicking.
     const fold = await screen.findByRole('button', { name: /merged workspace/ })
-    expect(rowNames()).toEqual(['Alpha', 'old'])
+    expect(rowNames()).toEqual(['main', 'old'])
     expect(fold).toHaveAttribute('aria-expanded', 'true')
   })
 

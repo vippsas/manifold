@@ -82,6 +82,10 @@ export function WorkspaceList({
 
   const handleRemove = useCallback((id: string): void => { void onRemoveWorkspace(id) }, [onRemoveWorkspace])
   const sessionsFor = useCallback((w: Workspace) => sessionsByWorkspace[w.id] ?? [], [sessionsByWorkspace])
+  const workingIn = useCallback(
+    (w: Workspace) => (sessionsByWorkspace[w.id] ?? []).some((s) => outputtingSessionIds?.has(s.id)),
+    [sessionsByWorkspace, outputtingSessionIds],
+  )
   const draftsFor = useCallback((w: Workspace) => drafts.filter((d) => w.projectIds.includes(d.projectId)), [drafts])
 
   if (workspaces.length === 0) {
@@ -113,6 +117,7 @@ export function WorkspaceList({
           filtering={filtering}
           activeWorkspaceId={activeWorkspaceId}
           sessionsFor={sessionsFor}
+          workingIn={workingIn}
           draftsFor={draftsFor}
           card={card}
         />

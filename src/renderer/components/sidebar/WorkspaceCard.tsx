@@ -2,19 +2,22 @@ import React, { useCallback, useContext, useState } from 'react'
 import type { Project, AgentSession } from '../../../shared/types'
 import type { DraftChat } from '../../../shared/draft-chat'
 import { workspaceGlyphKind, type Workspace } from '../../../shared/workspace-types'
-import { ContextMenu } from '../common/ContextMenu'
 import { Tooltip } from '../common/Tooltip'
 import { DockStateContext } from '../editor/editor-shell/dock-panel-types'
 import { useContextMenu } from '../../hooks/useContextMenu'
-import { buildWorkspaceContextMenu } from './workspace-context-menu'
+import { WorkspaceCardMenu } from './WorkspaceCardMenu'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import { DraftAgentItem } from './DraftAgentItem'
 import { WorkspaceGlyph } from './WorkspaceGlyph'
 import { FilesChevronGlyph, WorkspaceActionsGlyph } from './SidebarCardActionGlyphs'
-import { projectFolderKey, useFolderDisclosure } from './folder-disclosure'
-import { rowStatus, workspaceRowLabel, type RowStatus } from './agent-labels'
+import { useFolderDisclosure } from './folder-disclosure'
+import { workspaceRowLabel } from './agent-labels'
 import { WorkspaceRowLabel } from './WorkspaceRowLabel'
-import { WorkspaceRepoRow } from './WorkspaceRepoRow'
+import { WorkspaceCardChildren } from './WorkspaceCardChildren'
+import { WorkspaceNameInput } from './WorkspaceNameInput'
+import { RepoFetchButton } from './RepoFetchButton'
+import { GitSyncFailureDialog } from '../git/GitSyncFailureDialog'
+import { useFetchProject } from '../../hooks/project/useFetchProject'
+import { isGitProject } from '../../../shared/project-kind'
 import type { FolderSource } from '../../hooks/editor/useWorkspaceTree'
 
 export interface WorkspaceCardProps {
@@ -29,9 +32,14 @@ export interface WorkspaceCardProps {
   /** A worktree card under its repo's home card: indented, guide line, repo
    *  prefix dropped since the parent said it. */
   nested?: boolean
-  /** Shown on a collapsed home card: how many branches hang under it and which
-   *  agent states are present among them. */
-  summary?: { count: number; statuses: RowStatus[] }
+  /** Shown on a collapsed card: how many workspaces hang under it, and whether
+   *  any of them is producing output. */
+  summary?: { count: number; working: boolean }
+  /** Replaces the displayed name without touching the stored one. The clone
+   *  card uses it to read as the branch it sits on, since the repo's own name
+   *  is already said by the group header above it. Rename still edits the
+   *  real name. */
+  labelOverride?: string
   sessions: AgentSession[]
   activeProjectId?: string | null
   outputtingSessionIds?: Set<string>
@@ -66,6 +74,7 @@ export function WorkspaceCard({
   onToggleExpanded,
   nested = false,
   summary,
+  labelOverride,
   sessions,
   activeProjectId,
   outputtingSessionIds,
@@ -90,13 +99,6 @@ export function WorkspaceCard({
   // actions, so the card needs no props threaded down for them.
   const dock = useContext(DockStateContext)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
-  // Stable identity so React only calls this when the input mounts — an inline
-  // ref callback would re-run on every keystroke and re-select the text,
-  // making the next character overwrite the whole draft.
-  const focusAndSelect = useCallback((el: HTMLInputElement | null): void => {
-    el?.focus()
-    el?.select()
-  }, [])
   const projectById = useCallback(
     (id: string) => projects.find((p) => p.id === id),
     [projects],
@@ -111,6 +113,20 @@ export function WorkspaceCard({
   // Which repo this workspace belongs to, said on the row itself: the name
   // alone can't, since only some names carry their branch prefix.
   const label = workspaceRowLabel(workspace, projects)
+
+  // A workspace spanning one repo renders **no folder row** (that row could
+  // only repeat the repo's name): this card's disclosure opens the files
+  // directly, and the row absorbs the fetch pill and Copy Path. Multi-repo
+  // cards keep their folder rows, where the names differ and say something.
+  const soloProjectId = workspace.projectIds.length === 1 ? workspace.projectIds[0] : null
+  const soloRepo = soloProjectId ? projectById(soloProjectId) : undefined
+  const soloPath = soloProjectId ? workspace.worktreePaths?.[soloProjectId] ?? soloRepo?.path : undefined
+  // What the row reads as. Accessible names follow it, not the stored name, so
+  // a clone row showing "main" never announces "manifold".
+  const displayLabel = labelOverride ? { ...label, name: labelOverride } : label
+  // Owned here: the pill sits in the hover cluster, its outcome under the row.
+  const soloFetch = useFetchProject(soloProjectId ?? '', onProjectFetched)
+  const showSoloFetch = Boolean(soloProjectId && soloRepo && isGitProject(soloRepo))
 
   // With no agent rows, the card still has to say "someone is working here" —
   // a pulsing dot by the name, plus a highlight sweeping the name itself, so the
@@ -148,7 +164,7 @@ export function WorkspaceCard({
         aria-expanded={expanded}
         className={`sidebar-item-row sidebar-project-row${nested ? ' sidebar-item-row--nested' : ''}${isActive ? ' sidebar-item-row--active' : ''}`}
         style={{ ...sidebarStyles.item, ...(isActive ? sidebarStyles.itemActive : undefined) }}
-        title={label.repo ? `${label.repo}/${label.name}` : label.name}
+        title={displayLabel.repo ? `${displayLabel.repo}/${displayLabel.name}` : displayLabel.name}
       >
         {/* The workspace's glyph is also its disclosure: it turns into the
             chevron for its state while the row is hovered or focused, so the row
@@ -159,7 +175,7 @@ export function WorkspaceCard({
           onKeyDown={(e) => e.stopPropagation()}
           className="sidebar-workspace-toggle"
           aria-expanded={expanded}
-          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${workspace.name}`}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${displayLabel.name}`}
           title={expanded ? 'Collapse workspace' : 'Expand workspace'}
         >
           <span className="sidebar-workspace-toggle__glyph">
@@ -170,26 +186,17 @@ export function WorkspaceCard({
           </span>
         </button>
         {nameDraft !== null ? (
-          <input
-            ref={focusAndSelect}
+          <WorkspaceNameInput
             value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            onBlur={commitRename}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.key === 'Enter') { e.preventDefault(); commitRename() }
-              else if (e.key === 'Escape') { e.preventDefault(); setNameDraft(null) }
-            }}
-            style={sidebarStyles.nameInput}
-            aria-label="Workspace name"
+            onChange={setNameDraft}
+            onCommit={commitRename}
+            onCancel={() => setNameDraft(null)}
           />
         ) : (
           <WorkspaceRowLabel
-            label={label}
+            label={displayLabel}
             showRepo={!nested}
-            status={rowStatus(sessions)}
-            sweeping={isWorking}
+            working={isWorking}
             onDoubleClick={(e) => { e.stopPropagation(); if (onRenameWorkspace) setNameDraft(label.name) }}
             title={onRenameWorkspace ? 'Double-click to rename' : undefined}
           />
@@ -197,13 +204,22 @@ export function WorkspaceCard({
         {summary && !expanded && summary.count > 0 && (
           <span className="sidebar-group-summary" aria-hidden="true">
             <span className="sidebar-group-count">{summary.count}</span>
-            {summary.statuses.map((s) => <span key={s} className={`status-dot status-dot--${s} status-dot--small`} />)}
+            {summary.working && <span className="status-dot status-dot--active status-dot--small" />}
           </span>
         )}
         {/* One control, not a cluster. The `×` that used to sit here is now
             "Remove Workspace" in this menu — a destructive action reads better
             as a word among its siblings than as a glyph a stray click can hit. */}
         <div className="sidebar-item-actions" style={sidebarStyles.itemRight}>
+          {showSoloFetch && soloRepo && (
+            <RepoFetchButton
+              repoName={soloRepo.name}
+              baseBranch={soloRepo.baseBranch}
+              behindCount={soloProjectId ? behindCounts?.[soloProjectId] ?? 0 : 0}
+              isFetching={soloFetch.isFetching}
+              onFetch={() => { void soloFetch.fetchProject() }}
+            />
+          )}
           <Tooltip
             label="Workspace actions"
             detail="New workspace, add a folder, rename, remove — or right-click the row."
@@ -216,7 +232,7 @@ export function WorkspaceCard({
               style={sidebarStyles.rowMenuButton}
               aria-haspopup="menu"
               aria-expanded={menu.position !== null}
-              aria-label={`Actions for ${workspace.name}`}
+              aria-label={`Actions for ${displayLabel.name}`}
             >
               <WorkspaceActionsGlyph />
             </button>
@@ -224,48 +240,57 @@ export function WorkspaceCard({
         </div>
       </div>
 
-      {expanded && workspace.projectIds.map((pid) => (
-        <WorkspaceRepoRow
-          key={`repo-${pid}`}
+      {showSoloFetch && soloRepo && soloFetch.error && (
+        <GitSyncFailureDialog
+          repoName={soloRepo.name}
+          failure={{ failedCommand: 'fetch', message: soloFetch.error }}
+          onClose={soloFetch.dismissError}
+        />
+      )}
+      {showSoloFetch && soloFetch.result && (
+        <div style={sidebarStyles.fetchMessage}>
+          {soloFetch.result.commitCount > 0
+            ? `Updated ${soloFetch.result.updatedBranch}: ${soloFetch.result.commitCount} new commit${soloFetch.result.commitCount === 1 ? '' : 's'}`
+            : `${soloFetch.result.updatedBranch} is up to date`}
+        </div>
+      )}
+
+      {expanded && (
+        <WorkspaceCardChildren
           workspace={workspace}
-          projectId={pid}
-          repo={projectById(pid)}
-          isActive={isActive && activeProjectId === pid}
-          behindCount={behindCounts?.[pid]}
-          filesOpen={folders.isOpen(projectFolderKey(pid))}
-          onToggleFiles={() => folders.toggle(projectFolderKey(pid))}
+          soloProjectId={soloProjectId}
+          projectById={projectById}
+          isActive={isActive}
+          activeProjectId={activeProjectId}
+          behindCounts={behindCounts}
+          folders={folders}
+          drafts={drafts}
+          activeDraftId={activeDraftId}
           onSelectRepo={onSelectRepo}
           onRemoveProject={onRemoveProject}
-          onFetched={onProjectFetched}
+          onProjectFetched={onProjectFetched}
+          onSelectDraft={onSelectDraft}
+          onDiscardDraft={onDiscardDraft}
           renderFolderFiles={renderFolderFiles}
         />
-      ))}
-
-      {expanded && drafts.map((draft) => (
-        <DraftAgentItem
-          key={draft.id}
-          draft={draft}
-          isActive={draft.id === activeDraftId}
-          onSelect={onSelectDraft}
-          onDiscard={onDiscardDraft}
-        />
-      ))}
+      )}
 
       {/* Not gated on `dock`: the `+` button opens this menu, and a button that
           silently does nothing wherever the dock state is absent would be worse
           than the glyphs it replaced. Favoriting drops out instead. */}
       {menu.position && (
-        <ContextMenu
-          x={menu.position.x}
-          y={menu.position.y}
-          items={buildWorkspaceContextMenu({
-            isFavorite: dock?.isFavorite(workspace.id),
-            toggleFavorite: dock ? () => dock.onToggleFavorite(workspace.id) : undefined,
-            rename: onRenameWorkspace ? () => setNameDraft(label.name) : undefined,
-            copyToWorktree: onCopyWorkspace ? () => onCopyWorkspace(workspace.id) : undefined,
-            addFolder: onAddProject ? () => void onAddProject(workspace.id) : undefined,
-            removeWorkspace: () => onRemoveWorkspace(workspace.id),
-          })}
+        <WorkspaceCardMenu
+          position={menu.position}
+          workspaceId={workspace.id}
+          renameSeed={label.name}
+          isFavorite={dock?.isFavorite(workspace.id)}
+          onToggleFavorite={dock ? () => dock.onToggleFavorite(workspace.id) : undefined}
+          onRename={onRenameWorkspace ? (seed) => setNameDraft(seed) : undefined}
+          onCopyToWorktree={onCopyWorkspace ? () => onCopyWorkspace(workspace.id) : undefined}
+          onAddFolder={onAddProject ? () => void onAddProject(workspace.id) : undefined}
+          onRemoveWorkspace={() => onRemoveWorkspace(workspace.id)}
+          soloPath={soloPath}
+          isSoloRepo={soloProjectId !== null}
           onClose={menu.close}
         />
       )}

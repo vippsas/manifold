@@ -1,6 +1,6 @@
 import type { AgentSession, Project } from '../../../shared/types'
 import { isWorktreeWorkspace, type Workspace } from '../../../shared/workspace-types'
-import { isLive, rowStatus, type RowStatus } from './agent-labels'
+import { isLive } from './agent-labels'
 import { repoFoldKey, workspaceFoldKey } from './sidebar-fold-state'
 import type { ProjectRecency } from './sidebar-recency'
 import { sortWorkspaces, type SidebarSortMode } from './sidebar-sort'
@@ -42,13 +42,6 @@ export function groupMembers(group: RepoGroup): Workspace[] {
   return [group.home, ...group.worktrees, ...group.merged].filter((w): w is Workspace => w !== null)
 }
 
-/** Every distinct agent state under a group, most urgent first — what a
- *  collapsed parent shows as small dots. */
-export function groupStatuses(sessionLists: readonly AgentSession[][]): RowStatus[] {
-  const present = new Set(sessionLists.map(rowStatus).filter((s): s is RowStatus => s !== null))
-  return (['waiting', 'running', 'error'] as const).filter((s) => present.has(s))
-}
-
 export function groupWorkspaces(
   workspaces: readonly Workspace[],
   projects: readonly Project[],
@@ -64,7 +57,10 @@ export function groupWorkspaces(
     let group = byKey.get(bucket)
     if (!group) {
       group = {
-        foldKey: primary ? repoFoldKey(primary.id) : workspaceFoldKey(workspace.id),
+        // A lone group (primary repo not registered) gets its own namespaced
+        // group key so closing the group can never also toggle its single
+        // member's card, which shares the workspace id.
+        foldKey: repoFoldKey(primary ? primary.id : `lone:${workspace.id}`),
         projectId: primary?.id ?? null,
         repoName: primary?.name ?? workspace.name,
         home: null,
@@ -74,8 +70,9 @@ export function groupWorkspaces(
       byKey.set(bucket, group)
     }
     if (!isWorktreeWorkspace(workspace) && group.home === null) {
+      // The home workspace is a member card like any other now; the group's
+      // fold belongs to the repo header above it, so foldKey stays repo-keyed.
       group.home = workspace
-      group.foldKey = workspaceFoldKey(workspace.id)
     } else if (ctx.mergedIds.has(workspace.id) && !ctx.liveIds.has(workspace.id)) {
       group.merged.push(workspace)
     } else {

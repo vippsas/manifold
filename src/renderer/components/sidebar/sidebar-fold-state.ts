@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 
-const STORAGE_KEY = 'manifold.sidebar.openWorkspaces.v1'
+// v2: the group fold moved from the home workspace's key onto the repo
+// header's own `repo:<projectId>` key, so v1 entries would name folds that no
+// longer exist. A fresh key starts everyone collapsed rather than half-migrated.
+// Presence means *open* for every key, group and card alike: repos start
+// collapsed, so the sidebar opens as an index of repos rather than a wall of
+// every workspace at once.
+const STORAGE_KEY = 'manifold.sidebar.openWorkspaces.v2'
 
 /** A workspace card. A home card's key also folds the worktrees under its repo. */
 export function workspaceFoldKey(workspaceId: string): string {
@@ -62,6 +68,7 @@ export function useWorkspaceFolds(): {
   isOpen: (key: string) => boolean
   toggle: (key: string) => void
   open: (key: string) => void
+  collapseAllGroups: () => void
 } {
   const [openKeys, setOpenKeys] = useState<Set<string>>(readOpen)
 
@@ -72,6 +79,7 @@ export function useWorkspaceFolds(): {
   }, [])
 
   const isOpen = useCallback((key: string): boolean => openKeys.has(key), [openKeys])
+
 
   const toggle = useCallback((key: string): void => {
     const next = new Set(readOpen())
@@ -85,5 +93,15 @@ export function useWorkspaceFolds(): {
     commit(new Set(current).add(key))
   }, [])
 
-  return { isOpen, toggle, open }
+  /** Folds every repo away in one go, leaving the cards' own state alone —
+   *  the sidebar's "give me the index back" gesture after a session of
+   *  opening things. Group keys are the `repo:`-prefixed ones (`repoFoldKey`). */
+  const collapseAllGroups = useCallback((): void => {
+    const current = readOpen()
+    const next = new Set([...current].filter((key) => !key.startsWith('repo:')))
+    if (next.size === current.size) return
+    commit(next)
+  }, [])
+
+  return { isOpen, toggle, open, collapseAllGroups }
 }

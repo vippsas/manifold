@@ -7,7 +7,9 @@ import {
   mockInvoke,
   renderSidebar,
   folderLabel,
+  sampleProjects,
   sampleSessions,
+  sampleWorkspaces,
 } from './ProjectSidebar.test-helpers'
 
 beforeEach(() => {
@@ -22,11 +24,15 @@ afterEach(() => {
 
 describe('ProjectSidebar', () => {
   it('names every workspace, and shows the folders of the open one', () => {
-    renderSidebar()
+    // alpha-space is solo now, so its own card is its folder — it renders no
+    // folder row to check here (see the dedicated "renders no folder row"
+    // test below). beta-space gets a second repo so it can still demonstrate
+    // that opening a workspace reveals its folder rows.
+    const workspaces = [sampleWorkspaces[0], { ...sampleWorkspaces[1], projectIds: ['p2', 'p1'] }]
+    renderSidebar({ workspaces })
 
     expect(screen.getByText('alpha-space')).toBeInTheDocument()
     expect(screen.getByText('beta-space')).toBeInTheDocument()
-    expect(folderLabel('Alpha')).toBeInTheDocument()
     expect(folderLabel('Beta')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
@@ -65,26 +71,32 @@ describe('ProjectSidebar', () => {
 
   // Which repo a workspace belongs to has to be readable without opening it —
   // the name alone can't say, since only some names carry their branch prefix.
+  // Every workspace card is nested under its repo's group header now, so the
+  // row itself never repeats the repo — the header says it once, above. The
+  // title still carries it for a hover glance.
   it('names the repo of a workspace whose own name does not', () => {
     renderSidebar()
 
+    expect(screen.getByRole('button', { name: 'Collapse Alpha' })).toBeInTheDocument()
     const row = screen.getByText('alpha-space').closest('.sidebar-project-row')
 
-    expect(within(row as HTMLElement).getByText('Alpha')).toBeInTheDocument()
+    expect(within(row as HTMLElement).queryByText('Alpha')).not.toBeInTheDocument()
     expect(row).toHaveAttribute('title', 'Alpha/alpha-space')
   })
 
+  // A clone named after its repo now reads as the repo's base branch instead
+  // (#7): the header above already says "Alpha", so the row says "main" and
+  // repeats the repo name nowhere at all.
   it('leaves the repo unsaid when the workspace is already named after it', () => {
     renderSidebar({
       workspaces: [{ id: 'w1', name: 'Alpha', projectIds: ['p1'], createdAt: '2024-01-01' }],
     })
 
-    // Scoped to the workspace row: the folder row inside the open card says
-    // "Alpha" too, which is exactly the repetition this rule avoids on the row.
     const row = document.querySelector('.sidebar-project-row')
 
-    expect(within(row as HTMLElement).getAllByText('Alpha')).toHaveLength(1)
-    expect(row).toHaveAttribute('title', 'Alpha')
+    expect(within(row as HTMLElement).queryByText('Alpha')).not.toBeInTheDocument()
+    expect(screen.getByText('main')).toBeInTheDocument()
+    expect(row).toHaveAttribute('title', 'main')
   })
 
   // Both kinds sit in one flat list, so the glyph is the only thing that says
@@ -112,7 +124,9 @@ describe('ProjectSidebar', () => {
 
     const row = screen.getByText('auth-refactor').closest('.sidebar-project-row')
 
-    expect(within(row as HTMLElement).getByText('Alpha')).toBeInTheDocument()
+    // The repo prefix is gone from the row now (its group header says "Alpha"
+    // above it); the extra-folder count is still the row's own to say.
+    expect(within(row as HTMLElement).queryByText('Alpha')).not.toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('+1 Beta')).toBeInTheDocument()
   })
 
@@ -127,7 +141,15 @@ describe('ProjectSidebar', () => {
   // Any number of cards open at once (#902): a repo tree you built up stays
   // built up, so opening one card never closes another.
   it('keeps every opened workspace open — opening another closes nothing', () => {
-    renderSidebar()
+    // Both workspaces need a second folder to have a folder row at all now (a
+    // one-repo workspace's own card is the folder, with no separate row);
+    // Gamma is only there to give each one, distinct from the other's own repo.
+    const gamma = { id: 'p3', name: 'Gamma', path: '/repos/gamma', baseBranch: 'main', addedAt: '2024-01-03' }
+    const workspaces = [
+      { ...sampleWorkspaces[0], projectIds: ['p1', 'p3'] },
+      { ...sampleWorkspaces[1], projectIds: ['p2', 'p3'] },
+    ]
+    renderSidebar({ projects: [...sampleProjects, gamma], workspaces })
 
     fireEvent.click(screen.getByLabelText('Expand beta-space'))
 
@@ -144,7 +166,11 @@ describe('ProjectSidebar', () => {
     expect(props.onSelectWorkspace).not.toHaveBeenCalled()
   })
 
-  it('gives a one-folder workspace the same folder row as a multi-folder one', () => {
+  // Replaces a test that asserted the opposite of the new intended behavior
+  // (a one-folder workspace used to get the same folder row as a multi-folder
+  // one — it now gets none at all, since its own card chevron opens its files
+  // directly).
+  it('renders no folder row for a one-folder workspace, but keeps them for a multi-folder one', () => {
     renderSidebar({
       workspaces: [
         { id: 'w1', name: 'solo', projectIds: ['p1'], createdAt: '2024-01-01' },
@@ -154,7 +180,7 @@ describe('ProjectSidebar', () => {
     })
 
     const solo = screen.getByText('solo').closest<HTMLElement>('.sidebar-workspace-card')
-    expect(within(solo!).getAllByRole('button', { name: /Show files in/ })).toHaveLength(1)
+    expect(within(solo!).queryAllByRole('button', { name: /Show files in/ })).toHaveLength(0)
 
     fireEvent.click(screen.getByLabelText('Expand pair'))
 
@@ -179,36 +205,32 @@ describe('ProjectSidebar', () => {
     expect(within(card!).queryByText('Claude')).not.toBeInTheDocument()
   })
 
-  // The dot is the agents' state, not their output: waiting outranks running,
-  // because an agent that needs you is the one thing you must notice.
-  it('colours the dot by state — waiting beats running', () => {
+  // The dot is *activity*, not status: it appears while an agent here is
+  // producing output and clears two seconds after the last chunk. Status is no
+  // proxy for it — 'waiting' sticks at an idle composer and 'running' is the
+  // fallback when nothing matches, so a status-driven dot sat lit forever on
+  // agents doing nothing.
+  it('pulses a dot on the workspace name while one of its agents is outputting', () => {
+    renderSidebar({ outputtingSessionIds: new Set(['s1']) })
+
+    const card = screen.getAllByText('alpha-space').map((el) => el.closest<HTMLElement>('.sidebar-workspace-card')).find(Boolean)!
+    const dot = within(card).getByLabelText('An agent is working in this workspace')
+    expect(dot.className).toContain('status-dot--active')
+  })
+
+  it('shows no dot for a live agent that is not producing output', () => {
     renderSidebar({
-      sessionsByWorkspace: {
-        w1: [{ ...sampleSessions[0], status: 'running' }, { ...sampleSessions[1], status: 'waiting' }],
-        w2: [],
-      },
+      outputtingSessionIds: new Set<string>(),
+      sessionsByWorkspace: { w1: [{ ...sampleSessions[0], status: 'waiting' }], w2: [] },
     })
 
-    // 'alpha-space' now also names the row in the Working-now strip above the
-    // tree, so pin down the tree's own copy by its card wrapper.
-    const card = screen.getAllByText('alpha-space').map((el) => el.closest<HTMLElement>('.sidebar-workspace-card')).find(Boolean)!
-    const dot = within(card!).getByLabelText('An agent is waiting for you in this workspace')
-    expect(dot.className).toContain('status-dot--waiting')
+    expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
   })
 
-  it('shows a running dot when no agent is waiting', () => {
-    renderSidebar({ sessionsByWorkspace: { w1: [{ ...sampleSessions[0], status: 'running' }], w2: [] } })
-
-    // The Working-now strip renders the same dot for the same workspace, so
-    // pick out the tree's own copy.
-    const dot = screen.getAllByLabelText('An agent is working in this workspace').find((el) => el.closest('.sidebar-workspace-card'))!
-    expect(dot.className).toContain('status-dot--running')
-  })
-
-  it('shows no dot while every agent is done', () => {
+  it('shows no dot while its agents are quiet', () => {
     renderSidebar()
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('An agent is working in this workspace')).not.toBeInTheDocument()
   })
 
   // The dot is 8px in the corner of the eye; the sweep across the name it belongs
@@ -220,25 +242,21 @@ describe('ProjectSidebar', () => {
     expect(screen.getByText('beta-space').closest('.sidebar-label-working')).toBeNull()
   })
 
-  // The sweep covers the dimmed `repo /` prefix too — but as a class on each
-  // segment, never on the span wrapping them. One `background-clip: text`
-  // element paints everything beneath it from a single gradient, so a wrapper
-  // would flatten the repo to the name's contrast and swallow the "/"; a
-  // gradient per segment keeps each one's own colour as the sweep's base.
-  it('sweeps each segment of the path on its own, not the span wrapping them', () => {
+  // Replaces a test that swept the dimmed `repo /` prefix segment too: every
+  // tree row is nested under its repo's group header now, so that prefix is
+  // never rendered in the tree at all (the header says the repo instead) —
+  // the name is the only segment left to sweep. The still-live guarantee is
+  // that the sweep class lands on the segment itself, never on the span
+  // wrapping it, since one `background-clip: text` element paints everything
+  // beneath it from a single gradient.
+  it('sweeps the name segment itself, not the row wrapping it', () => {
     renderSidebar({ outputtingSessionIds: new Set(['s1']) })
 
     const row = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
-    const repo = within(row!).getByText('Alpha')
-    const sep = within(row!).getByText('/')
     const name = within(row!).getByText('alpha-space')
 
-    for (const segment of [repo, sep, name]) {
-      expect(segment).toHaveClass('sidebar-label-working')
-      // The segment carries it itself — nothing above it may, or the gradient
-      // would be shared and the per-segment colours lost.
-      expect(segment.parentElement?.closest('.sidebar-label-working')).toBeNull()
-    }
+    expect(name).toHaveClass('sidebar-label-working')
+    expect(name.parentElement?.closest('.sidebar-label-working')).toBeNull()
   })
 
   it('calls onNewProject when New Repo is clicked', () => {
@@ -253,7 +271,7 @@ describe('ProjectSidebar', () => {
   // it is pinned exactly so an action cannot drift back in beside them. Both
   // *create* actions are words in the bottom bar, where a folder-plus glyph up
   // here read as "new workspace" to the eye and duplicated the button below.
-  it('renders just the filter and sort toggles in the compact top toolbar', () => {
+  it('renders the filter, sort and collapse-all toggles in the compact top toolbar', () => {
     renderSidebar()
 
     const toolbar = screen.getByRole('toolbar', { name: 'Workspace list actions' })
@@ -261,6 +279,7 @@ describe('ProjectSidebar', () => {
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Filter workspaces',
       'Sorted by recently used — click to sort A–Z',
+      'Collapse all repositories',
     ])
   })
 
@@ -292,20 +311,23 @@ describe('ProjectSidebar', () => {
     expect(props.onAddProjectToWorkspace).toHaveBeenCalledWith('w1')
   })
 
-  // The row's whole action surface: the disclosure, and one menu button. Pinned
-  // so a second glyph cannot drift back in beside it.
-  it('leaves just the disclosure and the actions button on the workspace header', () => {
+  // The row's whole action surface: the disclosure, the repo's fetch pill
+  // (absorbed from the folder row a solo workspace no longer renders), and one
+  // menu button. Pinned so a stray fourth control cannot drift back in.
+  it('leaves the disclosure, the fetch pill, and the actions button on the workspace header', () => {
     renderSidebar()
 
     const header = screen.getByText('alpha-space').closest<HTMLElement>('.sidebar-project-row')
     const labels = within(header!).getAllByRole('button')
       .map((b) => b.getAttribute('aria-label'))
 
-    expect(labels).toEqual(['Collapse alpha-space', 'Actions for alpha-space'])
+    expect(labels).toEqual(['Collapse alpha-space', 'Fetch Alpha', 'Actions for alpha-space'])
   })
 
   it('selecting a folder row calls onSelectWorkspaceRepo', () => {
-    const { props } = renderSidebar()
+    // alpha-space is solo now and renders no folder row of its own; give it a
+    // second repo so a folder row exists to select.
+    const { props } = renderSidebar({ workspaces: [{ ...sampleWorkspaces[0], projectIds: ['p1', 'p2'] }] })
 
     fireEvent.click(folderLabel('Alpha')!)
 

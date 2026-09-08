@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { AgentSession, Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
-import { filterGroups, groupStatuses, groupWorkspaces, liveWorkspaceIds, type GroupContext } from './sidebar-groups'
+import { filterGroups, groupWorkspaces, liveWorkspaceIds, type GroupContext } from './sidebar-groups'
 
 const projects: Project[] = [
   { id: 'p-apex', name: 'apex', path: '/repos/apex', baseBranch: 'main', addedAt: '2024-01-01' },
@@ -25,7 +25,9 @@ describe('groupWorkspaces — shape', () => {
     expect(groups[0].repoName).toBe('kong')
     expect(groups[0].home?.id).toBe('w-kong')
     expect(ids(groups[0].worktrees)).toEqual(['w-moss'])
-    expect(groups[0].foldKey).toBe('workspace:w-kong')
+    // The group's fold belongs to the repo header, never to the home card —
+    // the header is what folds the family, and the card folds its own files.
+    expect(groups[0].foldKey).toBe('repo:p-kong')
   })
 
   it('heads a home-less repo with a repo key', () => {
@@ -50,7 +52,9 @@ describe('groupWorkspaces — shape', () => {
     const [g] = groupWorkspaces([home('w-ghost', 'ghost', ['p-none'])], projects, ctx())
     expect(g.repoName).toBe('ghost')
     expect(g.home?.id).toBe('w-ghost')
-    expect(g.foldKey).toBe('workspace:w-ghost')
+    // Namespaced so closing a lone group can't also toggle its one member's
+    // card, which shares the workspace id.
+    expect(g.foldKey).toBe('repo:lone:w-ghost')
   })
 
   it('folds merged worktrees unless one is live', () => {
@@ -89,7 +93,7 @@ describe('groupWorkspaces — order', () => {
   })
 })
 
-describe('liveWorkspaceIds / groupStatuses', () => {
+describe('liveWorkspaceIds', () => {
   const s = (id: string, status: AgentSession['status']): AgentSession =>
     ({ id, projectId: 'p', runtimeId: 'claude', branchName: 'b', worktreePath: '/', status, pid: 1, additionalDirs: [] })
 
@@ -98,11 +102,6 @@ describe('liveWorkspaceIds / groupStatuses', () => {
       .toEqual(new Set(['b', 'c']))
   })
 
-  it('reports each distinct status once, most urgent first', () => {
-    expect(groupStatuses([[s('1', 'running')], [s('2', 'error')], [s('3', 'running'), s('4', 'waiting')]]))
-      .toEqual(['waiting', 'running', 'error'])
-    expect(groupStatuses([[s('1', 'done')]])).toEqual([])
-  })
 })
 
 describe('filterGroups', () => {

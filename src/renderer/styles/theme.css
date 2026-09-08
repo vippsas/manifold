@@ -467,6 +467,10 @@ select:focus-visible {
   background: var(--accent);
 }
 
+.status-dot--hidden {
+  visibility: hidden;
+}
+
 /* Warp-core pulse: the running dot breathes — its body dims and swells while an
    accent glow blooms — so it reads clearly as alive, not just an ambient flicker. */
 @keyframes core-pulse {
@@ -488,31 +492,6 @@ select:focus-visible {
   animation: core-pulse 2s ease-in-out infinite;
 }
 
-.status-dot--hidden {
-  visibility: hidden;
-}
-
-/* The dot's colour is the agents' state: turquoise running, amber waiting —
-   the one state you must notice — ruby error. Running and waiting breathe; an
-   error holds still. `done` draws no dot at all. Each sets `--effect-glow` so
-   the pulse blooms in its own colour rather than the accent's. */
-.status-dot--running {
-  --effect-glow: var(--status-running);
-  background: var(--status-running);
-  animation: core-pulse 2s ease-in-out infinite;
-}
-
-.status-dot--waiting {
-  --effect-glow: var(--status-waiting);
-  background: var(--status-waiting);
-  animation: core-pulse 2s ease-in-out infinite;
-}
-
-.status-dot--error {
-  background: var(--status-error);
-}
-
-/* The dots a collapsed group shows for the agents under it. */
 .status-dot--small {
   width: 6px;
   height: 6px;
@@ -945,9 +924,9 @@ select:focus-visible {
 /* The workspace you are in reads as a region, not a row: a 2px accent rail down
    the card's whole height — past an expanded tree — with a subtle wash on the
    workspace's own rows. Neither half works alone. The rail by itself competes
-   with the pulsing status dots on every working workspace below it (`core-pulse`,
-   :477), and a static 2px line loses to motion; the wash by itself does not tie
-   the header to the folders under it. */
+   with the pulsing status dots on every working workspace below it
+   (`core-pulse`), and a static 2px line loses to motion; the wash by itself
+   does not tie the header to the folders under it. */
 .sidebar-workspace-card.sidebar-project-group--active {
   position: relative;
   margin: 2px 8px;
@@ -2273,7 +2252,7 @@ select:focus-visible {
 
 /* ─── Reduced motion: instrumentation effects go static ─── */
 @media (prefers-reduced-motion: reduce) {
-  .status-dot--active, .status-dot--running, .status-dot--waiting {
+  .status-dot--active {
     animation: none;
   }
 

@@ -68,6 +68,21 @@ export const sampleSessions: AgentSession[] = [
   { id: 's2', projectId: 'p1', runtimeId: 'codex', branchName: 'alpha/bergen', worktreePath: '/wt2', status: 'done', pid: 2, additionalDirs: [] },
 ]
 
+/** Seeds the fold store so every repo group renders expanded.
+ *
+ *  Repos ship **collapsed**, so a freshly rendered sidebar shows headers and no
+ *  workspace rows at all. Most tests here are about the rows, not the fold
+ *  default — they would each have to click a header open before they could say
+ *  anything. This puts them straight at "the groups are open"; the default
+ *  itself is pinned where it belongs, in `RepoGroup.test.tsx` and
+ *  `sidebar-fold-state.test.ts`. Pass `seedGroupsOpen: false` to opt out. */
+export function openAllGroups(projectIds: readonly string[]): void {
+  localStorage.setItem(
+    'manifold.sidebar.openWorkspaces.v2',
+    JSON.stringify(projectIds.map((id) => `repo:${id}`)),
+  )
+}
+
 /** Renders the sidebar inside a DockStateContext when `dock` is supplied. The
  *  cross-cutting row actions (favorites) read that context rather than props, so
  *  only the tests that exercise them need to provide it. */
@@ -76,6 +91,7 @@ export function renderSidebar(overrides: Record<string, unknown> = {}, dock?: Pa
     dock
       ? <DockStateContext.Provider value={dock as DockAppState}>{ui}</DockStateContext.Provider>
       : ui
+  const { seedGroupsOpen = true, ...propOverrides } = overrides as { seedGroupsOpen?: boolean }
   const props = {
     projects: sampleProjects,
     activeProjectId: 'p1',
@@ -96,7 +112,16 @@ export function renderSidebar(overrides: Record<string, unknown> = {}, dock?: Pa
     activeDraftId: null,
     onSelectDraft: vi.fn(),
     onDiscardDraft: vi.fn(),
-    ...overrides,
+    ...propOverrides,
+  }
+
+  if (seedGroupsOpen) {
+    const projects = (props.projects ?? []) as { id: string }[]
+    const workspaces = (props.workspaces ?? []) as { id: string; projectIds: string[] }[]
+    // Lone groups (primary repo unregistered) are keyed by workspace, not repo.
+    const known = new Set(projects.map((p) => p.id))
+    const lone = workspaces.filter((w) => !known.has(w.projectIds[0])).map((w) => `lone:${w.id}`)
+    openAllGroups([...projects.map((p) => p.id), ...lone])
   }
 
   const view = render(wrap(<ProjectSidebar {...props as unknown as ProjectSidebarProps} />))

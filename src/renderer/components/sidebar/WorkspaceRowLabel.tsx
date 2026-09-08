@@ -1,21 +1,24 @@
 import React from 'react'
 import { sidebarStyles } from './ProjectSidebar.styles'
-import type { RowStatus, WorkspaceRowLabel as RowLabel } from './agent-labels'
+import type { WorkspaceRowLabel as RowLabel } from './agent-labels'
 
-const STATUS_LABEL: Record<RowStatus, string> = {
-  running: 'An agent is working in this workspace',
-  waiting: 'An agent is waiting for you in this workspace',
-  error: 'An agent failed in this workspace',
-}
+const WORKING_LABEL = 'An agent is working in this workspace'
 
 export interface WorkspaceRowLabelProps {
   label: RowLabel
   /** False on a nested row: the parent row already names the repo. */
   showRepo: boolean
-  /** Colours the dot; null draws none. */
-  status: RowStatus | null
-  /** True while an agent here is emitting output — drives the label sweep. */
-  sweeping: boolean
+  /** True while an agent here is emitting output. Drives both signals the row
+   *  carries: the dot and the sweep across the name.
+   *
+   *  Deliberately *not* `AgentStatus`. No status is a usable proxy for
+   *  activity — `detectStatus` reports 'waiting' from the mere presence of a
+   *  prompt character and falls through to 'running' when nothing matches
+   *  (`agent/status-detector.ts:99`), and status is only recomputed when fresh
+   *  output arrives — so a status-driven dot sat lit forever on agents doing
+   *  nothing. `isOutputting` drops two seconds after the last chunk
+   *  (`session-stream-wirer.ts`), which is what makes this signal self-clearing. */
+  working: boolean
   onDoubleClick?: (e: React.MouseEvent<HTMLSpanElement>) => void
   title?: string
 }
@@ -29,8 +32,8 @@ export interface WorkspaceRowLabelProps {
  *  the name's contrast and swallowed the "/". Per segment, each keeps its own
  *  colour as the sweep's base, and `background-attachment: fixed` (theme.css)
  *  is what still makes them read as one band. */
-export function WorkspaceRowLabel({ label, showRepo, status, sweeping, onDoubleClick, title }: WorkspaceRowLabelProps): React.JSX.Element {
-  const sweep = sweeping ? 'sidebar-label-working' : ''
+export function WorkspaceRowLabel({ label, showRepo, working, onDoubleClick, title }: WorkspaceRowLabelProps): React.JSX.Element {
+  const sweep = working ? 'sidebar-label-working' : ''
   return (
     <span
       className="sidebar-row-label"
@@ -48,12 +51,12 @@ export function WorkspaceRowLabel({ label, showRepo, status, sweeping, onDoubleC
         <span className={`truncate ${sweep}`.trim()} style={{ minWidth: 0 }}>{label.name}</span>
         {label.extra && <span className="sidebar-row-extra">{label.extra}</span>}
       </span>
-      {status && (
+      {working && (
         <span
-          className={`status-dot status-dot--${status}`}
+          className="status-dot status-dot--active"
           role="status"
-          aria-label={STATUS_LABEL[status]}
-          title={STATUS_LABEL[status]}
+          aria-label={WORKING_LABEL}
+          title={WORKING_LABEL}
         />
       )}
     </span>

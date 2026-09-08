@@ -58,7 +58,9 @@ describe('sidebar filter', () => {
     fireEvent.change(input, { target: { value: 'beta' } })
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(screen.queryByRole('textbox', { name: 'Filter workspaces' })).not.toBeInTheDocument()
-    expect(rowNames()).toEqual(['Alpha', 'beta-space'])
+    // 'home' is named exactly after its repo, so it now reads as Alpha's base
+    // branch ('main') rather than repeating the repo's name (#7).
+    expect(rowNames()).toEqual(['main', 'beta-space'])
 
     fireEvent.blur(openFilter())
     expect(screen.queryByRole('textbox', { name: 'Filter workspaces' })).not.toBeInTheDocument()
