@@ -467,48 +467,31 @@ select:focus-visible {
   background: var(--accent);
 }
 
-/* Warp-core pulse: the running dot breathes — its body dims and swells while an
-   accent glow blooms — so it reads clearly as alive, not just an ambient flicker. */
-@keyframes core-pulse {
-  0%, 100% {
-    opacity: 0.5;
-    transform: scale(1);
-    box-shadow: 0 0 3px 0 var(--effect-glow, var(--accent-subtle));
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.18);
-    box-shadow:
-      0 0 6px 2px var(--effect-glow, var(--accent)),
-      0 0 13px 4px var(--effect-glow, var(--accent-subtle));
-  }
-}
-
-.status-dot--active {
-  animation: core-pulse 2s ease-in-out infinite;
-}
-
 .status-dot--hidden {
   visibility: hidden;
 }
 
-/* The dot's colour is the agents' state: turquoise running, amber waiting,
+/* The dot's colour is the agents' **state**: turquoise running, amber waiting,
    ruby error; `done` draws no dot at all.
-   **Only `running` breathes.** The pulse means activity, and activity is the
-   one thing `waiting` is not: `detectStatus` reports 'waiting' from the mere
-   presence of a prompt character (`agent/status-detector.ts`), which an agent
-   sitting idle at its composer satisfies forever — and status is only
-   re-evaluated when new PTY output arrives (`session-stream-wirer.ts`), so
-   nothing ever comes along to end it. A pulse there blinked indefinitely at
-   agents doing nothing. Amber already carries "this one may want you"; motion
-   on top of it only cried wolf.
-   This also keeps the status bar honest: it renders `status-dot--<status>`
-   straight from the active session (`git/StatusBar.tsx`), so animating
-   'waiting' set the bottom-of-window dot blinking too. */
+   **No status dot animates.** Motion has to mean activity, and none of these
+   states is a reliable proxy for it — `AgentStatus` is sticky by construction.
+   `detectStatus` (`agent/status-detector.ts`) reports 'waiting' from the mere
+   presence of a prompt character, which an idle composer satisfies forever,
+   and it *falls through to 'running' whenever nothing matches at all* (`:99`),
+   so an agent that went quiet without leaving a recognizable prompt in its
+   last 2000 characters stays 'running' indefinitely. Status is only
+   recomputed when fresh PTY output arrives (`session-stream-wirer.ts`), so in
+   both cases nothing ever comes along to end it: the dot blinked forever at
+   an agent doing nothing, in the sidebar *and* in the status bar, which
+   renders `status-dot--<status>` straight from the active session
+   (`git/StatusBar.tsx`).
+   The activity signal that *does* self-clear is `isOutputting` — dropped two
+   seconds after the last chunk (`session-stream-wirer.ts`, idle timer) — and
+   it already owns the sidebar's motion as the `.sidebar-label-working` sweep
+   across the row's name. Colour says what state an agent is in; the sweep says
+   it is producing output right now. */
 .status-dot--running {
-  --effect-glow: var(--status-running);
   background: var(--status-running);
-  animation: core-pulse 2s ease-in-out infinite;
 }
 
 .status-dot--waiting {
@@ -952,9 +935,9 @@ select:focus-visible {
 /* The workspace you are in reads as a region, not a row: a 2px accent rail down
    the card's whole height — past an expanded tree — with a subtle wash on the
    workspace's own rows. Neither half works alone. The rail by itself competes
-   with the pulsing status dots on every working workspace below it (`core-pulse`,
-   :477), and a static 2px line loses to motion; the wash by itself does not tie
-   the header to the folders under it. */
+   with the `.sidebar-label-working` sweep on every workspace producing output
+   below it, and a static 2px line loses to motion; the wash by itself does not
+   tie the header to the folders under it. */
 .sidebar-workspace-card.sidebar-project-group--active {
   position: relative;
   margin: 2px 8px;
@@ -2280,9 +2263,8 @@ select:focus-visible {
 
 /* ─── Reduced motion: instrumentation effects go static ─── */
 @media (prefers-reduced-motion: reduce) {
-  .status-dot--active, .status-dot--running {
-    animation: none;
-  }
+  /* Status dots no longer animate at all (see `.status-dot--running`); the
+     sweep below is the only motion left to disable here. */
 
   /* The sweep stops, and the label falls back to plain text — a frozen gradient
      would leave the highlight parked mid-label. */
