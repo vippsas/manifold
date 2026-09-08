@@ -40,7 +40,7 @@ describe('groupSessionsByWorkspace', () => {
     expect(map.home?.map((s) => s.id)).toEqual(['s1'])
   })
 
-  // The bug behind "New Workspace, Same Folders shows the old agent": a new
+  // The bug behind "a same-folders workspace shows the old agent": a new
   // worktree workspace spans the same repo, so a workspace-less agent working in
   // the repo's own clone was adopted by it too — becoming its primary session,
   // which the agent panel renders and the sidebar row lights a dot for.

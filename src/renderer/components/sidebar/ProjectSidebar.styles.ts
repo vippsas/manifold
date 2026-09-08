@@ -1,8 +1,8 @@
 import type React from 'react'
 
 // The two create actions in the bottom bar. They never shrink below their basis
-// — they wrap to a stack instead — so "+ New Workspace" cannot clip to
-// "+ New Workspac…" in a narrowed sidebar.
+// — they wrap to a stack instead — so "+ New Agent" cannot clip to "+ New Agen…"
+// in a narrowed sidebar.
 const footerButton: React.CSSProperties = {
   flex: '1 0 120px',
   display: 'flex',
@@ -57,6 +57,25 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     borderRadius: 'var(--radius-sm)',
     background: 'transparent',
     color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  // The header's `+`: sits right after the "Workspaces" label rather than in the
+  // right-hand cluster, so it reads as "add one of these" instead of one more
+  // view toggle. Accent, because it is the one create action up here.
+  toolbarNewButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '20px',
+    height: '20px',
+    padding: 0,
+    border: '1px solid transparent',
+    borderRadius: 'var(--radius-sm)',
+    background: 'transparent',
+    color: 'var(--accent)',
+    fontSize: 'var(--type-ui)',
+    lineHeight: 1,
     cursor: 'pointer',
     flexShrink: 0,
   },
@@ -227,8 +246,8 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   // Registering a repo is the prerequisite, not the act, so it wears the neutral
-  // hairline and cedes the accent to the workspace CTA beside it. It lives here
-  // in words rather than as a folder-plus glyph in the top toolbar, where the
+  // hairline and cedes the accent to the agent CTA beside it. It lives here in
+  // words rather than as a folder-plus glyph in the top toolbar, where the
   // silhouette read as "new workspace" and doubled that button.
   newRepoButton: {
     ...footerButton,
@@ -236,9 +255,10 @@ export const sidebarStyles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
   },
   // Transparent behind an accent hairline: unmistakably a control rather than
-  // one more row, while staying under the metal plate the primary agent CTA
-  // owns. Hover brightens the hairline (.sidebar-new-workspace-button).
-  newWorkspaceButton: {
+  // one more row, while staying under the metal plate the agent tab bar's CTA
+  // owns. Hover brightens the hairline (.sidebar-new-agent-button); disabled —
+  // no workspace selected to cut from — it dims instead.
+  newAgentButton: {
     ...footerButton,
     border: '1px solid color-mix(in srgb, var(--accent), transparent 70%)',
     color: 'var(--accent)',

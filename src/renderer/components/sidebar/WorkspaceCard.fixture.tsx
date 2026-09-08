@@ -57,7 +57,6 @@ function Card({ working = false }: { working?: boolean } = {}): React.JSX.Elemen
       onSelectWorkspace={noop}
       onRenameWorkspace={noop}
       onRemoveWorkspace={noop}
-      onCopyWorkspace={noop}
       onAddProject={noop}
       onSelectDraft={noop}
       onDiscardDraft={noop}

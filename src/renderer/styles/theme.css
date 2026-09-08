@@ -1323,9 +1323,19 @@ select:focus-visible {
   background: transparent;
 }
 
-.sidebar-new-workspace-button:hover {
+.sidebar-new-agent-button:hover {
   background: var(--accent-subtle);
   border-color: var(--accent);
+}
+
+.sidebar-new-agent-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sidebar-new-agent-button:disabled:hover {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--accent), transparent 70%);
 }
 
 .sidebar-new-repo-button:hover {

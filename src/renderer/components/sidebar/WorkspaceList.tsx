@@ -33,7 +33,6 @@ export interface WorkspaceListProps {
   onSelectWorkspace: (id: string) => void
   onRenameWorkspace?: (id: string, name: string) => void
   onRemoveWorkspace: (id: string) => Promise<void>
-  onCopyWorkspace?: (id: string) => void
   onSelectRepo?: (workspaceId: string, projectId: string) => void
   onAddProject?: (workspaceId: string) => void | Promise<void>
   onRemoveProject?: (workspaceId: string, projectId: string) => void
@@ -53,7 +52,7 @@ export function WorkspaceList({
   workspaces, projects, sortMode, recency, touchProject, mergedIds, filter,
   activeWorkspaceId, activeProjectId, sessionsByWorkspace, outputtingSessionIds,
   drafts, activeDraftId, onSelectWorkspace, onRenameWorkspace, onRemoveWorkspace,
-  onCopyWorkspace, onSelectRepo, onAddProject, onRemoveProject, behindCounts,
+  onSelectRepo, onAddProject, onRemoveProject, behindCounts,
   onProjectFetched, onSelectDraft, onDiscardDraft, renderFolderFiles,
 }: WorkspaceListProps): React.JSX.Element {
   const folds = useWorkspaceFolds()
@@ -98,7 +97,7 @@ export function WorkspaceList({
 
   const card: CardCommonProps = {
     projects, activeProjectId, outputtingSessionIds, activeDraftId,
-    onSelectWorkspace, onRenameWorkspace, onRemoveWorkspace: handleRemove, onCopyWorkspace,
+    onSelectWorkspace, onRenameWorkspace, onRemoveWorkspace: handleRemove,
     onSelectRepo, onAddProject, onRemoveProject, behindCounts, onProjectFetched,
     onSelectDraft, onDiscardDraft, renderFolderFiles,
   }

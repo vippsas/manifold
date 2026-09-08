@@ -30,10 +30,17 @@ function applyProjectSessions(
   result: AgentSession[],
   preferredSessionId: string | null | undefined,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
-  setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
+  setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>,
+  clearedRef: React.MutableRefObject<boolean>,
 ): void {
   setSessions(result)
   setActiveSessionId((prev) => {
+    // The list is per repo, the view is per workspace. A selection cleared on
+    // purpose — entering a workspace with no agent of its own — must survive a
+    // resync: the repo's first or remembered session lives in another workspace,
+    // and promoting it here showed (and auto-resumed) that agent in the wrong
+    // place. The flag lifts as soon as anything selects a session again.
+    if (clearedRef.current) return null
     const preferred = preferredSessionId ?? prev
     if (preferred && result.some((session) => session.id === preferred)) return preferred
     return result.length > 0 ? result[0].id : null
@@ -60,23 +67,33 @@ interface UseAgentSessionResult {
 export function useAgentSession(projectId: string | null): UseAgentSessionResult {
   const [sessions, setSessions] = useState<AgentSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  // True from an explicit `setActiveSession(null)` until a session is selected
+  // by any route (sidebar, dock, spawn). See `applyProjectSessions`. Set
+  // synchronously with the state, not in an effect: a spawn's resync can land
+  // before any effect runs and must already see the flag lifted.
+  const clearedRef = useRef(false)
+  const selectSessionId = useCallback((next: React.SetStateAction<string | null>): void => {
+    if (typeof next === 'string') clearedRef.current = false
+    setActiveSessionId(next)
+  }, [])
 
   const { refreshSessions, rememberedActiveSessionRef } = useFetchSessionsOnProjectChange(
-    projectId, activeSessionId, setSessions, setActiveSessionId,
+    projectId, activeSessionId, setSessions, setActiveSessionId, clearedRef,
   )
   useStatusListener(setSessions)
   useExitListener(setSessions)
   useAutoResume(activeSessionId, sessions, setSessions)
   const outputtingSessionIds = useActivityStateListener()
 
-  const spawnAgent = useSpawnAgent(projectId, refreshSessions, setSessions, setActiveSessionId)
+  const spawnAgent = useSpawnAgent(projectId, refreshSessions, setSessions, selectSessionId)
   const killAgent = useKillAgent()
   const deleteAgent = useDeleteAgent(setSessions, setActiveSessionId)
   const resumeAgent = useResumeAgent(setSessions)
 
   const setActiveSession = useCallback((sessionId: string | null): void => {
-    setActiveSessionId(sessionId)
-  }, [])
+    clearedRef.current = sessionId === null
+    selectSessionId(sessionId)
+  }, [selectSessionId])
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
@@ -92,7 +109,8 @@ function useFetchSessionsOnProjectChange(
   projectId: string | null,
   activeSessionId: string | null,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
-  setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
+  setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>,
+  clearedRef: React.MutableRefObject<boolean>,
 ): FetchSessionsResult {
   const requestIdRef = useRef(0)
   // Remembers the last active session per project so re-entering a repo
@@ -111,14 +129,14 @@ function useFetchSessionsOnProjectChange(
       try {
         const result = await fetchProjectSessions(projectId)
         if (requestId !== requestIdRef.current) return null
-        applyProjectSessions(result, preferredSessionId, setSessions, setActiveSessionId)
+        applyProjectSessions(result, preferredSessionId, setSessions, setActiveSessionId, clearedRef)
         return result
       } catch {
         // IPC not ready yet during init, sessions will arrive via events
         return null
       }
     },
-    [projectId, setSessions, setActiveSessionId]
+    [projectId, setSessions, setActiveSessionId, clearedRef]
   )
 
   useEffect(() => {
