@@ -23,6 +23,24 @@ afterEach(() => {
 })
 
 describe('ProjectSidebar', () => {
+  it('reveals a folder added to a collapsed repository group', () => {
+    const { setProps } = renderSidebar()
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all repositories' }))
+    setProps({ workspaces: sampleWorkspaces.map((workspace) => workspace.id === 'w2'
+      ? { ...workspace, projectIds: ['p2', 'p1'] }
+      : workspace) })
+    expect(screen.getByRole('button', { name: 'Collapse Beta' })).toBeInTheDocument()
+    expect(folderLabel('Beta')).toBeInTheDocument()
+  })
+
+  it('reveals the active repository when an add clears the workspace selection', () => {
+    const { setProps } = renderSidebar()
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all repositories' }))
+    setProps({ activeWorkspaceId: null, activeProjectId: 'p2' })
+    expect(screen.getByRole('button', { name: 'Collapse Beta' })).toBeInTheDocument()
+    expect(screen.getByText('beta-space')).toBeInTheDocument()
+  })
+
   it('names every workspace, and shows the folders of the open one', () => {
     // alpha-space is solo now, so its own card is its folder — it renders no
     // folder row to check here (see the dedicated "renders no folder row"
@@ -324,7 +342,7 @@ describe('ProjectSidebar', () => {
 
     fireEvent.click(actions())
     expect(screen.queryByText('New Workspace, Same Folders')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByText('Add Folder…'))
+    fireEvent.click(screen.getByText('Add Folder to Workspace…'))
 
     expect(props.onAddProjectToWorkspace).toHaveBeenCalledWith('w1')
     expect(props.onCopyWorkspace).not.toHaveBeenCalled()

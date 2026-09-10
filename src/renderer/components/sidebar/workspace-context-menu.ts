@@ -49,7 +49,7 @@ export function buildWorkspaceContextMenu(cfg: WorkspaceMenuConfig): MenuItem[] 
   }
 
   if (cfg.rename) items.push({ label: 'Rename…', action: cfg.rename })
-  if (cfg.addFolder) items.push({ label: 'Add Folder…', action: cfg.addFolder })
+  if (cfg.addFolder) items.push({ label: 'Add Folder to Workspace…', action: cfg.addFolder })
 
   if (cfg.extraItems?.length) items.push('separator', ...cfg.extraItems)
 

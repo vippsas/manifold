@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Workspace, WorkspaceCreateOptions, WorkspaceSpawnAgentOptions } from '../../../shared/workspace-types'
 import type { AgentSession } from '../../../shared/types'
 
@@ -14,11 +14,13 @@ export interface UseWorkspacesResult {
 
 export function useWorkspaces(): UseWorkspacesResult {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const refreshVersion = useRef(0)
 
   const refresh = useCallback(async () => {
+    const version = ++refreshVersion.current
     try {
       const list = await window.electronAPI.invoke('workspace:list')
-      setWorkspaces(list as Workspace[])
+      if (version === refreshVersion.current) setWorkspaces(list as Workspace[])
     } catch (err) {
       console.error('[useWorkspaces] failed to refresh workspace list', err)
     }

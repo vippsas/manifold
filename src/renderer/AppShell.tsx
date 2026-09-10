@@ -100,9 +100,9 @@ export interface AppShellProps {
   setPreviewThemeId: (id: string | null) => void
   addProject: (path?: string, options?: { activate?: boolean }) => Promise<Project | null>
   cloneProject: (url: string) => Promise<boolean>
-  handleAddProjectFromOnboarding: (path?: string) => Promise<void>
-  handleCloneFromOnboarding: (url: string) => Promise<boolean>
-  handleCreateNewProject: (options: CreateProjectOptions) => Promise<boolean>
+  handleAddProjectFromOnboarding: (path?: string, workspaceId?: string) => Promise<void>
+  handleCloneFromOnboarding: (url: string, workspaceId?: string) => Promise<boolean>
+  handleCreateNewProject: (options: CreateProjectOptions, workspaceId?: string) => Promise<boolean>
   newAgentTarget: NewAgentTarget | null
   closeNewAgentModal: () => void
   // Workspace modal wiring
@@ -314,8 +314,10 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
         projectError={p.projectError}
         defaultRuntime={p.defaultRuntime}
         onAddProject={() => p.addProject()}
-        onCreate={(opts) => {
-          void p.createWorkspace({ ...opts, absorbHomeWorkspaces: true })
+        onCreate={async (opts) => {
+          const workspace = await p.createWorkspace({ ...opts, absorbHomeWorkspaces: true })
+          p.dockState.onSelectWorkspace(workspace.id)
+          if (workspace.projectIds[0]) p.dockState.onSelectWorkspaceRepo?.(workspace.id, workspace.projectIds[0])
           p.setNewWorkspaceVisible(false)
         }}
         onClose={() => p.setNewWorkspaceVisible(false)}
@@ -331,7 +333,10 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
       <WorkingSetToast notices={p.workingSetNotices.notices} onDismiss={p.workingSetNotices.dismiss} />
       <AddRepositoryModal
         visible={p.appEffects.showOnboarding || p.appEffects.creatingProject}
-        onAddProject={() => void p.handleAddProjectFromOnboarding()}
+        currentWorkspace={p.workspaces.find((workspace) => p.dockState.activeWorkspaceId
+          ? workspace.id === p.dockState.activeWorkspaceId
+          : workspace.projectIds.includes(p.activeProjectId ?? ''))}
+        onAddProject={(workspaceId) => void p.handleAddProjectFromOnboarding(undefined, workspaceId)}
         onCloneProject={p.handleCloneFromOnboarding}
         onCreateNewProject={p.handleCreateNewProject}
         creatingProject={p.appEffects.creatingProject}

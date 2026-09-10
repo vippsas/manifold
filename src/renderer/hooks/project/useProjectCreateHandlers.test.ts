@@ -57,6 +57,16 @@ function makeArgs(overrides: Partial<Parameters<typeof useProjectCreateHandlers>
 }
 
 describe('useProjectCreateHandlers.handleCreateNewProject', () => {
+  it('creates the repository and its agent in the chosen workspace', async () => {
+    const selectWorkspace = vi.fn()
+    const args = makeArgs({ selectWorkspace })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+    await act(async () => { await result.current.handleCreateNewProject({ description: 'A timer' }, 'w1') })
+    expect(args.createNewProject).toHaveBeenCalledWith({ description: 'A timer' }, 'w1')
+    expect(args.spawnAgent).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'w1' }))
+    expect(selectWorkspace).toHaveBeenCalledWith('w1')
+    expect(args.clearActiveWorkspace).not.toHaveBeenCalled()
+  })
   it('spawns the agent in chat mode with the description as both prompt and userMessage', async () => {
     const spawnAgent = vi.fn().mockResolvedValue(makeSession())
     const args = makeArgs({ spawnAgent })
@@ -218,6 +228,15 @@ describe('useProjectCreateHandlers.handleCreateNewProject', () => {
 })
 
 describe('useProjectCreateHandlers.handleAddProjectFromOnboarding', () => {
+  it('adds a local repository to the chosen workspace without clearing it', async () => {
+    const selectWorkspace = vi.fn()
+    const args = makeArgs({ selectWorkspace, addProject: vi.fn().mockResolvedValue(makeProject()) })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+    await act(async () => { await result.current.handleAddProjectFromOnboarding('/repo', 'w1') })
+    expect(args.addProject).toHaveBeenCalledWith('/repo', { workspaceId: 'w1' })
+    expect(selectWorkspace).toHaveBeenCalledWith('w1')
+    expect(args.clearActiveWorkspace).not.toHaveBeenCalled()
+  })
   it('clears the focused workspace after a repo is added', async () => {
     const clearActiveWorkspace = vi.fn()
     const args = makeArgs({ clearActiveWorkspace, addProject: vi.fn().mockResolvedValue(makeProject()) })
@@ -241,10 +260,21 @@ describe('useProjectCreateHandlers.handleAddProjectFromOnboarding', () => {
     })
 
     expect(clearActiveWorkspace).not.toHaveBeenCalled()
+    expect(args.appEffects.setShowOnboarding).not.toHaveBeenCalled()
+    expect(args.setActiveSession).not.toHaveBeenCalled()
   })
 })
 
 describe('useProjectCreateHandlers.handleCloneFromOnboarding', () => {
+  it('clones into the chosen workspace without clearing it', async () => {
+    const selectWorkspace = vi.fn()
+    const args = makeArgs({ selectWorkspace })
+    const { result } = renderHook(() => useProjectCreateHandlers(args))
+    await act(async () => { await result.current.handleCloneFromOnboarding('https://example.com/repo.git', 'w1') })
+    expect(args.cloneProject).toHaveBeenCalledWith('https://example.com/repo.git', 'w1')
+    expect(selectWorkspace).toHaveBeenCalledWith('w1')
+    expect(args.clearActiveWorkspace).not.toHaveBeenCalled()
+  })
   it('clears the focused workspace after a successful clone', async () => {
     const clearActiveWorkspace = vi.fn()
     const args = makeArgs({ clearActiveWorkspace, cloneProject: vi.fn().mockResolvedValue(true) })

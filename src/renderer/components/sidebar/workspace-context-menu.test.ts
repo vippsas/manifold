@@ -42,7 +42,7 @@ describe('buildWorkspaceContextMenu', () => {
       'Add to Favorites',
       '---',
       'Rename…',
-      'Add Folder…',
+      'Add Folder to Workspace…',
       '---',
       'Remove Workspace',
     ])
@@ -85,7 +85,7 @@ describe('buildWorkspaceContextMenu', () => {
       addFolder: vi.fn(),
     })
     expect(labels(items)).toEqual([
-      'Add Folder…',
+      'Add Folder to Workspace…',
       '---',
       'Remove Workspace',
     ])

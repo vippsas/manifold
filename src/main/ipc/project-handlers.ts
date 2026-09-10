@@ -94,7 +94,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle(
     'projects:clone',
-    async (_event, repoUrl: string, targetDir?: string) => {
+    async (_event, repoUrl: string, targetDir?: string, workspaceId?: string) => {
       if (typeof repoUrl !== 'string') {
         throw new Error('Invalid clone arguments')
       }
@@ -113,13 +113,13 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
       }
 
       await execFileAsync('git', ['clone', '--', repoUrl, cloneDir])
-      return registerProject(cloneDir)
+      return registerProject(cloneDir, {}, workspaceId)
     }
   )
 
   ipcMain.handle(
     'projects:create-new',
-    async (_event, options: CreateProjectOptions | string) => {
+    async (_event, options: CreateProjectOptions | string, workspaceId?: string) => {
       const payload = typeof options === 'string' ? { description: options } : options
       if (!payload || typeof payload.description !== 'string' || !payload.description.trim()) {
         throw new Error('A project description is required')
@@ -186,13 +186,13 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
         if (sourceRepoUrl) {
           mkdirSync(path.dirname(projectDir), { recursive: true })
           await execFileAsync('git', ['clone', '--', sourceRepoUrl, projectDir], {})
-          return registerProject(projectDir)
+          return registerProject(projectDir, {}, workspaceId)
         }
 
         mkdirSync(projectDir, { recursive: true })
 
         if (projectKind === 'folder') {
-          return registerProject(projectDir, { kind: 'folder' })
+          return registerProject(projectDir, { kind: 'folder' }, workspaceId)
         }
 
         await execFileAsync('git', ['init', '--initial-branch=main'], { cwd: projectDir })
@@ -202,7 +202,7 @@ export function registerProjectHandlers(deps: IpcDependencies): void {
           { cwd: projectDir }
         )
 
-        return registerProject(projectDir)
+        return registerProject(projectDir, {}, workspaceId)
       } catch (err) {
         // Clean up partially-created directory on failure
         try { rmSync(projectDir, { recursive: true, force: true }) } catch { /* best effort */ }

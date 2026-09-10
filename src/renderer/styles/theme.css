@@ -1531,7 +1531,7 @@ select:focus-visible {
   transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
 }
 
-.path-card:hover {
+.path-card:hover:not(:disabled) {
   transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--accent), transparent 55%);
   box-shadow: var(--shadow-elevated);

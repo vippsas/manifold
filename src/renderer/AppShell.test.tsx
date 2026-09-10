@@ -91,7 +91,7 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     mergedChanges: [],
     sourceControlChangeCount: 0,
     sessionsByProject: { p1: [] },
-    dockState: { activeProjectId: 'p1', sessionId: null, allProjectSessions: { p1: [] } } as unknown as AppShellProps['dockState'],
+    dockState: { activeProjectId: 'p1', sessionId: null, allProjectSessions: { p1: [] }, onSelectWorkspace: vi.fn(), onSelectWorkspaceRepo: vi.fn() } as unknown as AppShellProps['dockState'],
     onDockReady: vi.fn(),
     dockLayoutSlot: null,
     overlays: { activePanel: null } as unknown as AppShellProps['overlays'],
@@ -177,7 +177,8 @@ describe('AppShell', () => {
       id: 'w1', name: 'Combined', projectIds: ['p1'], createdAt: '2024-01-01',
     })
 
-    render(<AppShell {...makeProps({ createWorkspace })} />)
+    const props = makeProps({ createWorkspace })
+    render(<AppShell {...props} />)
 
     fireEvent.change(screen.getByPlaceholderText('e.g. cross-repo auth rename'), {
       target: { value: 'Combined' },
@@ -191,6 +192,20 @@ describe('AppShell', () => {
       runtimeId: 'claude',
       absorbHomeWorkspaces: true,
     })
+    await waitFor(() => expect(props.setNewWorkspaceVisible).toHaveBeenCalledWith(false))
+    expect(props.dockState.onSelectWorkspace).toHaveBeenCalledWith('w1')
+    expect(props.dockState.onSelectWorkspaceRepo).toHaveBeenCalledWith('w1', 'p1')
+  })
+
+  it('keeps a failed workspace creation visible with its error', async () => {
+    const props = makeProps({ createWorkspace: vi.fn().mockRejectedValue(new Error('Cannot create workspace')) })
+    render(<AppShell {...props} />)
+    fireEvent.change(screen.getByPlaceholderText('e.g. cross-repo auth rename'), { target: { value: 'Combined' } })
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cannot create workspace')
+    expect(props.setNewWorkspaceVisible).not.toHaveBeenCalled()
+    expect(props.dockState.onSelectWorkspace).not.toHaveBeenCalled()
   })
 
   it('keeps the workspace modal closed until it is asked for', () => {
@@ -218,7 +233,7 @@ describe('AppShell', () => {
       },
     })} />)
 
-    const dialog = screen.getByRole('dialog', { name: 'Add Repository' })
+    const dialog = screen.getByRole('dialog', { name: 'New Repo' })
     expect(screen.getByTestId('dockview')).toBeInTheDocument()
     expect(dialog.parentElement).toBe(document.body)
   })

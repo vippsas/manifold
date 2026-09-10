@@ -10,9 +10,9 @@ const COPIED_INSTRUCTIONS_CLONED_NOTE =
   'Do not clone it again; continue from the files that are already here.\n\n'
 
 interface Args {
-  createNewProject: (options: CreateProjectOptions) => Promise<Project | null>
-  addProject: (path?: string) => Promise<Project | null>
-  cloneProject: (url: string) => Promise<boolean>
+  createNewProject: (options: CreateProjectOptions, workspaceId?: string) => Promise<Project | null>
+  addProject: (path?: string, options?: { workspaceId?: string }) => Promise<Project | null>
+  cloneProject: (url: string, workspaceId?: string) => Promise<boolean>
   spawnAgent: (options: SpawnAgentOptions) => Promise<AgentSession | null>
   setActiveSession: (sessionId: string | null) => void
   /**
@@ -22,6 +22,7 @@ interface Args {
    * affordance (#811).
    */
   clearActiveWorkspace: () => void
+  selectWorkspace?: (id: string) => void
   defaultRuntime: string
   appEffects: {
     setCreatingProject: (v: boolean) => void
@@ -31,27 +32,31 @@ interface Args {
 }
 
 export interface UseProjectCreateHandlersResult {
-  handleCreateNewProject: (options: CreateProjectOptions) => Promise<boolean>
-  handleAddProjectFromOnboarding: (path?: string) => Promise<void>
-  handleCloneFromOnboarding: (url: string) => Promise<boolean>
+  handleCreateNewProject: (options: CreateProjectOptions, workspaceId?: string) => Promise<boolean>
+  handleAddProjectFromOnboarding: (path?: string, workspaceId?: string) => Promise<void>
+  handleCloneFromOnboarding: (url: string, workspaceId?: string) => Promise<boolean>
 }
 
 export function useProjectCreateHandlers(args: Args): UseProjectCreateHandlersResult {
-  const { createNewProject, addProject, cloneProject, spawnAgent, setActiveSession, clearActiveWorkspace, defaultRuntime, appEffects } = args
+  const { createNewProject, addProject, cloneProject, spawnAgent, setActiveSession, clearActiveWorkspace, selectWorkspace, defaultRuntime, appEffects } = args
+  const selectDestination = useCallback((workspaceId?: string): void => {
+    if (workspaceId) selectWorkspace?.(workspaceId)
+    else clearActiveWorkspace()
+  }, [selectWorkspace, clearActiveWorkspace])
 
-  const handleCreateNewProject = useCallback(async (options: CreateProjectOptions): Promise<boolean> => {
+  const handleCreateNewProject = useCallback(async (options: CreateProjectOptions, workspaceId?: string): Promise<boolean> => {
     // Hide any currently-active session and raise the creating cover up front.
     // The cover stays up (creatingProject) until the new agent's chat is ready,
     // so the empty "new agent" overview never flashes between steps.
     setActiveSession(null)
     appEffects.setCreatingProject(true)
     try {
-      const project = await createNewProject(options)
+      const project = await createNewProject(options, ...(workspaceId ? [workspaceId] : []))
       if (!project) {
         appEffects.setCreatingProject(false)
         return false
       }
-      clearActiveWorkspace()
+      selectDestination(workspaceId)
       const copiedInstructions = options.projectKind === 'folder'
       const createAsFolder = project.kind === 'folder'
       const branchName = createAsFolder ? project.name : project.baseBranch || 'main'
@@ -63,6 +68,7 @@ export function useProjectCreateHandlers(args: Args): UseProjectCreateHandlersRe
         : options.description
       const session = await spawnAgent({
         projectId: project.id,
+        ...(workspaceId ? { workspaceId } : {}),
         runtimeId: defaultRuntime,
         prompt: agentPrompt,
         userMessage: options.description,
@@ -92,27 +98,31 @@ export function useProjectCreateHandlers(args: Args): UseProjectCreateHandlersRe
       appEffects.setCreatingProject(false)
       throw err
     }
-  }, [createNewProject, spawnAgent, setActiveSession, clearActiveWorkspace, defaultRuntime, appEffects])
+  }, [createNewProject, spawnAgent, setActiveSession, selectDestination, defaultRuntime, appEffects])
 
-  const handleAddProjectFromOnboarding = useCallback(async (path?: string): Promise<void> => {
-    const project = await addProject(path)
-    if (project) clearActiveWorkspace()
-    appEffects.setShowOnboarding(false)
-  }, [addProject, clearActiveWorkspace, appEffects])
+  const handleAddProjectFromOnboarding = useCallback(async (path?: string, workspaceId?: string): Promise<void> => {
+    const project = workspaceId ? await addProject(path, { workspaceId }) : await addProject(path)
+    if (project) {
+      setActiveSession(null)
+      selectDestination(workspaceId)
+      appEffects.setShowOnboarding(false)
+    }
+  }, [addProject, setActiveSession, selectDestination, appEffects])
 
-  const handleCloneFromOnboarding = useCallback(async (url: string): Promise<boolean> => {
+  const handleCloneFromOnboarding = useCallback(async (url: string, workspaceId?: string): Promise<boolean> => {
     appEffects.setCloningProject(true)
     try {
-      const ok = await cloneProject(url)
+      const ok = await cloneProject(url, ...(workspaceId ? [workspaceId] : []))
       if (ok) {
-        clearActiveWorkspace()
+        setActiveSession(null)
+        selectDestination(workspaceId)
         appEffects.setShowOnboarding(false)
       }
       return ok
     } finally {
       appEffects.setCloningProject(false)
     }
-  }, [cloneProject, clearActiveWorkspace, appEffects])
+  }, [cloneProject, setActiveSession, selectDestination, appEffects])
 
   return { handleCreateNewProject, handleAddProjectFromOnboarding, handleCloneFromOnboarding }
 }

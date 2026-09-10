@@ -10,7 +10,7 @@ export interface NewWorkspaceModalProps {
   projectError?: string | null
   defaultRuntime: string
   onAddProject: () => Promise<Project | null>
-  onCreate: (options: WorkspaceCreateOptions) => void
+  onCreate: (options: WorkspaceCreateOptions) => void | Promise<void>
   onClose: () => void
 }
 
@@ -18,6 +18,8 @@ export function NewWorkspaceModal({ visible, projects, projectError, defaultRunt
   const [name, setName] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [addingProject, setAddingProject] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [runtimeId, setRuntimeId] = useState(defaultRuntime)
   const [runtimes, setRuntimes] = useState<AgentRuntime[]>([])
 
@@ -26,12 +28,25 @@ export function NewWorkspaceModal({ visible, projects, projectError, defaultRunt
   useEffect(() => {
     if (!visible) return
     setName('')
+    setCreateError(null)
     setSelected([])
     setRuntimeId(defaultRuntime)
     void window.electronAPI.invoke('runtimes:list').then((list) => setRuntimes(list as AgentRuntime[]))
   }, [visible, defaultRuntime])
 
-  const canSubmit = name.trim().length > 0 && selected.length > 0
+  const canSubmit = name.trim().length > 0 && selected.length > 0 && !addingProject && !creating
+
+  const handleCreate = async (): Promise<void> => {
+    setCreating(true)
+    setCreateError(null)
+    try {
+      await onCreate({ name, projectIds: selected, runtimeId })
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const handleAddProject = async (): Promise<void> => {
     setAddingProject(true)
@@ -101,6 +116,7 @@ export function NewWorkspaceModal({ visible, projects, projectError, defaultRunt
               )}
             </div>
             {projectError && <div style={s.errorText}>{projectError}</div>}
+            {createError && <div role="alert" style={s.errorText}>{createError}</div>}
           </div>
         </div>
         <div style={s.actions}>
@@ -108,9 +124,9 @@ export function NewWorkspaceModal({ visible, projects, projectError, defaultRunt
           <button
             style={{ ...s.primaryButton, opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
             disabled={!canSubmit}
-            onClick={() => onCreate({ name, projectIds: selected, runtimeId })}
+            onClick={() => { void handleCreate() }}
           >
-            Create
+            {creating ? 'Creating…' : 'Create'}
           </button>
         </div>
       </div>

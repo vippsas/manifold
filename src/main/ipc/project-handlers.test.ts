@@ -71,6 +71,26 @@ vi.mock('../agent/runtimes', () => ({
 }))
 
 describe('registerProjectHandlers', () => {
+  it.each(['clone', 'create-new'] as const)('projects:%s joins the selected workspace without creating a home workspace', async (kind) => {
+    const { registerProjectHandlers } = await import('./project-handlers')
+    processMocks.execFile.mockImplementation((_: string, __: string[], options: unknown, callback?: (error: Error | null, stdout?: string, stderr?: string) => void) => {
+      const done = typeof options === 'function' ? options : callback
+      done?.(null, '', '')
+    })
+    const project = { id: 'p1', name: 'new-repo', path: '/repo/new-repo' }
+    const deps = {
+      settingsStore: { getSettings: () => ({ storagePath: '/workspace', defaultRuntime: 'claude' }) },
+      projectRegistry: { listProjects: () => [], addProject: vi.fn(async () => project), removeProject: vi.fn() },
+      workspaceManager: { get: vi.fn(() => ({ id: 'w1' })), addProject: vi.fn(), adoptProject: vi.fn() },
+    }
+    registerProjectHandlers(deps as never)
+    const handler = electronMocks.handlers.get(`projects:${kind}`)!
+    if (kind === 'clone') await handler({}, 'https://example.com/repo.git', '/repo/new-repo', 'w1')
+    else await handler({}, { description: 'A timer', targetDir: '/repo/new-repo' }, 'w1')
+    expect(deps.workspaceManager.addProject).toHaveBeenCalledWith('w1', 'p1')
+    expect(deps.workspaceManager.adoptProject).not.toHaveBeenCalled()
+  })
+
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()

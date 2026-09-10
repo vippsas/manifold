@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-09-08
+updated: 2026-09-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -35,6 +35,31 @@ boundaries. Individual panels and hooks are catalogued only enough to locate the
 Not detailed here: the per-component internals (each `components/*` subtree), `styles/` CSS, `assets/`, and the leaf helpers `session-selection.ts` / `terminal-input-filter.ts` / `hooks/terminal/terminal-replay.ts` (the last two are indexed as trap #5 in [Gotchas](gotchas.md)).
 
 ## How it works
+
+The sidebar footer has two actions: **New Repo** and **New Agent**
+(`ProjectSidebar.tsx:177`). **Add Folder to Workspace…** lives in the workspace row's
+ellipsis/context menu (`workspace-context-menu.ts:52`). New Repo opens a modal with
+two destination cards using the existing repository path-card styling: **Current
+workspace** (named, disabled when none is open) and **New workspace**. Clicking a card
+advances to the repository options; **Back** returns to the destination cards. Each
+opening starts at the destination step, with no preselected destination.
+The choice applies to local repositories, clones, and newly created projects
+(`AddRepositoryModal.tsx:31`, `useProjectCreateHandlers.ts:43`). When no workspace is
+selected, the current destination falls back to the active project's holder
+(`AppShell.tsx:337`). Adding to the current workspace keeps that destination selected;
+the new-workspace path uses home-workspace adoption, which reuses a holder for an
+already registered repository (`src/main/workspace/workspace-manager.ts:142`).
+Failed or cancelled local additions keep the dialog open, and successful local/clone
+additions clear the previous agent (`useProjectCreateHandlers.ts:104`).
+Named workspace creation waits for success before closing
+and selects the resulting workspace and its first folder; failures stay in the modal
+(`AppShell.tsx:318`, `NewWorkspaceModal.tsx:40`).
+
+The workspace list reveals the selected workspace (falling back to the active project's
+holder when no workspace is selected), and opens both its card and repository group
+when a repository is added (`WorkspaceList.tsx:78`, `WorkspaceList.tsx:91`). Workspace refreshes accept only the latest request's
+response, preventing an older in-flight list from hiding a newly added repository
+(`useWorkspaces.ts:20`).
 
 **Entry chain.** `index.tsx` is the only entry. It runs `monaco-setup` first (so the
 Monaco workers are registered before any editor mounts), then renders `<App/>` under
