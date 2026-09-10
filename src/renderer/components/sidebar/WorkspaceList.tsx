@@ -71,13 +71,33 @@ export function WorkspaceList({
   // through a ref so a reorder never re-runs the reveal.
   const groupsRef = useRef(groups)
   groupsRef.current = groups
+  const selectedWorkspaceId = activeWorkspaceId
+    ?? workspaces.find((workspace) => workspace.projectIds.includes(activeProjectId ?? ''))?.id
+    ?? null
+  const previousSelectedWorkspaceId = useRef(selectedWorkspaceId)
   useEffect(() => {
-    if (!activeWorkspaceId) return
-    touchProject(activeWorkspaceId)
-    folds.open(workspaceFoldKey(activeWorkspaceId))
-    const group = groupsRef.current.find((g) => groupMembers(g).some((w) => w.id === activeWorkspaceId))
+    const changed = previousSelectedWorkspaceId.current !== selectedWorkspaceId
+    previousSelectedWorkspaceId.current = selectedWorkspaceId
+    if (!selectedWorkspaceId || (!activeWorkspaceId && !changed)) return
+    touchProject(selectedWorkspaceId)
+    folds.open(workspaceFoldKey(selectedWorkspaceId))
+    const group = groupsRef.current.find((g) => groupMembers(g).some((w) => w.id === selectedWorkspaceId))
     if (group) folds.open(group.foldKey)
-  }, [activeWorkspaceId, touchProject, folds.open])
+  }, [selectedWorkspaceId, activeWorkspaceId, touchProject, folds.open])
+
+  const previousWorkspaces = useRef(workspaces)
+  useEffect(() => {
+    const previous = previousWorkspaces.current
+    previousWorkspaces.current = workspaces
+    if (previous.length === 0) return
+    for (const workspace of workspaces) {
+      const before = previous.find((candidate) => candidate.id === workspace.id)
+      if (before && !workspace.projectIds.some((id) => !before.projectIds.includes(id))) continue
+      folds.open(workspaceFoldKey(workspace.id))
+      const group = groupsRef.current.find((g) => groupMembers(g).some((w) => w.id === workspace.id))
+      if (group) folds.open(group.foldKey)
+    }
+  }, [workspaces, folds.open])
 
   const handleRemove = useCallback((id: string): void => { void onRemoveWorkspace(id) }, [onRemoveWorkspace])
   const sessionsFor = useCallback((w: Workspace) => sessionsByWorkspace[w.id] ?? [], [sessionsByWorkspace])

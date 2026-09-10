@@ -17,6 +17,18 @@ beforeEach(() => {
 })
 
 describe('useWorkspaces', () => {
+  it('does not overwrite a refreshed list when an older request finishes later', async () => {
+    let finishInitial!: (value: unknown) => void
+    mockInvoke.mockReturnValueOnce(new Promise((resolve) => { finishInitial = resolve }))
+    const { result } = renderHook(() => useWorkspaces())
+    const added = [{ id: 'w1', name: 'new repo', projectIds: ['p1'], createdAt: '' }]
+    mockInvoke.mockResolvedValueOnce(added)
+    await act(async () => { listeners.get('workspace:list-changed')?.() })
+    expect(result.current.workspaces).toEqual(added)
+    await act(async () => { finishInitial([]) })
+    expect(result.current.workspaces).toEqual(added)
+  })
+
   it('loads the list on mount', async () => {
     mockInvoke.mockResolvedValueOnce([{ id: 'w1', name: 'auth', projectIds: ['p1'], createdAt: '' }])
     const { result } = renderHook(() => useWorkspaces())

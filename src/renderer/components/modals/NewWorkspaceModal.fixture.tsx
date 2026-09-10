@@ -6,12 +6,14 @@ const projects = [
 ]
 
 export default (
-  <NewWorkspaceModal
-    visible
-    projects={projects}
-    defaultRuntime="codex"
-    onAddProject={async () => null}
-    onCreate={() => undefined}
-    onClose={() => undefined}
-  />
+  <div>
+    <NewWorkspaceModal
+      visible
+      projects={projects}
+      defaultRuntime="codex"
+      onAddProject={async () => null}
+      onCreate={() => undefined}
+      onClose={() => undefined}
+    />
+  </div>
 )

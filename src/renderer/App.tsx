@@ -243,6 +243,7 @@ export function App(): React.JSX.Element {
 
   const { handleCreateNewProject, handleAddProjectFromOnboarding, handleCloneFromOnboarding } = useProjectCreateHandlers({
     createNewProject, addProject, cloneProject, spawnAgent, setActiveSession, clearActiveWorkspace,
+    selectWorkspace: setActiveWorkspaceId,
     defaultRuntime: settings.defaultRuntime, appEffects,
   })
 

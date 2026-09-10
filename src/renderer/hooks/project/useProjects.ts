@@ -8,8 +8,8 @@ interface UseProjectsResult {
   loading: boolean
   error: string | null
   addProject: (path?: string, options?: { activate?: boolean; workspaceId?: string; onError?: (message: string, projectPath: string) => void }) => Promise<Project | null>
-  cloneProject: (url: string) => Promise<boolean>
-  createNewProject: (options: CreateProjectOptions) => Promise<Project | null>
+  cloneProject: (url: string, workspaceId?: string) => Promise<boolean>
+  createNewProject: (options: CreateProjectOptions, workspaceId?: string) => Promise<Project | null>
   removeProject: (id: string) => Promise<void>
   updateProject: (id: string, partial: Partial<Omit<Project, 'id'>>) => Promise<void>
   setActiveProject: (id: string) => void
@@ -84,7 +84,7 @@ export function useProjects(): UseProjectsResult {
     }
   }, [])
 
-  const createNewProject = useCallback(async (options: CreateProjectOptions): Promise<Project | null> => {
+  const createNewProject = useCallback(async (options: CreateProjectOptions, workspaceId?: string): Promise<Project | null> => {
     setError(null)
     try {
       let targetDir = options.targetDir
@@ -93,7 +93,7 @@ export function useProjects(): UseProjectsResult {
         if (!targetDir) return null
       }
       const payload = targetDir ? { ...options, targetDir } : options
-      const project = (await window.electronAPI.invoke('projects:create-new', payload)) as Project
+      const project = (await window.electronAPI.invoke('projects:create-new', payload, ...(workspaceId ? [workspaceId] : []))) as Project
       setProjects((prev) => sortProjectsByName([...prev, project]))
       setActiveProjectId(project.id)
       return project
@@ -104,12 +104,12 @@ export function useProjects(): UseProjectsResult {
     }
   }, [])
 
-  const cloneProject = useCallback(async (url: string): Promise<boolean> => {
+  const cloneProject = useCallback(async (url: string, workspaceId?: string): Promise<boolean> => {
     setError(null)
     try {
       const targetDir = (await window.electronAPI.invoke('projects:clone-dialog', url)) as string | undefined
       if (!targetDir) return false // user cancelled
-      const project = (await window.electronAPI.invoke('projects:clone', url, targetDir)) as Project | undefined
+      const project = (await window.electronAPI.invoke('projects:clone', url, targetDir, ...(workspaceId ? [workspaceId] : []))) as Project | undefined
       if (!project) return false
       setProjects((prev) => sortProjectsByName([...prev, project]))
       setActiveProjectId(project.id)

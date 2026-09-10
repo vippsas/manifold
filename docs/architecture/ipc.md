@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-09-08
+updated: 2026-09-10
 owner: see .github/CODEOWNERS
 ---
 
@@ -36,6 +36,15 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 Most handler modules ship a sibling `*.test.ts` exercising its channels in isolation (the `register*Handlers` functions are unit-testable against a mock `IpcDependencies`).
 
 ## How it works
+
+Repository destination is explicit on all registration paths. `projects:add` accepts
+`(path, workspaceId?)`, `projects:clone` accepts `(url, targetDir?, workspaceId?)`, and
+`projects:create-new` accepts `(options, workspaceId?)`. They pass the destination to
+the shared registration helper, which joins an existing target workspace or adopts the
+project into a home workspace when no target exists. A failed join removes a newly
+registered project from the registry, preserving already registered projects
+(`project-handlers.ts:64`, `project-handlers.ts:91`, `project-handlers.ts:97`,
+`project-handlers.ts:122`).
 
 **One registration pass.** `window-factory.ts` calls `registerIpcHandlers(deps.ipcDeps)`
 behind an `ipcHandlersRegistered` guard, so it runs exactly once for the process even when
