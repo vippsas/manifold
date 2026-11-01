@@ -3,37 +3,15 @@ import * as path from 'node:path'
 import { FileTreeNode } from '../../shared/types'
 import type { BrowserWindow } from 'electron'
 import type { VerdictRecorder } from '../session/verdict-recorder'
-import {
-  gitStatus,
-  gitCurrentBranch,
-  parseStatusWithConflicts,
-  buildChangeFingerprint,
-} from './file-watcher-utils'
+import { gitStatus, gitCurrentBranch } from './file-watcher-utils'
 import { buildFileTree } from './file-tree-builder'
 import { NoopTreeWatcher, type TreeWatcher } from './tree-watcher'
 import { VerdictPollForwarder, type HeadShaFn } from './verdict-poll-forwarder'
-import { isMissingGitError, isGitRepositoryError } from '../git/git-errors'
-
-const POLL_INTERVAL_MS = 2000
-
-interface PollEntry {
-  timer: ReturnType<typeof setInterval> | null
-  sessionId: string
-  lastStatus: string
-  lastChangeFingerprint: string
-  lastBranch: string
-  polling: boolean
-  gitPollingDisabled?: boolean
-}
-
-type GitStatusFn = (cwd: string) => Promise<string>
-type GitBranchFn = (cwd: string) => Promise<string>
+import { CheckoutStatusPoller, type GitStatusFn, type GitBranchFn } from './checkout-status-poller'
 
 export class FileWatcher {
-  private polls: Map<string, PollEntry> = new Map()
+  private readonly polls: CheckoutStatusPoller
   private mainWindow: BrowserWindow | null = null
-  private gitStatusFn: GitStatusFn
-  private gitBranchFn: GitBranchFn
   private treeWatcher: TreeWatcher
   private readonly verdictForwarder: VerdictPollForwarder
   private onBranchChanged: ((sessionId: string, branch: string) => void) | null = null
@@ -44,15 +22,27 @@ export class FileWatcher {
     headShaFn?: HeadShaFn,
     gitBranchFn?: GitBranchFn,
   ) {
-    this.gitStatusFn = gitStatusFn ?? gitStatus
-    this.gitBranchFn = gitBranchFn ?? gitCurrentBranch
     this.verdictForwarder = new VerdictPollForwarder(headShaFn)
     this.treeWatcher = treeWatcher ?? new NoopTreeWatcher()
+    this.polls = new CheckoutStatusPoller(gitStatusFn ?? gitStatus, gitBranchFn ?? gitCurrentBranch, {
+      primary: (checkout, sessionId, { changes, conflicts }, active, changed) => {
+        this.sendToRenderer('files:changed', { sessionId, changes })
+        this.sendToRenderer('agent:conflicts', { sessionId, conflicts })
+        // Verdict I/O must not block status fan-out or reject outside the poll loop.
+        void this.verdictForwarder.notifyGitChange(checkout, sessionId, active, changed).catch(() => {})
+      },
+      additional: (sessionId, source, { changes }) => {
+        this.sendToRenderer('files:changed', { sessionId, changes, source })
+      },
+      branch: (sessionId, branch) => this.onBranchChanged?.(sessionId, branch),
+    })
     // `rootPath` is the folder that changed. The renderer shows several folders
     // at once and reloads them by path, so an event that only named the agent
     // could not say which listing had gone stale.
-    this.treeWatcher.setOnTreeChanged((sessionId, rootPath) => {
-      this.sendToRenderer('files:tree-changed', { sessionId, rootPath })
+    this.treeWatcher.setOnTreeChanged((_sessionId, rootPath) => {
+      for (const sessionId of this.polls.primaryIds(rootPath)) {
+        this.sendToRenderer('files:tree-changed', { sessionId, rootPath })
+      }
     })
   }
 
@@ -82,151 +72,36 @@ export class FileWatcher {
   }
 
   watchAdditionalDir(dirPath: string, sessionId: string): void {
-    const key = `additional:${sessionId}:${dirPath}`
-    if (this.polls.has(key)) return
-
-    const entry: PollEntry = {
-      timer: setInterval(() => this.pollAdditionalDir(key, dirPath), POLL_INTERVAL_MS),
-      sessionId,
-      lastStatus: '',
-      lastChangeFingerprint: '',
-      lastBranch: '',
-      polling: false,
-    }
-    this.polls.set(key, entry)
-
-    void this.pollAdditionalDir(key, dirPath)
+    this.polls.watchAdditionalDir(dirPath, sessionId)
   }
 
   unwatchAdditionalDir(dirPath: string, sessionId: string): void {
-    const key = `additional:${sessionId}:${dirPath}`
-    const entry = this.polls.get(key)
-    if (!entry) return
-    if (entry.timer) clearInterval(entry.timer)
-    this.polls.delete(key)
+    this.polls.unwatchAdditionalDir(dirPath, sessionId)
   }
 
-  watch(worktreePath: string, sessionId: string, previousSessionId?: string): void {
-    const existing = this.polls.get(worktreePath)
-    if (previousSessionId !== undefined && existing?.sessionId !== previousSessionId) return
-    if (existing) {
-      // A reused worktree (createWorktreeFromBranch) re-watches the same path for
-      // a new session id. Re-point the entry so events carry the live sessionId —
-      // the renderer drops events whose sessionId doesn't match (#535).
-      existing.sessionId = sessionId
-      this.treeWatcher.watch(worktreePath, sessionId)
+  watch(worktreePath: string, sessionId: string): void {
+    const checkout = path.resolve(worktreePath)
+    const firstPrimary = this.polls.primaryIds(checkout).length === 0
+    this.polls.watch(checkout, sessionId)
+    if (firstPrimary) this.treeWatcher.watch(checkout, sessionId)
+  }
+
+  async unwatch(worktreePath: string, sessionId?: string): Promise<void> {
+    const checkout = path.resolve(worktreePath)
+    const previous = this.polls.primaryIds(checkout)
+    if (!previous.length || (sessionId !== undefined && !previous.includes(sessionId))) return
+    this.polls.unwatch(checkout, sessionId)
+    if (this.polls.primaryIds(checkout).length) {
+      this.verdictForwarder.evict(checkout, sessionId)
       return
     }
-
-    const entry: PollEntry = {
-      timer: setInterval(() => this.poll(worktreePath), POLL_INTERVAL_MS),
-      sessionId,
-      lastStatus: '',
-      lastChangeFingerprint: '',
-      lastBranch: '',
-      polling: false,
-    }
-    this.polls.set(worktreePath, entry)
-    this.treeWatcher.watch(worktreePath, sessionId)
-
-    // Run initial poll immediately
-    void this.poll(worktreePath)
-  }
-
-  private async poll(worktreePath: string): Promise<void> {
-    const entry = this.polls.get(worktreePath)
-    if (!entry || entry.polling || entry.gitPollingDisabled) return
-
-    entry.polling = true
-    try {
-      const status = await this.gitStatusFn(worktreePath)
-      const { changes, conflicts } = parseStatusWithConflicts(status)
-      const changeFingerprint = await buildChangeFingerprint(worktreePath, changes)
-
-      const gitChanged = status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint
-
-      if (gitChanged) {
-        entry.lastStatus = status
-        entry.lastChangeFingerprint = changeFingerprint
-        this.sendToRenderer('files:changed', {
-          sessionId: entry.sessionId,
-          changes,
-        })
-        this.sendToRenderer('agent:conflicts', {
-          sessionId: entry.sessionId,
-          conflicts,
-        })
-        await this.verdictForwarder.notifyGitChange(worktreePath, entry.sessionId)
-      }
-
-      // Branch moves are invisible to `git status --porcelain` — switching
-      // branches on a clean tree leaves its output byte-identical — so read HEAD
-      // every tick rather than only when the status changed. A detached HEAD
-      // reports 'HEAD', which is no branch name to report.
-      const branch = await this.gitBranchFn(worktreePath).catch(() => '')
-      if (branch && branch !== 'HEAD' && branch !== entry.lastBranch) {
-        entry.lastBranch = branch
-        this.onBranchChanged?.(entry.sessionId, branch)
-      }
-    } catch (err) {
-      if (isMissingGitError(err)) this.disableGitPolling(worktreePath)
-      // Worktree may not exist yet or git may fail — skip this tick
-    } finally {
-      entry.polling = false
-    }
-  }
-
-  private async pollAdditionalDir(key: string, dirPath: string): Promise<void> {
-    const entry = this.polls.get(key)
-    if (!entry || entry.polling || entry.gitPollingDisabled) return
-
-    entry.polling = true
-    try {
-      const status = await this.gitStatusFn(dirPath)
-      const { changes, conflicts } = parseStatusWithConflicts(status)
-      const changeFingerprint = await buildChangeFingerprint(dirPath, changes)
-      if (status !== entry.lastStatus || changeFingerprint !== entry.lastChangeFingerprint) {
-        entry.lastStatus = status
-        entry.lastChangeFingerprint = changeFingerprint
-        this.sendToRenderer('files:changed', {
-          sessionId: entry.sessionId,
-          changes,
-          source: dirPath,
-        })
-      }
-    } catch (err) {
-      // A plain --add-dir folder is "not a git repository" and would otherwise
-      // respawn a failing git every 2s forever, so disable polling on that too,
-      // not just a missing git binary (#539).
-      if (isMissingGitError(err) || isGitRepositoryError(err)) this.disableGitPolling(key)
-      // Directory may not exist yet — other errors just skip this tick
-    } finally {
-      entry.polling = false
-    }
-  }
-
-  private disableGitPolling(key: string): void {
-    const entry = this.polls.get(key)
-    if (!entry || entry.gitPollingDisabled) return
-    if (entry.timer) clearInterval(entry.timer)
-    entry.timer = null
-    entry.gitPollingDisabled = true
-  }
-
-  async unwatch(worktreePath: string): Promise<void> {
-    const entry = this.polls.get(worktreePath)
-    if (!entry) return
-    if (entry.timer) clearInterval(entry.timer)
-    this.polls.delete(worktreePath)
-    this.verdictForwarder.evict(worktreePath)
-    await this.treeWatcher.unwatch(worktreePath)
+    this.verdictForwarder.evict(checkout)
+    await this.treeWatcher.unwatch(checkout)
   }
 
   async unwatchAll(): Promise<void> {
-    for (const [, entry] of this.polls) {
-      if (entry.timer) clearInterval(entry.timer)
-    }
-    this.polls.clear()
+    this.polls.unwatchAll()
+    this.verdictForwarder.clear()
     await this.treeWatcher.unwatchAll()
   }
 

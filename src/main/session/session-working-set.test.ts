@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { FileWatcher } from '../fs/file-watcher'
+import type { BrowserWindow } from 'electron'
 import { SessionWorkingSet } from './session-working-set'
 import type { InternalSession } from './session-types'
 import type { WorkingSetNotice } from '../../shared/types'
@@ -17,6 +19,7 @@ function makeSession(overrides: Partial<InternalSession> = {}): InternalSession 
     ptyId: 'pty-1',
     outputBuffer: '❯ ',
     additionalDirs: [],
+    checkoutWatched: true,
     workspaceId: 'ws-1',
     workspaceWorktreePaths: { 'proj-1': '/repo/web' },
     ...overrides,
@@ -104,6 +107,45 @@ describe('SessionWorkingSet', () => {
       channel: 'agent:dirs-changed',
       payload: { sessionId: 'sess-1', additionalDirs: [NEW_DIR] },
     })
+  })
+
+  it('records a new directory for dormant sessions but subscribes only activated sessions', async () => {
+    const dormant = makeSession({ id: 'dormant', nonInteractive: true, checkoutWatched: false })
+    const active = makeSession({ id: 'active', nonInteractive: true })
+    const h = harness([dormant, active])
+
+    await h.workingSet.addDirToWorkspace('ws-1', 'proj-2', NEW_DIR)
+
+    expect(dormant.additionalDirs).toEqual([NEW_DIR])
+    expect(active.additionalDirs).toEqual([NEW_DIR])
+    expect(h.watched).toEqual([{ dir: NEW_DIR, sessionId: 'active' }])
+  })
+
+  it('starts exactly one shared producer when a workspace has dormant and activated sessions', async () => {
+    vi.useFakeTimers()
+    const calls: string[] = []
+    const send = vi.fn()
+    const watcher = new FileWatcher(async (cwd) => { calls.push(cwd); return '' })
+    watcher.setMainWindow({ isDestroyed: () => false, webContents: { send } } as unknown as BrowserWindow)
+    const dormant = makeSession({ id: 'dormant', nonInteractive: true, checkoutWatched: false })
+    const active = makeSession({ id: 'active', nonInteractive: true })
+    const workingSet = new SessionWorkingSet({
+      sessions: new Map([dormant, active].map((session) => [session.id, session])),
+      ptyPool: { write: () => {} }, getFileWatcher: () => watcher,
+      persist: () => {}, sendToRenderer: () => {},
+    })
+    try {
+      await workingSet.addDirToWorkspace('ws-1', 'proj-2', NEW_DIR)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(calls).toEqual([NEW_DIR, NEW_DIR])
+      expect(vi.getTimerCount()).toBe(1)
+      expect(send).toHaveBeenCalledExactlyOnceWith('files:changed', {
+        sessionId: 'active', source: NEW_DIR, changes: [],
+      })
+    } finally {
+      await watcher.unwatchAll()
+      vi.useRealTimers()
+    }
   })
 
   it('falls back to a manual notice when the agent never confirms', async () => {

@@ -1,7 +1,7 @@
 ---
 description: How Manifold watches worktrees for git/tree changes and reads, writes, lists, and imports files for the renderer's editor and file tree.
 covers: [src/main/fs]
-updated: 2026-11-01
+updated: 2026-11-01T19:21:00Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -16,8 +16,9 @@ renderer's editor and file tree. Path validation and the IPC surface live one la
 
 ## Covered code
 
-- `src/main/fs/file-watcher.ts` — `FileWatcher`, the façade: owns the per-path poll map, the git-status polling loop, the tree-watcher, the verdict forwarder, and every fs operation method.
-- `src/main/fs/file-watcher-utils.ts` — `runGit()` (the hardened spawn: `stderr: 'ignore'`, 10 s kill-on-timeout) behind `gitStatus()` (`git status --porcelain`) and `gitCurrentBranch()` (`git rev-parse --abbrev-ref HEAD`), plus `parseStatusWithConflicts()`, the async `buildChangeFingerprint()`, the `EXCLUDED_DIRS` set, and the `isVisibleEntry`/`directoriesFirstComparator` tree filters.
+- `src/main/fs/file-watcher.ts` — `FileWatcher`, the façade: wires shared checkout polling to renderer events, the tree-watcher, the verdict forwarder, and every fs operation method.
+- `src/main/fs/checkout-status-poller.ts` — normalized checkout registry, one producer per checkout, and primary/additional-directory subscribers.
+- `src/main/fs/file-watcher-utils.ts` — `runGit()` (the hardened spawn: continuously drained stderr with an 8192-character diagnostic prefix, 10 s kill-on-timeout) behind `gitStatus()` (`git status --porcelain`) and `gitCurrentBranch()` (`git rev-parse --abbrev-ref HEAD`), plus `parseStatusWithConflicts()`, the async `buildChangeFingerprint()`, the `EXCLUDED_DIRS` set, and the `isVisibleEntry`/`directoriesFirstComparator` tree filters.
 - `src/main/fs/tree-watcher.ts` — `ChokidarTreeWatcher` (debounced add/change/unlink/addDir/unlinkDir → `files:tree-changed`), the `TreeWatcher` interface, and `NoopTreeWatcher` (the test default).
 - `src/main/fs/file-tree-builder.ts` — `buildFileTree()`: a recursive, **asynchronous** `FileTreeNode` walk with hidden/excluded entries filtered.
 - `src/main/fs/list-files.ts` — `listWorktreeFiles()`: `git ls-files --cached --others --exclude-standard` for the Quick-Open set, capped at 10000.
@@ -27,59 +28,60 @@ Not detailed here: `add-dir-detector.ts` (`detectAddDir`) and `url-detector.ts` 
 
 ## How it works
 
-`FileWatcher` keeps a `Map<string, PollEntry>` of watched paths (`file-watcher.ts:30`). Each
-entry has a `setInterval` timer firing every `POLL_INTERVAL_MS` (2000 ms, `file-watcher.ts:16`),
-a `polling` re-entrancy guard, and the last-seen status/fingerprint.
+`FileWatcher` delegates to `CheckoutStatusPoller`, whose registry keys are `path.resolve()`d
+checkout paths (`checkout-status-poller.ts:34`, `:47`, `:58`). Primary and additional-directory
+consumers share one 2000 ms timer, in-flight request, cached status and fingerprint per key
+(`checkout-status-poller.ts:96`, `:149`). The scope is one `FileWatcher`; the separate
+`git:workspace-status` request cache is not shared.
 
-**Watch.** `watch(worktreePath, sessionId)` is idempotent per path (`file-watcher.ts:109`):
-it installs the timer, starts the chokidar tree-watcher, and runs one immediate poll. When
-the path is *already* watched it re-points the entry's (and the tree-watcher entry's)
-`sessionId` to the new session instead of early-returning, so a reused worktree
-(`createWorktreeFromBranch`) emits events under the live session id rather than the first one
-that watched it (`file-watcher.ts:109`, `tree-watcher.ts:28`). An optional previous owner id
-limits teardown handoff to an existing poll still owned by that session; it leaves another
-live owner's poll alone and never creates a poll. Creation and resume register
-the checkout plus every `--add-dir` folder through `SessionManager.watchCheckout`
-(`src/main/session/session-manager.ts:91`); dormant discovery registers nothing. Registration
-of additional directories happens once per in-memory session. Resumes and chat messages
-re-point the shared checkout poll to the activated session without adding timers or immediate
-polls, so the renderer's session-id filters receive its file/conflict events
-(`src/renderer/hooks/editor/useFileWatcher.ts:83`, `src/renderer/hooks/editor/useGitOperations.ts:70`).
-A resume that finishes after its session was removed registers nothing (`session-manager.ts:144`).
-Teardown unwatch is owned
-by `SessionKiller.cleanupSession` (see below) plus `unwatchAll` on app shutdown
-(`app-lifecycle.ts:93`); `agent:delete-app` also unwatches the path explicitly. `watchAdditionalDir` (`file-watcher.ts:85`) does the same for `--add-dir` paths
-under an `additional:<sessionId>:<dir>` key.
+**Subscribe.** `watch(path, sessionId)` adds a primary subscription; `watchAdditionalDir`
+adds an additional-directory subscription. Each set is keyed by session id. Repeating the same
+registration is a strict no-op, including no cached replay or immediate Git request. A new
+subscriber immediately receives the current cached state, including an empty clean checkout,
+without another status request (`checkout-status-poller.ts:47`, `:58`). Equivalent paths share
+the producer, but an additional-directory subscription retains its original directory string
+for `source`, which the renderer matches exactly.
 
-**Poll → push.** `poll()` (`file-watcher.ts:105`) calls `gitStatusFn` (default
-`gitStatus`, spawning `git status --porcelain`), then `parseStatusWithConflicts()` splits the
-porcelain output into `FileChange[]` and a conflict list. It only emits when something
-*actually* changed — guarded by both the raw status string **and** an (awaited)
-`buildChangeFingerprint` of each changed path's `size`+`mtimeMs` (`file-watcher.ts:115`). The
-fingerprint stats every changed path off the main thread via `fsp.stat` in parallel
-(`file-watcher-utils.ts:44`) so a large dirty tree doesn't stall the 2 s tick. It catches the
-case where a dirty file is edited again but its porcelain code is unchanged
-(`file-watcher.test.ts:122`). On change it sends `files:changed` (path list) and
-`agent:conflicts` (conflict list) to the renderer, then calls the verdict forwarder.
+Creation, resume and nonempty chat messages register through `SessionManager.watchCheckout`
+(`src/main/session/session-manager.ts:91`, `:116`); dormant discovery registers nothing.
+`SessionWorkingSet.record` subscribes newly added directories only for `checkoutWatched`
+sessions; dormant sessions retain them in `additionalDirs` for activation
+(`src/main/session/session-working-set.ts:100`). Repeated chat turns preserve every sibling's
+subscription. `SessionKiller.cleanupSession` removes the departing session's subscriptions,
+without handing ownership to a survivor (`src/main/session/session-killer.ts:54`).
 
-**Branch reporting.** The same tick also reads the checkout's branch via `gitBranchFn`
-(default `gitCurrentBranch`) and calls `setOnBranchChanged`'s listener whenever it differs
-from the last one seen (`file-watcher.ts:162`, `:59`). This is deliberately *outside* the
-changed-status guard: switching branches on a clean tree leaves `git status --porcelain`
-byte-identical, so a status-gated read would never fire. A detached HEAD reports `HEAD` and is
-skipped, and a failed read degrades to no report rather than losing the tick's `files:changed`.
-`SessionManager` is the one listener (`src/main/session/session-manager-context.ts:141`): it moves the session's
-`branchName` onto the branch its checkout actually holds and emits `agent:sessions-changed`,
-which is what keeps the status bar and "Create PR" on the branch an agent cut mid-session
-rather than the one it was spawned on (`file-watcher-branch.test.ts:43`).
+**Poll → push.** A tick runs `gitStatusFn` once and computes one async fingerprint over the
+parsed changed paths. Status or size/mtime differences fan out `files:changed` to every consumer;
+primary consumers also receive `agent:conflicts`, while additional-directory consumers receive
+their original `source` and no conflicts (`checkout-status-poller.ts:149`, `file-watcher.ts:27`).
+Unchanged polls emit nothing to existing subscribers. Each primary keeps its own initial-notified
+and last-branch state, so a new subscriber gets its own initial verdict notification and cached
+branch callback (`checkout-status-poller.ts:9`, `:134`).
+
+**Branch reporting.** While primaries exist, the producer reads the branch once every tick,
+even on a clean unchanged checkout, and reports it under every primary session id. Detached
+HEAD and failed reads clear the replayable branch cache and produce no branch report
+(`checkout-status-poller.ts:173`). Removing the last primary clears that cache and invalidates
+in-flight branch reads, so a primary joining a previously additional-only producer gets its
+first branch report from a fresh read on the next tick (`checkout-status-poller.ts:68`, `:174`).
+`SessionManager.applyBranchChange` updates sessions sharing that checkout
+(`src/main/session/session-manager-context.ts:150`). Additional-directory consumers never
+receive branch or verdict signals.
+
+**Unsubscribe.** `unwatch(path, sessionId)` removes only that primary subscription; omitting
+the id removes all primaries of the path, preserving additional-directory consumers.
+`unwatchAdditionalDir` normalizes its key identically. Unknown pairs are no-ops; only removal
+of the final consumer stops the producer. `unwatchAll` clears every producer and verdict cache
+(`checkout-status-poller.ts:68`, `:110`, `file-watcher.ts:89`, `:102`). Async completions check
+producer/subscriber identity so removed or replaced subscriptions cannot receive stale events.
 
 **Conflict handling.** "Conflict" here means a git merge conflict, not an editor-buffer-vs-disk
-race. `parseStatusWithConflicts` (`file-watcher-utils.ts:23`) flags every unmerged porcelain
+race. `parseStatusWithConflicts` (`file-watcher-utils.ts:64`) flags every unmerged porcelain
 code as a conflict — any code containing `U` (`UU`/`AU`/`UA`/`DU`/`UD`, covering "deleted/added
 by us/them") plus the both-added/both-deleted pairs `AA`/`DD`; ordinary ` M`/`A`/`??` lines
 produce changes but an empty conflict list (`file-watcher-conflicts.test.ts:88`). Rename/copy
 entries (`R`/`C`) render as `old -> new`; the parser keeps the destination path so the
-fingerprint stats a real file (`file-watcher-utils.ts:26`). The conflict array always rides alongside
+fingerprint stats a real file (`file-watcher-utils.ts:76`). The conflict array always rides alongside
 `files:changed` on the same poll tick (`file-watcher-conflicts.test.ts:106`). The renderer's
 `useGitOperations` subscribes to `agent:conflicts` and surfaces the files for in-app
 resolution via `git:resolve-conflict` (`useGitOperations.ts:68`, `:61`).
@@ -89,9 +91,11 @@ resolution via `git:resolve-conflict` (`useGitOperations.ts:68`, `:61`).
 debounced 200 ms (`tree-watcher.ts:5`, `:53`). That emits `files:tree-changed`, which covers
 both tree-shape refreshes and near-immediate editor rereads after file-content edits. The event
 names **the folder that changed as well as the agent working in it** (`{ sessionId, rootPath }`,
-`tree-watcher.ts:13`, `file-watcher.ts:55`): the renderer shows several folders at once and
+`tree-watcher.ts:13`, `file-watcher.ts:42`): the renderer shows several folders at once and
 reloads them by path, so a session id alone could not say which listing had gone stale
-(`file-watcher.test.ts:319`). It
+(`file-watcher-shared.test.ts:143`). `FileWatcher` fans tree events out to all current primary
+subscribers and closes the tree watcher only when the last primary leaves, even if additional
+consumers keep Git polling alive (`file-watcher.ts:82`, `:89`). Chokidar
 ignores anything under `EXCLUDED_DIRS` and does not follow symlinks (`tree-watcher.ts:37`).
 Watcher errors are swallowed because the poll loop still provides updates (`tree-watcher.ts:60`). In tests the
 watcher defaults to `NoopTreeWatcher`; production wires the real one in `app/index.ts:58`.
@@ -111,34 +115,37 @@ symlinks, which is both cheaper and what keeps a symlinked source folder browsab
 walk and requires it to fire first (`file-tree-builder.test.ts:61`).
 `isVisibleEntry` checks `isSymbolicLink()` as well as `isDirectory()` so a symlinked
 `node_modules` (common in worktrees) is excluded instead of being followed into the whole
-dependency tree (`file-watcher-utils.ts:69`, regression test `file-tree-builder.test.ts:22`).
+dependency tree (`file-watcher-utils.ts:121`, regression test `file-tree-builder.test.ts:22`).
 `listWorktreeFiles()` (`list-files.ts:12`) is the flat Quick-Open variant via `git ls-files`,
 returning `[]` on any failure and warning (not silently truncating) when it caps at 10000.
 
 **File operations.** `readFile`/`writeFile`/`createFile`/`createDir`/`deleteFile`/`renameFile`/
-`importPaths` (`file-watcher.ts:192`–`281`) are thin synchronous `fs` wrappers with descriptive
+`importPaths` (`file-watcher.ts:112`) are thin synchronous `fs` wrappers with descriptive
 error messages. `createFile`/`createDir`/`renameFile` refuse to clobber an existing target;
 `importPaths` builds a copy plan, rejects intra-batch and on-disk collisions up front, then
-`cpSync`s with `errorOnExist: true` (`file-watcher.ts:245`). After an out-of-band mutation
-(import, pasted image) the handler calls `notifyTreeChanged()` (`file-watcher.ts:59`) to push
+`cpSync`s with `errorOnExist: true` (`file-watcher.ts:165`). After an out-of-band mutation
+(import, pasted image) the handler calls `notifyTreeChanged()` (`file-watcher.ts:70`) to push
 a synthetic `files:tree-changed` so the renderer refreshes without waiting for chokidar.
 
-**Verdict forwarding.** On every *changed* poll, `VerdictPollForwarder.notifyGitChange()`
-(`verdict-poll-forwarder.ts:59`) compares the worktree's `HEAD` sha against its last-seen
-value: a new commit calls `recorder.onAgentCommit`, every tick calls `onFilesChanged`, and a
-HEAD change (or first observation) triggers a one-shot `gh pr list` lookup so a PR created from
-the shell is still attached to the verdict (`verdict-poll-forwarder.ts:79`). Every `git`/`gh`
-subprocess carries a 10 s timeout so a hung command (e.g. a stalled network `gh pr list`) can't
-freeze that worktree's poll tick. `FileWatcher.unwatch` calls `forwarder.evict(path)` to drop
-the cached HEAD sha, preventing a leak and a stale-sha-driven spurious `onAgentCommit` if the
-path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.ts:113`).
+**Verdict forwarding.** Changed polls and each new primary's first observation call
+`VerdictPollForwarder.notifyGitChange`. Its HEAD baseline is per checkout and session, so every
+primary can detect its own commits and first PR observation (`verdict-poll-forwarder.ts:75`,
+`:102`). Initial clean snapshots and cached replays establish HEAD/PR baselines without
+recording a human edit; `onFilesChanged` runs only when status or fingerprint changes
+(`checkout-status-poller.ts:160`, `verdict-poll-forwarder.ts:141`). HEAD changes call `onAgentCommit`, and
+HEAD changes or first observations can trigger a `gh pr list` lookup. Git/gh calls retain their
+10 s timeouts. Forwarding runs asynchronously and checks that the subscription is still active
+after each await; teardown discards late results (`verdict-poll-forwarder.ts:119`, `:146`).
+Overlapping notifications are serialized per subscription to preserve HEAD observation order
+(`verdict-poll-forwarder.ts:156`). Removing one primary evicts only its observation; the last primary removes the path's cache,
+while `unwatchAll` clears everything (`file-watcher.ts:89`, `:102`).
 
 ## Key types and entry points
 
-- `FileWatcher` — `file-watcher.ts:29`. Public surface: `watch`, `unwatch`, `unwatchAll`, `watchAdditionalDir`, `unwatchAdditionalDir`, `notifyTreeChanged`, `getFileTree`, `readFile`, `writeFile`, `createFile`, `createDir`, `deleteFile`, `renameFile`, `importPaths`, `setMainWindow`, `setVerdictRecorder`, `setOnBranchChanged`. Constructed once in `app/index.ts:58` with a real `ChokidarTreeWatcher`.
-- `gitCurrentBranch()` — `file-watcher-utils.ts:49`. The polled branch read; `'HEAD'` when detached.
-- `parseStatusWithConflicts()` — `file-watcher-utils.ts:23`. Porcelain → `{ changes: FileChange[]; conflicts: string[] }`. `FileChange`/`FileChangeType` live in `src/shared/types.ts`.
-- `buildChangeFingerprint()` — `file-watcher-utils.ts:44`. Async; the size+mtime hash (via parallel `fsp.stat`) that makes re-edits of a still-dirty file detectable.
+- `FileWatcher` — `file-watcher.ts:12`. Public surface: `watch`, `unwatch`, `unwatchAll`, `watchAdditionalDir`, `unwatchAdditionalDir`, `notifyTreeChanged`, `getFileTree`, `readFile`, `writeFile`, `createFile`, `createDir`, `deleteFile`, `renameFile`, `importPaths`, `setMainWindow`, `setVerdictRecorder`, `setOnBranchChanged`. Constructed once in `app/index.ts:58` with a real `ChokidarTreeWatcher`.
+- `gitCurrentBranch()` — `file-watcher-utils.ts:53`. The polled branch read; `'HEAD'` when detached.
+- `parseStatusWithConflicts()` — `file-watcher-utils.ts:64`. Porcelain → `{ changes: FileChange[]; conflicts: string[] }`. `FileChange`/`FileChangeType` live in `src/shared/types.ts`.
+- `buildChangeFingerprint()` — `file-watcher-utils.ts:91`. Async; the size+mtime hash (via parallel `fsp.stat`) that makes re-edits of a still-dirty file detectable.
 - `buildFileTree()` — `file-tree-builder.ts:16`. Async; returns `Promise<FileTreeNode>` (`FileTreeNode` in `src/shared/types.ts`). Every `files:tree*` handler awaits it.
 - `listWorktreeFiles()` — `list-files.ts:12`. The capped Quick-Open file list.
 - `TreeWatcher` / `ChokidarTreeWatcher` / `NoopTreeWatcher` — `tree-watcher.ts:7`, `:20`, `:78`.
@@ -147,20 +154,20 @@ path is recreated. It is wired via `fileWatcher.setVerdictRecorder` (`app/index.
 
 - **IPC** (`src/main/ipc/file-handlers.ts`): the renderer-facing surface. `files:tree`/`files:tree-by-project`/`files:tree-dir` → `getFileTree`; `files:read`/`files:write`/`files:delete`/`files:rename`/`files:create-file`/`files:create-dir`/`files:import` → the matching `FileWatcher` method; `files:list` → `listWorktreeFiles`. Every path is `resolve()`d and checked against the workspace roots — every registered project plus every session's worktree and `additionalDirs` — before any fs call (`workspaceRoots`, `file-handlers.ts:26`; `isAllowed`, `:46`; `authorize`, `:53`). `files:search-content` and image paste also live here, not in `src/main/fs`.
 - **Agent handlers** (`src/main/ipc/agent-handlers.ts`): delegate creation/resume watch registration to `SessionManager`. `agent:kill` no longer unwatches directly (that would kill events for sibling sessions on a shared checkout); `agent:delete-app` still unwatches the path explicitly.
-- **Session** (`src/main/session`): `SessionKiller.cleanupSession` owns teardown unwatch — it calls `unwatchAdditionalDir` for each `--add-dir` and `unwatch(worktreePath)` once no surviving activated session shares the path. When the departing session owns the poll, it re-points it to an activated survivor so events and branch updates carry a live id (`session-killer.ts:63`). Closing a dormant session does not start a poll. Sharing is now the norm rather than the exception: several agents in one workspace work in the same checkout. This covers the mode-switch teardown paths (`killNonInteractiveSessions`/`killInteractiveSession`), not just the IPC kill. The watcher reads `session.worktreePath`/`additionalDirs` only indirectly through the session/IPC layers.
-- **Git** (`src/main/git`): the watcher shells out to `git status`/`ls-files`/`rev-parse`/`gh` directly rather than going through `gitExec`; `isMissingGitError` lets `poll()` permanently disable polling where git can't spawn, and `pollAdditionalDir` additionally disables on `isGitRepositoryError` so a plain non-git `--add-dir` stops respawning a failing `git` every 2 s (`git/git-errors`, `file-watcher.ts:131`, `:157`).
+- **Session** (`src/main/session`): `SessionKiller.cleanupSession` removes every additional-directory subscription and calls `unwatch(worktreePath, session.id)` (`session-killer.ts:54`). Surviving subscribers already receive events. Closing an unsubscribed dormant session cannot affect a live sibling.
+- **Git** (`src/main/git`): the watcher shells out directly; missing-Git and non-repository errors disable the shared producer until a new subscriber joins (`checkout-status-poller.ts:179`, `:116`). The status adapter retains a bounded stderr diagnostic while continuously draining the stream (`file-watcher-utils.ts:9`).
 - **Verdict** (`src/main/session/verdict-recorder.ts`): the sink for `VerdictPollForwarder`.
-- **Renderer** (`src/renderer/hooks`): `useFileWatcher` listens for `files:changed`/`files:tree-changed` and refreshes the tree (`useFileWatcher.ts:79`, `:93`); `useGitOperations` listens for `agent:conflicts` (`useGitOperations.ts:68`); `useAdditionalDirs` reacts to `files:tree-changed` for `--add-dir` panels; `useWorkspaceTree` reloads one sidebar folder when an event names *its* root — `rootPath` on `files:tree-changed`, `source` on the add-dir `files:changed` — and on window focus, which is the only signal for a folder no agent is working in (`useWorkspaceTree.ts:107`, `:111`, `:116`).
+- **Renderer** (`src/renderer/hooks`): `useFileWatcher` listens for `files:changed`/`files:tree-changed` and refreshes the tree (`useFileWatcher.ts:79`, `:93`); `useGitOperations` listens for `agent:conflicts` (`useGitOperations.ts:68`); `useAdditionalDirs` reacts to `files:tree-changed` for `--add-dir` panels; `useWorkspaceTree` reloads one sidebar folder when an event names *its* root — `rootPath` on `files:tree-changed`, `source` on the add-dir `files:changed` — and on window focus (`useWorkspaceTree.ts:132`, `:136`, `:140`). It batches per-session fan-out before starting a walk and queues only one trailing reload during a pending request (`useWorkspaceTree.ts:62`, `:97`; [workspace trees](workspace-trees.md)).
 
 ## Invariants & gotchas
 
 - **Polling is the source of truth for git status; chokidar is the low-latency filesystem signal.** `files:changed` (+ conflicts) comes from the 2 s git poll; `files:tree-changed` comes from debounced chokidar add/change/unlink events. A renderer needs both: status without create/delete, create/delete without status, and prompt open-file rereads for content edits that should not wait on git polling.
-- **Change detection is status + fingerprint.** A file edited twice with the same porcelain code still re-emits because `buildChangeFingerprint` hashes size+mtime (`file-watcher.test.ts:122`). Conversely, an identical status *and* fingerprint emits nothing.
-- **A branch switch is invisible to `git status`.** Checking out another branch on a clean tree leaves the porcelain output unchanged, so the branch read runs on every tick regardless of whether the status moved (`file-watcher.ts:162`). Gating it behind the change guard is how a session ends up labelled with the branch it was spawned on long after the agent cut a new one.
-- **Every unmerged porcelain code is a conflict.** Any code containing `U` (plus `AA`/`DD`) populates the conflict list; other codes never do, regardless of how they map to `added`/`deleted`/`modified` (`file-watcher-utils.ts:31`).
+- **Change detection is status + fingerprint.** A file edited twice with the same porcelain code still re-emits because `buildChangeFingerprint` hashes size+mtime (`file-watcher.test.ts:166`). Conversely, an identical status *and* fingerprint emits nothing.
+- **A branch switch is invisible to `git status`.** Checking out another branch on a clean tree leaves the porcelain output unchanged, so the branch read runs on every tick regardless of whether the status moved (`checkout-status-poller.ts:173`). Gating it behind the change guard is how a session ends up labelled with the branch it was spawned on long after the agent cut a new one.
+- **Every unmerged porcelain code is a conflict.** Any code containing `U` (plus `AA`/`DD`) populates the conflict list; other codes never do, regardless of how they map to `added`/`deleted`/`modified` (`file-watcher-utils.ts:58`).
 - **Symlinked dirs must be filtered explicitly.** A symlink's `Dirent.isDirectory()` is `false`, so `isVisibleEntry`/`tree-watcher` both also check `isSymbolicLink()`; missing this followed a symlinked `node_modules` into the full tree and froze the UI (`file-tree-builder.test.ts:18`).
-- **The fs operations are synchronous; the tree walk and the poll's change fingerprint are not.** The file ops (read/write/create/rename/delete/import) are single syscalls and stay sync, but anything that touches *many* paths reads async: `buildFileTree` (`fsp.readdir`) and `buildChangeFingerprint` (`fsp.stat`). Both were the same bug — a walk over thousands of entries holding the main thread — and `EXCLUDED_DIRS` plus the symlink guard bound the work but do not make it non-blocking. There is no tree cache: a switch back to a folder walks it again (cheap now that it yields, but still work). `EXCLUDED_DIRS` is hard-coded (`file-watcher-utils.ts:62`) — there is no per-project ignore config; only `.gitignore` (via `ls-files --exclude-standard`) and that fixed set apply.
+- **The fs operations are synchronous; the tree walk and the poll's change fingerprint are not.** The file ops (read/write/create/rename/delete/import) are single syscalls and stay sync, but anything that touches *many* paths reads async: `buildFileTree` (`fsp.readdir`) and `buildChangeFingerprint` (`fsp.stat`). Both were the same bug — a walk over thousands of entries holding the main thread — and `EXCLUDED_DIRS` plus the symlink guard bound the work but do not make it non-blocking. There is no tree cache: a switch back to a folder walks it again (cheap now that it yields, but still work). `EXCLUDED_DIRS` is hard-coded (`file-watcher-utils.ts:113`) — there is no per-project ignore config; only `.gitignore` (via `ls-files --exclude-standard`) and that fixed set apply.
 - **Mutating ops never trust the watcher to refresh.** Handlers return the freshly built tree and/or call `notifyTreeChanged` so the editor updates immediately instead of waiting up to 2 s / 200 ms (`file-handlers.ts:101`, `:160`).
-- **Git polling self-disables.** If git can't spawn (`ENOENT`), `disableGitPolling` clears the timer for that entry permanently rather than retrying every 2 s (`file-watcher.ts:164`, `file-watcher.test.ts:203`). For `--add-dir` paths it also disables on "not a git repository" so a plain folder isn't polled forever.
+- **Git polling self-disables until a new subscription.** Missing Git or a non-repository diagnostic clears the interval after one failure; duplicate subscriptions do not retry (`checkout-status-poller.ts:179`, `:47`, `:58`). A new primary or additional-directory subscriber restarts the timer and polls immediately, clearing stale status, fingerprint, branch and per-primary first-observation state (`checkout-status-poller.ts:116`). Existing subscribers stay attached, so a recreated checkout recovers for everyone (`file-watcher-lifecycle.test.ts:163`). Other errors retry on the next tick.
 - **Path safety is enforced in IPC, not here.** `FileWatcher` methods operate on whatever absolute path they're given; the traversal check lives entirely in `file-handlers.ts`. Calling these methods from elsewhere bypasses that guard.
 - **The guard is scoped to the open folders, not to the selected session.** Any registered repo, any workspace's checkout of one, and any session worktree is readable and writable whichever agent is selected, and reads *and creates* work with no session at all (`file-handlers.ts:156`, `:162`) — the sidebar shows several folders' files at once and opens any of them. What the guard still refuses is a path under none of those roots.

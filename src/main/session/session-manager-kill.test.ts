@@ -175,10 +175,10 @@ describe('SessionManager — kill / interrupt / resize', () => {
 
       await sm.killSession('session-uuid-1')
 
-      expect(fileWatcher.unwatch).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo')
+      expect(fileWatcher.unwatch).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo', 'session-uuid-1')
     })
 
-    it('does not unwatch while another session still shares the worktree', async () => {
+    it('removes only the departing session subscription while a sibling shares the worktree', async () => {
       await sm.createSession({ projectId: 'proj-1', runtimeId: 'claude', prompt: 'base' })
       await sm.createSession({
         projectId: 'proj-1',
@@ -189,11 +189,11 @@ describe('SessionManager — kill / interrupt / resize', () => {
 
       // Killing the sibling must keep the survivor's poll alive (#534).
       await sm.killSession('session-uuid-2')
-      expect(fileWatcher.unwatch).not.toHaveBeenCalled()
+      expect(fileWatcher.unwatch).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo', 'session-uuid-2')
 
       // Killing the last user finally unwatches (#493).
       await sm.killSession('session-uuid-1')
-      expect(fileWatcher.unwatch).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo')
+      expect(fileWatcher.unwatch).toHaveBeenCalledWith('/repo/.manifold/worktrees/manifold-oslo', 'session-uuid-1')
     })
   })
 

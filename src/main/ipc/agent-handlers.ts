@@ -41,7 +41,7 @@ function isLiveSession(internal: { ptyId?: string; devServerPtyId?: string; stat
 }
 
 async function focusOrClearInPlaceSessions(
-  deps: Pick<IpcDependencies, 'sessionManager' | 'fileWatcher'>,
+  deps: Pick<IpcDependencies, 'sessionManager'>,
   requiresNoWorktree: boolean,
   options: SpawnAgentOptions,
 ): Promise<AgentSession | null> {
@@ -70,7 +70,6 @@ async function focusOrClearInPlaceSessions(
 
   for (const session of sessions) {
     if (isLiveSession(deps.sessionManager.getInternalSession(session.id))) continue
-    await deps.fileWatcher.unwatch(session.worktreePath)
     await deps.sessionManager.killSession(session.id)
   }
   return null
@@ -159,8 +158,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
     if (session?.noWorktree) {
       deps.dismissedAgents.add(session.projectId, session.branchName)
     }
-    // killSession → SessionKiller.cleanupSession unwatches the worktree, but only
-    // when no surviving session still shares it. Unwatching here unconditionally
+    // killSession removes only this session's subscription. Unwatching the whole path
     // would kill file/git events for sibling sessions on the same worktree (#534).
     if (sessionManager.hasSession(sessionId)) {
       await sessionManager.killSession(sessionId)
