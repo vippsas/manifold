@@ -86,9 +86,7 @@ describe('SessionManager — dormant checkout activation', () => {
       await discover(nonInteractive)
       const watch = vi.spyOn(watcher, 'watch')
       const watchAdditionalDir = vi.spyOn(watcher, 'watchAdditionalDir')
-
       const resumed = await manager.resumeSession('restored', 'codex')
-
       expect(resumed.id).toBe('restored')
       expect(watch).toHaveBeenCalledWith('/checkout', 'restored')
       expect(watchAdditionalDir.mock.calls).toEqual([

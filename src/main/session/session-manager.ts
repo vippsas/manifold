@@ -143,7 +143,8 @@ export class SessionManager extends SessionManagerContext {
 
   async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> {
     const session = await this.lifecycle.resumeSession(sessionId, runtimeId)
-    if (this.sessions.has(sessionId)) this.watchCheckout(session)
+    const tracked = this.sessions.get(sessionId)
+    if (tracked?.ptyId || tracked?.nonInteractive) this.watchCheckout(session)
     return session
   }
 
