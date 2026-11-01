@@ -79,6 +79,10 @@ export abstract class SessionManagerContext {
       this.sessions,
       worktreeManager,
       this.projectRegistry,
+      // Restored panes may already have received an empty read for this id.
+      (session) => this.sendToRenderer('files:tree-changed', {
+        sessionId: session.id, rootPath: session.worktreePath,
+      }),
     )
     this.sessionCreator = new SessionCreator(
       worktreeManager,

@@ -32,9 +32,11 @@ export function useFileWatcher(
   const [changes, setChanges] = useState<FileChange[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const treeRequest = useRef(0)
 
   const refreshTree = useCallback(async (): Promise<void> => {
     if (!sessionId && !fallbackProjectId) return
+    const requestId = ++treeRequest.current
     setLoading(true)
     setError(null)
     try {
@@ -42,13 +44,13 @@ export function useFileWatcher(
         sessionId
           ? window.electronAPI.invoke('files:tree', sessionId)
           : window.electronAPI.invoke('files:tree-by-project', fallbackProjectId)
-      )) as FileTreeNode
-      setTree(result)
+      )) as FileTreeNode | null
+      if (requestId === treeRequest.current) setTree(result)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
-      setError(message)
+      if (requestId === treeRequest.current) setError(message)
     } finally {
-      setLoading(false)
+      if (requestId === treeRequest.current) setLoading(false)
     }
   }, [sessionId, fallbackProjectId])
 

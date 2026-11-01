@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { AheadBehind, PRContext } from '../../../shared/types'
+import { useIpcListener } from '../app/useIpc'
 
 interface ConflictsEvent {
   sessionId: string
@@ -23,16 +24,23 @@ export function useGitOperations(
   const [conflicts, setConflicts] = useState<string[]>([])
   const sessionRef = useRef(sessionId)
   sessionRef.current = sessionId
+  const aheadBehindRequest = useRef(0)
 
   const refreshAheadBehind = useCallback(async (): Promise<void> => {
     if (!sessionRef.current) return
+    const requestId = ++aheadBehindRequest.current
     try {
       const result = await window.electronAPI.invoke('git:ahead-behind', sessionRef.current) as AheadBehind
-      setAheadBehind(result)
+      if (requestId === aheadBehindRequest.current) setAheadBehind(result)
     } catch {
       // Silently fail — session may not exist yet
     }
   }, [])
+
+  // Discovery also emits this event so an early empty read gets retried.
+  useIpcListener<{ sessionId: string }>('files:tree-changed', useCallback((event) => {
+    if (event.sessionId === sessionRef.current) void refreshAheadBehind()
+  }, [refreshAheadBehind]))
 
   const commit = useCallback(async (message: string): Promise<void> => {
     if (!sessionRef.current) throw new Error('No active session')

@@ -16,6 +16,8 @@ import { SessionDiscovery } from './session-discovery'
 import { SessionManager } from './session-manager'
 import { FileWatcher } from '../fs/file-watcher'
 import { readWorktreeMeta } from '../git/worktree-meta'
+import { gitExec } from '../git/git-exec'
+import type { BrowserWindow } from 'electron'
 import type { WorktreeManager } from '../git/worktree-manager'
 import type { ProjectRegistry } from '../store/project-registry'
 import type { InternalSession } from './session-types'
@@ -143,4 +145,37 @@ describe('SessionDiscovery dormant checkout polling', () => {
       vi.useRealTimers()
     }
   })
+})
+
+describe('SessionDiscovery renderer readiness', () => {
+  it.each(['worktree', 'in-place', 'simple-project'])(
+    'signals the registered %s session once without waiting for file activity',
+    async (route) => {
+      vi.clearAllMocks()
+      const { worktreeManager, projectRegistry } = deps({ sessionId: 'restored', runtimeId: 'claude' })
+      const project = projectRegistry.getProject('p1')!
+      projectRegistry.listProjects = () => [project]
+      if (route !== 'worktree') vi.mocked(worktreeManager.listWorktrees).mockResolvedValue([])
+      vi.mocked(gitExec).mockResolvedValue(route === 'in-place' ? 'feature' : 'main')
+      const manager = new SessionManager(worktreeManager, {} as PtyPool, projectRegistry)
+      const send = vi.fn((channel: string, event: { sessionId: string }) => {
+        // The renderer can immediately retry a read from inside the event.
+        expect(channel).toBe('files:tree-changed')
+        expect(manager.getSession(event.sessionId)).toBeDefined()
+      })
+      manager.setMainWindow({ isDestroyed: () => false, webContents: { send } } as unknown as BrowserWindow)
+      const discover = () => route === 'simple-project'
+        ? manager.discoverAllSessions('/repo')
+        : manager.discoverSessionsForProject('p1')
+
+      const sessions = await discover()
+
+      expect(sessions).toHaveLength(1)
+      expect(send).toHaveBeenCalledExactlyOnceWith('files:tree-changed', {
+        sessionId: 'restored', rootPath: route === 'worktree' ? '/wt' : '/repo',
+      })
+      await discover()
+      expect(send).toHaveBeenCalledTimes(1)
+    },
+  )
 })

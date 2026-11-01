@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-11-01T19:28:36Z
+updated: 2026-11-01T20:31:30Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -828,8 +828,8 @@ the order it was already in, because their timestamps don't move and the sort is
 
 Several folders showing at once is possible because **the main process authorizes file paths
 against the workspace roots** — every registered repo plus every session's worktree — not
-against the selected session, and reads and creates need no session at all (`main/ipc/file-handlers.ts:26`,
-`:46`, `:53`). A file in any open folder therefore opens, saves and renames like any other; the
+against the selected session, and reads and creates need no session at all (`main/ipc/file-handlers.ts:27`,
+`:47`, `:54`). A file in any open folder therefore opens, saves and renames like any other; the
 renderer no longer pre-filters reads by the active session's roots. Only the folder the
 *selected* agent works in is a live, watched tree with change badges (`useFileWatcher`); every
 other folder is fetched on demand through `files:tree` / `files:tree-by-project` and cached per
@@ -838,9 +838,20 @@ root, so reopening one paints in the same frame instead of flashing empty
 though — an agent in another workspace, or the user in a terminal, moves those files too — so a
 fetched folder reloads itself when an event **names its own root** (`rootPath` on
 `files:tree-changed`, `source` on the add-dir `files:changed`) and on window focus, the only
-signal left for a folder no agent is working in (`useWorkspaceTree.ts:107`, `:111`, `:116`;
+signal left for a folder no agent is working in (`useWorkspaceTree.ts:133`, `:139`, `:143`;
 [fs](fs.md)). Reloading keeps the folder's expanded paths, so a refresh never collapses what the
-user opened (`useWorkspaceTree.ts:74`). Which folder is watched, is a
+user opened (`useWorkspaceTree.ts:78`).
+
+A restored session may initially receive `null` from `files:tree`: `useFileWatcher`
+keeps an empty tree without an error (`hooks/editor/useFileWatcher.ts:37`), and
+`useWorkspaceTree` leaves its cache and expanded paths intact (`hooks/editor/useWorkspaceTree.ts:73`).
+Discovery pushes `files:tree-changed` for the adopted id, so the selected tree retries
+(`useFileWatcher.ts:96`), an uncached session folder can retry by id before its root is known
+(`useWorkspaceTree.ts:133`), and ahead/behind refreshes (`hooks/editor/useGitOperations.ts:41`).
+Request counters keep a late pre-discovery reply from overwriting a newer successful
+refresh (`useFileWatcher.ts:39`, `useGitOperations.ts:31`).
+
+Which folder is watched, is a
 question about **paths, not session ids**: a workspace owns the checkout its agents share, so the
 watched folder appears in the sidebar as an ordinary repo row with no session id of its own —
 the row is live when its checkout path (`worktreePaths[projectId]`, or the clone on a home
