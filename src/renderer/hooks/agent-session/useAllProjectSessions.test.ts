@@ -6,6 +6,7 @@ import { useAgentSession } from './useAgentSession'
 import { useAllProjectSessions } from './useAllProjectSessions'
 import { useWorkspaceEntry } from '../app/useWorkspaceEntry'
 import { groupSessionsByWorkspace } from '../app/session-workspace-map'
+import { useProjects } from '../project/useProjects'
 
 const mockInvoke = vi.fn()
 const mockOn = vi.fn(() => vi.fn())
@@ -48,6 +49,106 @@ beforeEach(() => {
 })
 
 describe('useAllProjectSessions', () => {
+  it('discovers all projects once, then only the incoming repo across cross-repo tab clicks', async () => {
+    const one = makeSession('s1', 'p1')
+    const two = makeSession('s2', 'p2')
+    const workspaces = [{ id: 'w', name: 'Workspace', projectIds: ['p1', 'p2'], createdAt: '' }]
+    mockInvoke.mockImplementation(async (channel: string, projectId: string) => {
+      if (channel === 'projects:list') return projects
+      if (channel === 'agent:sessions') return projectId === 'p1' ? [one] : [two]
+      throw new Error(`Unexpected IPC: ${channel}`)
+    })
+    const { result } = renderHook(() => {
+      const project = useProjects()
+      const agent = useAgentSession(project.activeProjectId)
+      const all = useAllProjectSessions(project.projects, project.activeProjectId, agent.sessions, agent.loadedProjectId)
+      const entry = useWorkspaceEntry({
+        workspaces, sessionsByWorkspace: groupSessionsByWorkspace(all.sessionsByProject, workspaces),
+        favorites: [], activeWorkspaceId: 'w', activeProjectId: project.activeProjectId,
+        activeSessionId: agent.activeSessionId, selectSession: agent.setActiveSession,
+        selectWorkspace: () => {}, setActiveProject: project.setActiveProject,
+      })
+      return { ...all, entry, loadedProjectId: agent.loadedProjectId }
+    })
+    await waitFor(() => expect(result.current.sessionsByProject).toEqual({ p1: [one], p2: [two] }))
+    const discoveries = () => mockInvoke.mock.calls.filter(([channel]) => channel === 'agent:sessions')
+    expect(discoveries()).toHaveLength(2)
+    for (const [index, selected] of [two, one, two, one].entries()) {
+      await act(async () => { result.current.entry.setActiveSession(selected.id) })
+      await waitFor(() => expect(result.current.loadedProjectId).toBe(selected.projectId))
+      expect(discoveries()).toHaveLength(3 + index)
+      expect(discoveries().at(-1)).toEqual(['agent:sessions', selected.projectId])
+      expect(result.current.sessionsByProject).toEqual({ p1: [one], p2: [two] })
+    }
+    expect(mockInvoke.mock.calls.filter(([channel]) => channel === 'projects:list')).toHaveLength(1)
+  })
+
+  it('does not overwrite a departing repo snapshot with earlier background discovery', async () => {
+    const old = makeSession('old', 'p2')
+    const fresh = makeSession('fresh', 'p2')
+    let resolve!: (sessions: AgentSession[]) => void
+    mockInvoke.mockImplementation(() => new Promise<AgentSession[]>((done) => { resolve = done }))
+    const { result, rerender } = renderHook(({ active, sessions }) => useAllProjectSessions(projects, active, sessions, active), {
+      initialProps: { active: 'p1', sessions: [makeSession('one', 'p1')] },
+    })
+    rerender({ active: 'p2', sessions: [fresh] })
+    rerender({ active: 'p1', sessions: [] })
+    await act(async () => { resolve([old]) })
+    expect(result.current.sessionsByProject.p2).toEqual([fresh])
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('discovers a departing repo when its initial active-session load has not finished', async () => {
+    const one = makeSession('one', 'p1')
+    const two = makeSession('two', 'p2')
+    let finishFirst!: (sessions: AgentSession[]) => void
+    const firstDiscovery = new Promise<AgentSession[]>((resolve) => { finishFirst = resolve })
+    mockInvoke.mockImplementation((_channel: string, projectId: string) =>
+      projectId === 'p1' ? firstDiscovery : Promise.resolve([two]),
+    )
+    const { result, rerender } = renderHook(({ projectId }) => {
+      const agent = useAgentSession(projectId)
+      const all = useAllProjectSessions(projects, projectId, agent.sessions, agent.loadedProjectId)
+      return { ...all, loadedProjectId: agent.loadedProjectId }
+    }, { initialProps: { projectId: 'p1' } })
+    await waitFor(() => expect(result.current.sessionsByProject.p2).toEqual([two]))
+    expect(result.current.loadedProjectId).toBeNull()
+
+    rerender({ projectId: 'p2' })
+    await waitFor(() => expect(result.current.loadedProjectId).toBe('p2'))
+    await act(async () => { finishFirst([one]) })
+
+    expect(result.current.sessionsByProject.p1).toEqual([one])
+    expect(result.current.sessionsByProject.p2).toEqual([two])
+  })
+
+  it('keeps a newer snapshot when a departing-repo discovery finishes after reentry', async () => {
+    const old = makeSession('old', 'p1')
+    const fresh = makeSession('fresh', 'p1')
+    const two = makeSession('two', 'p2')
+    let finishFirst!: (sessions: AgentSession[]) => void
+    const firstDiscovery = new Promise<AgentSession[]>((resolve) => { finishFirst = resolve })
+    let firstRepoRequests = 0
+    mockInvoke.mockImplementation((_channel: string, projectId: string) => {
+      if (projectId === 'p2') return Promise.resolve([two])
+      return ++firstRepoRequests <= 2 ? firstDiscovery : Promise.resolve([fresh])
+    })
+    const { result, rerender } = renderHook(({ projectId }) => {
+      const agent = useAgentSession(projectId)
+      const all = useAllProjectSessions(projects, projectId, agent.sessions, agent.loadedProjectId)
+      return { ...all, loadedProjectId: agent.loadedProjectId }
+    }, { initialProps: { projectId: 'p1' } })
+    await waitFor(() => expect(result.current.sessionsByProject.p2).toEqual([two]))
+    rerender({ projectId: 'p2' })
+    await waitFor(() => expect(result.current.loadedProjectId).toBe('p2'))
+    rerender({ projectId: 'p1' })
+    await waitFor(() => expect(result.current.sessionsByProject.p1).toEqual([fresh]))
+    rerender({ projectId: 'p2' })
+
+    await act(async () => { finishFirst([old]) })
+    expect(result.current.sessionsByProject.p1).toEqual([fresh])
+  })
+
   it('keeps a background agent on every render when leaving an empty repo with its new reply pending', async () => {
     const sibling = makeSession('s2', 'p2')
     const workspaces = [{ id: 'w', name: 'Workspace', projectIds: ['p1', 'p2'], createdAt: '' }]

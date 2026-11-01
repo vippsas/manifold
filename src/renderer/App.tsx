@@ -63,7 +63,9 @@ export function App(): React.JSX.Element {
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions, loadedProjectId)
   const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const { activeWorkspaceId, setActiveWorkspaceId: selectWorkspace } = usePersistedActiveWorkspace(workspaces)
-  const workspaceGitStatus = useWorkspaceRepoStatuses(activeWorkspaceId)
+  const workspaceGitStatus = useWorkspaceRepoStatuses(activeWorkspaceId, {
+    workspace: workspaces.find((workspace) => workspace.id === activeWorkspaceId), projects, sessionsByProject,
+  })
   const [sidebarView, setSidebarView] = useState<SidebarViewId>(DEFAULT_SIDEBAR_VIEW)
   const [newAgentTarget, setNewAgentTarget] = useState<NewAgentTarget | null>(null)
   const { favorites, isFavorite, toggleFavorite, reorderFavorites } = useFavorites(
