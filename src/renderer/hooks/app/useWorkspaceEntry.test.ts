@@ -101,6 +101,21 @@ describe('useWorkspaceEntry', () => {
     expect(result.current.agent.activeSessionId).toBe('d')
   })
 
+  it('keeps a cross-repo tab selected and loaded when project sessions refresh', async () => {
+    const { result } = renderHook(() => useHarness())
+    await waitFor(() => expect(result.current.agent.activeSessionId).toBe('a'))
+    act(() => { result.current.setActiveSession('d') })
+
+    const listener = vi.mocked(window.electronAPI.on).mock.calls.find(
+      ([channel]) => channel === 'agent:sessions-changed',
+    )![1]
+    await act(async () => { listener({ projectId: result.current.activeProjectId }) })
+
+    expect(result.current.agent.activeSessionId).toBe('d')
+    expect(result.current.agent.activeSession).toEqual(d)
+    expect(result.current.activeProjectId).toBe('p3')
+  })
+
   it.each(['sidebar', 'favorite', 'shortcut'])('restores a sibling in a different repo via %s', async (route) => {
     const { result } = renderHook(() => useHarness())
     await waitFor(() => expect(result.current.agent.activeSessionId).toBe('a'))

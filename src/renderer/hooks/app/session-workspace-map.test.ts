@@ -26,6 +26,17 @@ const worktreeWorkspace: Workspace = {
 }
 
 describe('groupSessionsByWorkspace', () => {
+  it('keeps the workspace primary and tab order when the active repo changes map order', () => {
+    const first = [session('a'), session('b')]
+    const second = [session('c', { projectId: 'repo-2' })]
+    const workspace = { ...home, projectIds: [REPO, 'repo-2'] }
+
+    expect(groupSessionsByWorkspace({ 'repo-2': second, [REPO]: first }, [workspace])[home.id])
+      .toEqual([...first, ...second])
+    expect(groupSessionsByWorkspace({ [REPO]: first, 'repo-2': second }, [workspace])[home.id])
+      .toEqual([...first, ...second])
+  })
+
   it('lists an agent under the workspace it names', () => {
     const map = groupSessionsByWorkspace(
       { [REPO]: [session('s1', { workspaceId: 'levanger' })] },

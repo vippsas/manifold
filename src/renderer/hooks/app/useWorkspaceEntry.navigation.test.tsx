@@ -67,10 +67,15 @@ interface Handle {
   api: DockviewApi | null
   primarySessionId: string | null
   activeSessionId: string | null
+  activeProjectId: string | null
+  activeWorktreePath: string | null
   runCommand: (id: string) => void
 }
 
-function Harness({ handle }: { handle: { current: Handle | null } }): React.JSX.Element {
+function Harness({ handle, onSetActiveProject }: {
+  handle: { current: Handle | null }
+  onSetActiveProject?: (id: string) => void
+}): React.JSX.Element {
   const [activeProjectId, setActiveProject] = useState<string | null>('p1')
   const [activeWorkspaceId, selectWorkspace] = useState<string | null>('w1')
   const agent = useAgentSession(activeProjectId)
@@ -81,7 +86,8 @@ function Harness({ handle }: { handle: { current: Handle | null } }): React.JSX.
   const entry = useWorkspaceEntry({
     workspaces, sessionsByWorkspace, favorites, activeProjectId, activeWorkspaceId,
     activeSessionId: agent.activeSessionId,
-    selectSession: agent.setActiveSession, selectWorkspace, setActiveProject,
+    selectSession: agent.setActiveSession, selectWorkspace,
+    setActiveProject: (id) => { onSetActiveProject?.(id); setActiveProject(id) },
   })
   const workspaceSessions = sessionsByWorkspace[activeWorkspaceId ?? ''] ?? []
   const primarySessionId = workspaceSessions[0]?.id ?? null
@@ -94,7 +100,7 @@ function Harness({ handle }: { handle: { current: Handle | null } }): React.JSX.
     primarySessionId, activeSessionId: agent.activeSessionId, onSelectSession: entry.setActiveSession,
   })
   const { runCommand } = useCommands({ jumpToFavorite: entry.jumpToFavorite } as CommandContext)
-  handle.current = { api: dock.apiRef.current, primarySessionId, activeSessionId: agent.activeSessionId, runCommand }
+  handle.current = { api: dock.apiRef.current, primarySessionId, activeSessionId: agent.activeSessionId, activeProjectId, activeWorktreePath: agent.activeSession?.worktreePath ?? null, runCommand }
   const dockState = {
     favorites, onActivateFavorite: entry.activateFavorite,
     onReorderFavorites: () => {}, isFavorite: () => true, onToggleFavorite: () => {},
@@ -117,6 +123,47 @@ function Harness({ handle }: { handle: { current: Handle | null } }): React.JSX.
 }
 
 describe('workspace navigation restores the dock tab (#945)', () => {
+  it.each([false, true])('loads and remembers a cross-repo tab without replacing panels (delayed refresh: %s)', async (delayRefresh) => {
+    const handle: { current: Handle | null } = { current: null }
+    const setActiveProject = vi.fn()
+    render(<Harness handle={handle} onSetActiveProject={setActiveProject} />)
+    await waitFor(() => expect(handle.current?.api?.getPanel(siblingPanelId('b'))).toBeDefined())
+    act(() => { handle.current!.api!.getPanel(siblingPanelId('b'))!.api.setActive() })
+    await waitFor(() => expect(handle.current?.activeSessionId).toBe('b'))
+    expect(handle.current?.activeProjectId).toBe('p1')
+    expect(handle.current?.primarySessionId).toBe('a')
+    const primaryPanel = handle.current!.api!.getPanel('agent')!
+    const siblingPanel = handle.current!.api!.getPanel(siblingPanelId('b'))!
+    const crossRepoPanel = handle.current!.api!.getPanel(siblingPanelId('d'))!
+    setActiveProject.mockClear()
+    let finishRefresh: ((rows: AgentSession[]) => void) | undefined
+    if (delayRefresh) {
+      const invoke = vi.mocked(window.electronAPI.invoke).getMockImplementation()!
+      vi.mocked(window.electronAPI.invoke).mockImplementation((...args) => (
+        args[0] === 'agent:sessions' && args[1] === 'p1'
+          ? new Promise<AgentSession[]>((resolve) => { finishRefresh = resolve })
+          : invoke(...args)
+      ))
+    }
+
+    act(() => { crossRepoPanel.api.setActive() })
+    expect(setActiveProject).toHaveBeenCalledWith('p3')
+    await waitFor(() => expect(handle.current?.activeSessionId).toBe('d'))
+    await waitFor(() => expect(handle.current?.activeWorktreePath).toBe('/wt/d'))
+    expect(handle.current?.activeProjectId).toBe('p3')
+    expect(handle.current?.primarySessionId).toBe('a')
+    expect(handle.current?.api?.getPanel('agent')).toBe(primaryPanel)
+    expect(handle.current?.api?.getPanel(siblingPanelId('b'))).toBe(siblingPanel)
+    expect(handle.current?.api?.getPanel(siblingPanelId('d'))).toBe(crossRepoPanel)
+    await act(async () => { finishRefresh?.(sessions.filter((s) => s.projectId === 'p1')) })
+
+    fireEvent.click(within(screen.getByTestId('cards')).getByText('Two'))
+    await waitFor(() => expect(handle.current?.activeSessionId).toBe('c'))
+    fireEvent.click(within(screen.getByTestId('cards')).getByText('One'))
+    await waitFor(() => expect(handle.current?.activeSessionId).toBe('d'))
+    expect(handle.current?.activeProjectId).toBe('p3')
+  })
+
   it.each(['sidebar', 'favorite', 'shortcut'])('restores the last clicked tab through %s', async (route) => {
     const handle: { current: Handle | null } = { current: null }
     render(<Harness handle={handle} />)

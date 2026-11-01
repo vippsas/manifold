@@ -34,8 +34,7 @@ export function useWorkspaceEntry({
     if (workspaceId && session) lastSessionByWorkspaceRef.current.set(workspaceId, session.id)
     sessionRef.current = id
     selectSession(id)
-    // Dock tabs may belong to another repo in the same workspace. Load that
-    // repo's sessions too, just as entering a workspace through the sidebar does.
+    // Session loading and active-session metadata are scoped to this repo.
     if (session) setActiveProject(session.projectId)
   }, [sessionsByWorkspace, selectSession, setActiveProject])
 

@@ -80,18 +80,23 @@ state and the live run board (`components/editor/editor-shell/dock-agent-panel.t
 the main process, so no plugin view or activity-rail entry is involved.
 
 **Workspace entry restores the last selected agent.** Sidebar cards, Favorites rows and
-⌘1–9 share `useWorkspaceEntry.enterWorkspace` (`hooks/app/useWorkspaceEntry.ts:52`,
-`:67`). The hook remembers agent ids per selected workspace for the lifetime of the
+⌘1–9 share `useWorkspaceEntry.enterWorkspace` (`hooks/app/useWorkspaceEntry.ts:51`,
+`:66`). The hook remembers agent ids per selected workspace for the lifetime of the
 window. Its session setter records synchronously, and its workspace setter advances the
 workspace context synchronously, so selecting a sibling and entering another workspace
 in one React batch cannot record the incoming agent against the departing workspace
 (`useWorkspaceEntry.ts:26`, `:31`). Shared-repo agents are remembered under the selected
 workspace, rather than whichever workspace first holds that repo. An effect also captures
-automatic session selections once workspace membership is known (`useWorkspaceEntry.ts:45`).
+automatic session selections once workspace membership is known (`useWorkspaceEntry.ts:44`).
 `resolveWorkspaceEntry` validates the remembered id against the target workspace's sessions;
 otherwise it keeps an already-present agent, selects the primary, or returns an empty entry
-(`workspace-entry.ts:37`). Selecting a tab in another repo of the workspace also selects
-that repo (`useWorkspaceEntry.ts:39`). Project-session loading preserves an explicit valid
+(`workspace-entry.ts:37`). Dock-tab selection and workspace entry also select the agent's
+repo so its session metadata stays loaded (`useWorkspaceEntry.ts:38`). Workspace sessions
+follow the workspace's `projectIds` order, preserving the primary and sibling panel identities
+when the active repo changes the session map's insertion order (`session-workspace-map.ts:35`).
+The all-project session cache retains the departing repo while its background refresh is pending
+and rejects the departing list as an incoming repo override (`hooks/agent-session/useAllProjectSessions.ts:31`, `:91`).
+Project-session loading preserves an explicit valid
 selection ahead of repo memory, whose capture now uses a settled selection instead of a
 project-change cleanup (`hooks/agent-session/useAgentSession.ts:44`, `:125`). The existing
 `rememberedActiveSessionRef` and dock-restore protection remain in place (#773).
