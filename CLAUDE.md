@@ -131,6 +131,13 @@ non-interactively.
   general npm lint/format command, but CI also runs `shellcheck install-linux.sh`: when you
   change that script, run it too (or report it as unverified if `shellcheck` is missing). Never
   run two `npm test` at once (the sqlite rebuild clobbers the in-flight run).
+- **macOS app, Linux runner:** Manifold ships as a macOS Electron app, but runs execute in a
+  non-root Linux container. The offline gate is platform-neutral (CI runs it on Linux with
+  Node 24; `node-pty` and `better-sqlite3` compile there, so the image needs Node 24, Python 3
+  and a C/C++ toolchain). Anything macOS-only cannot be verified in the run: `npm run dist`
+  (DMG, signing, notarization), darwin `node-pty` prebuilds, native macOS behaviour, and
+  §4's "see it" step (`drive:app`, and `screenshot:component` when no Chromium is present).
+  For renderer/theme changes, rely on unit tests and list the visual check as a live gap.
 - Connected checks (CI's `npm run dist:linux` + package verification, CodeQL, live-app driving)
   are downstream; list them as unverified rather than claiming them.
 - Follow the dispatcher's prompt protocol: finish with root `MANIFOLD_SUMMARY.md` (change
