@@ -18,7 +18,8 @@ export interface UseGitOperationsResult {
 }
 
 export function useGitOperations(
-  sessionId: string | null
+  sessionId: string | null,
+  branchName?: string,
 ): UseGitOperationsResult {
   const [aheadBehind, setAheadBehind] = useState<AheadBehind>({ ahead: 0, behind: 0 })
   const [conflicts, setConflicts] = useState<string[]>([])
@@ -37,9 +38,11 @@ export function useGitOperations(
     }
   }, [])
 
-  // Discovery also emits this event so an early empty read gets retried.
-  useIpcListener<{ sessionId: string }>('files:tree-changed', useCallback((event) => {
-    if (event.sessionId === sessionRef.current) void refreshAheadBehind()
+  // Retry discovery misses; ordinary file edits cannot change commit counts.
+  useIpcListener<{ sessionId: string; reason?: string }>('files:tree-changed', useCallback((event) => {
+    if (event.sessionId === sessionRef.current && event.reason === 'session-discovered') {
+      void refreshAheadBehind()
+    }
   }, [refreshAheadBehind]))
 
   const commit = useCallback(async (message: string): Promise<void> => {
@@ -82,7 +85,7 @@ export function useGitOperations(
     return unsubscribe
   }, [])
 
-  // Refresh ahead/behind when session changes
+  // Refresh ahead/behind when the session or its checkout branch changes.
   useEffect(() => {
     if (sessionId) {
       void refreshAheadBehind()
@@ -90,7 +93,7 @@ export function useGitOperations(
       setAheadBehind({ ahead: 0, behind: 0 })
       setConflicts([])
     }
-  }, [sessionId, refreshAheadBehind])
+  }, [sessionId, branchName, refreshAheadBehind])
 
   return { aheadBehind, conflicts, commit, aiGenerate, getPRContext, resolveConflict, refreshAheadBehind }
 }

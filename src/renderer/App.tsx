@@ -142,7 +142,7 @@ export function App(): React.JSX.Element {
   useSessionStatePersistence(effectiveSessionId, viewState, codeView)
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
-  const gitOps = useGitOperations(effectiveSessionId)
+  const gitOps = useGitOperations(effectiveSessionId, activeSession?.branchName)
   const branchStaleness = useBranchStaleness(activeProjectId, projects)
 
   // A folder row fetched its repo: its base branch is fresh again, and every

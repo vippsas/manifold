@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-11-01T20:31:30Z
+updated: 2026-11-01T20:50:46Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -219,7 +219,9 @@ resurrected from leftover branch checkout state (`session-discovery.ts:148`, `:2
 
 Each newly adopted session invokes the discovery callback **after** registration
 (`session-discovery.ts:135`, `:173`, `:258`). `SessionManagerContext` uses it to push
-`files:tree-changed` with `{ sessionId, rootPath }` (`session-manager-context.ts:83`).
+`files:tree-changed` with `{ sessionId, rootPath, reason: 'session-discovered' }`
+(`session-manager-context.ts:83`). The reason lets ahead/behind retry on discovery
+without refreshing on ordinary file edits (`src/renderer/hooks/editor/useGitOperations.ts:42`).
 Restored renderer panes can therefore retry an early empty tree or ahead/behind read
 without waiting for file activity or starting dormant-session polling. Repeated discovery
 of an already tracked session emits no new signal; all three adoption paths are pinned

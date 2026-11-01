@@ -31,7 +31,7 @@ export class SessionReadinessApi {
 
   discover(sessionId: string): void {
     this.sessions.set(sessionId, { tree: restoredTree, aheadBehind: { ahead: 2, behind: 1 } })
-    this.emit('files:tree-changed', { sessionId, rootPath: restoredTree.path })
+    this.emit('files:tree-changed', { sessionId, rootPath: restoredTree.path, reason: 'session-discovered' })
   }
 
   install(): void {

@@ -173,6 +173,7 @@ describe('SessionDiscovery renderer readiness', () => {
       expect(sessions).toHaveLength(1)
       expect(send).toHaveBeenCalledExactlyOnceWith('files:tree-changed', {
         sessionId: 'restored', rootPath: route === 'worktree' ? '/wt' : '/repo',
+        reason: 'session-discovered',
       })
       await discover()
       expect(send).toHaveBeenCalledTimes(1)
