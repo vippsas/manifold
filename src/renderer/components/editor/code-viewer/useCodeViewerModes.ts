@@ -20,6 +20,7 @@ const MAX_PATHS_PER_PANE = 200
 // switch to editor mode.
 const autoPreviewedPathsByPane = new Map<string, Set<string>>()
 const autoDiffedPathsByPane = new Map<string, Set<string>>()
+const modeTransferListenersByPane = new Map<string, () => void>()
 
 interface UseCodeViewerModesParams {
   paneId: string
@@ -191,5 +192,38 @@ export function useCodeViewerModes({
     return () => unregisterEditorPaneModeControls(paneId, controls)
   }, [paneId, showPreviewToggle, showDiffToggle, mode, showEditorMode, showPreviewMode, showDiffMode])
 
+  useEffect(() => {
+    const receiveTransferredModes = (): void => {
+      setPreviewPaths(previewPathsByPane.get(paneId) ?? new Set())
+      setDiffPaths(diffPathsByPane.get(paneId) ?? new Set())
+    }
+    modeTransferListenersByPane.set(paneId, receiveTransferredModes)
+    return () => {
+      if (modeTransferListenersByPane.get(paneId) === receiveTransferredModes) {
+        modeTransferListenersByPane.delete(paneId)
+      }
+    }
+  }, [paneId])
+
   return { previewActive, diffMode, keepEditorMode, handleOpenLinkedFile }
+}
+
+/** Carry a moved tab's choices into its destination before that pane activates it. */
+export function copyCodeViewerModes(filePath: string, sourcePaneId: string, targetPaneId: string): void {
+  if (sourcePaneId === targetPaneId) return
+
+  for (const pathsByPane of [previewPathsByPane, diffPathsByPane]) {
+    const paths = new Set(pathsByPane.get(targetPaneId))
+    if (pathsByPane.get(sourcePaneId)?.has(filePath)) addBounded(paths, filePath, MAX_PATHS_PER_PANE)
+    else paths.delete(filePath)
+    pathsByPane.set(targetPaneId, paths)
+  }
+  // Both positive and negative choices are seeded, so a moved markdown tab in
+  // Editor or Diff cannot be auto-previewed on its first visit to this pane.
+  for (const seenByPane of [autoPreviewedPathsByPane, autoDiffedPathsByPane]) {
+    const seen = new Set(seenByPane.get(targetPaneId))
+    addBounded(seen, filePath, MAX_PATHS_PER_PANE)
+    seenByPane.set(targetPaneId, seen)
+  }
+  modeTransferListenersByPane.get(targetPaneId)?.()
 }
