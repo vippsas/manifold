@@ -10,7 +10,7 @@ owner: see .github/CODEOWNERS
 `useAgentSession` owns the current repo's session list and invokes `useAutoResume`
 with that list and the selected id (`src/renderer/hooks/agent-session/useAgentSession.ts:74`,
 `:93`). A workspace tab selection also selects its agent's repo in the same batch
-(`src/renderer/hooks/app/useWorkspaceEntry.ts:31`). The selected id can therefore arrive
+(`src/renderer/hooks/app/useWorkspaceEntry.ts:38`). The selected id can therefore arrive
 before its session is in the current list. Loading the destination repo preserves that
 explicit selection, so the id need not change when the list arrives
 (`src/renderer/hooks/agent-session/useAgentSession.ts:39`, `:50`).

@@ -67,7 +67,7 @@ handful of cross-cutting pages. `covers:` is the code each page is bound to.
 | [Renderer](architecture/renderer.md) | `src/renderer` | React workspace UI: dockview panel layout, modules, and the `window.electronAPI`-only main boundary |
 | [Agent auto-resume](architecture/agent-auto-resume.md) | `useAgentSession.ts`, `useAutoResume.ts` | Resume a selected dormant interactive agent after its repo's sessions arrive, once per selection |
 | [Workspace folder trees](architecture/workspace-trees.md) | `useWorkspaceTree.ts` | Cached sidebar folders with coalesced event reloads and one trailing refresh |
-| [Editor view modes](architecture/editor-view-modes.md) | `file-open-request.ts`, `useCodeViewerModes.ts`, `useEditorPaneHandlers.ts`, `useFileOperations.ts` | Pane-targeted file opens and remembered per-file Editor/Diff choices |
+| [Editor view modes](architecture/editor-view-modes.md) | `file-open-request.ts`, `useCodeViewerModes.ts`, `useEditorPaneHandlers.ts`, `useFileOperations.ts`, `useCodeView.ts` | Pane-targeted file opens and remembered per-file Editor/Diff choices |
 | [Renderer verification](architecture/renderer-verification.md) | `scripts/screenshot-component.mjs`, `scripts/drive-app.mjs` | Self-verify UI: screenshot a component under a real theme with no Electron, and drive the built app for flow checks |
 
 ### Build & release

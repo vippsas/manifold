@@ -1,7 +1,7 @@
 ---
 description: The on-disk data model under ~/.manifold — every file and directory Manifold persists, which module owns each path, and the two distinct roots (hardcoded config home vs. configurable storage root).
 covers: [src/main/store, src/shared/defaults.ts]
-updated: 2026-08-27
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -140,7 +140,7 @@ possible.
 
 **`<storageRoot>/projects/<repoName>`** — locally generated app projects.
 The base is computed as `storagePath + 'projects'` in several callers
-(`ipc/project-handlers.ts:105`, `ipc/agent-handlers.ts:285`, `app/mode-switcher.ts:88`);
+(`ipc/project-handlers.ts:105`, `ipc/agent-handlers.ts:243`, `app/mode-switcher.ts:88`);
 the leaf is a slugified repo name.
 
 **`<storageRoot>/plugins/`** and **`<storageRoot>/plugin-storage/<id>.json`** — user-installed

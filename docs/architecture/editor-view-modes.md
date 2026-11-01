@@ -1,7 +1,7 @@
 ---
 description: How explicit opens target one pane and moved tabs carry their remembered view mode to another.
 covers: [src/renderer/components/editor/file-open-request.ts, src/renderer/components/editor/code-viewer/useCodeViewerModes.ts, src/renderer/hooks/editor/useEditorPaneHandlers.ts, src/renderer/hooks/editor/useFileOperations.ts, src/renderer/hooks/editor/useCodeView.ts]
-updated: 2026-11-01T18:00:15Z
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -22,10 +22,11 @@ targeted elsewhere therefore cannot override this pane's remembered Editor/Diff 
 even if this pane activates the same file later. Tab clicks change the active file
 without issuing another request (`useEditorPaneHandlers.ts:128`).
 
-First opens and new matching requests seed Diff for `sourceControl` and `default`
-(Modified Files), and Editor for other sources (`useCodeViewerModes.ts:113`). Diff
+First opens and new matching requests enable the Diff preference for `sourceControl`
+and `default` (Modified Files), and clear it for other sources (`useCodeViewerModes.ts:120`). Diff
 preferences survive delayed diff loading; the visible Diff mode also requires the
-active file's current diff data (`useCodeViewerModes.ts:64`). Remembered choices and
+active file's current diff data (`useCodeViewerModes.ts:64`). Markdown previews on first open,
+and Preview takes precedence over Diff (`useCodeViewerModes.ts:93`, `:179`). Remembered choices and
 handled requests survive remounts through module-level pane maps; diff choices and
 first-open history are bounded to 200 paths per pane (`useCodeViewerModes.ts:13`, `:79`, `:115`).
 
