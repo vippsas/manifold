@@ -147,15 +147,17 @@ describe('FileWatcher shared producer lifecycle', () => {
     Object.assign(new Error('spawn git ENOENT'), { code: 'ENOENT', syscall: 'spawn git' }),
     new Error('fatal: not a git repository'),
   ])('disables the shared producer after one permanent failure: %s', async (error) => {
-    status.mockRejectedValue(error)
     watcher.watch('/repo/a', 's1')
     watcher.watchAdditionalDir('/repo/a/', 's2')
     watcher.watchAdditionalDir('/repo/a', 's3')
     await vi.advanceTimersByTimeAsync(0)
+    send.mockClear()
+    status.mockRejectedValue(error)
+    await vi.advanceTimersByTimeAsync(2000)
     watcher.watch('/repo/a', 's1')
     watcher.watchAdditionalDir('/repo/a', 's2')
     await vi.advanceTimersByTimeAsync(8000)
-    expect(status).toHaveBeenCalledTimes(1)
+    expect(status).toHaveBeenCalledTimes(2)
     expect(vi.getTimerCount()).toBe(0)
     expect(send).not.toHaveBeenCalled()
   })

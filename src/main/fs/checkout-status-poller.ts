@@ -20,6 +20,7 @@ interface Producer {
   fingerprint: string
   branch: string
   branchVersion: number
+  subscriptionVersion: number
   polling: boolean
   disabled: boolean
 }
@@ -51,6 +52,7 @@ export class CheckoutStatusPoller {
     this.restartDisabled(key, entry)
     const subscriber: PrimarySubscriber = { lastBranch: '', notified: false }
     entry.primary.set(sessionId, subscriber)
+    entry.subscriptionVersion++
     if (entry.snapshot) this.notifyPrimary(key, entry, sessionId, subscriber, false)
     if (!entry.snapshot) void this.poll(key, entry)
   }
@@ -61,6 +63,7 @@ export class CheckoutStatusPoller {
     if (entry.additional.has(sessionId)) return
     this.restartDisabled(key, entry)
     entry.additional.set(sessionId, dir)
+    entry.subscriptionVersion++
     if (entry.snapshot) this.events.additional(sessionId, dir, entry.snapshot)
     if (!entry.snapshot) void this.poll(key, entry)
   }
@@ -98,7 +101,8 @@ export class CheckoutStatusPoller {
     if (!entry) {
       entry = {
         timer: null, primary: new Map(), additional: new Map(),
-        status: '', fingerprint: '', branch: '', branchVersion: 0, polling: false, disabled: false,
+        status: '', fingerprint: '', branch: '', branchVersion: 0, subscriptionVersion: 0,
+        polling: false, disabled: false,
       }
       const producer = entry
       entry.timer = setInterval(() => { void this.poll(key, producer) }, 2000)
@@ -150,6 +154,7 @@ export class CheckoutStatusPoller {
     if (!this.active(key, entry) || entry.polling || entry.disabled) return
     // Keep ticks from overlapping a slow Git request or fingerprint pass.
     entry.polling = true
+    const subscriptionVersion = entry.subscriptionVersion
     try {
       const status = await this.gitStatus(key)
       if (!this.active(key, entry)) return
@@ -176,12 +181,14 @@ export class CheckoutStatusPoller {
         for (const [id, subscriber] of entry.primary) this.notifyPrimary(key, entry, id, subscriber, false)
       }
     } catch (err) {
-      if (this.active(key, entry) && (isMissingGitError(err) || isGitRepositoryError(err))) {
+      // A subscriber joining this request still needs a retry on the existing interval.
+      if (this.active(key, entry) && entry.subscriptionVersion === subscriptionVersion
+        && (isMissingGitError(err) || isGitRepositoryError(err))) {
         if (entry.timer) clearInterval(entry.timer)
         entry.timer = null
         entry.disabled = true
       }
-      // Transient errors retry on the next tick.
+      // Transient errors and new subscriptions retry on the next tick.
     } finally {
       entry.polling = false
     }
