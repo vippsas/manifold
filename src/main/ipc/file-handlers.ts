@@ -11,6 +11,7 @@ import type { AgentSession, FileTreeNode } from '../../shared/types'
 import { listWorktreeFiles } from '../fs/list-files'
 import { openTerminal } from './open-terminal'
 import { debugLog } from '../app/debug-log'
+import { invalidateCheckoutStatus } from '../fs/checkout-status-cache'
 
 const execFileAsync = promisify(execFile)
 
@@ -110,7 +111,9 @@ export function registerFileHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('files:write', (_event, sessionId: string | null, filePath: string, content: string) => {
-    fileWatcher.writeFile(authorize(sessionId, filePath), content)
+    const resolved = authorize(sessionId, filePath)
+    fileWatcher.writeFile(resolved, content)
+    invalidateCheckoutStatus(resolved)
   })
 
   ipcMain.handle('files:delete', async (_event, sessionId: string, filePath: string) => {
@@ -121,6 +124,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: file outside allowed directories')
     }
     fileWatcher.deleteFile(resolved)
+    invalidateCheckoutStatus(resolved)
     return { tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
 
@@ -136,6 +140,8 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: file outside allowed directories')
     }
     fileWatcher.renameFile(resolvedOld, resolvedNew)
+    invalidateCheckoutStatus(resolvedOld)
+    invalidateCheckoutStatus(resolvedNew)
     return { tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
 
@@ -150,13 +156,17 @@ export function registerFileHandlers(deps: IpcDependencies): void {
 
   ipcMain.handle('files:create-file', (_event, sessionId: string | null, dirPath: string, fileName: string) => {
     const dir = authorize(sessionId, dirPath)
-    fileWatcher.createFile(authorize(sessionId, resolve(dir, fileName)))
+    const filePath = authorize(sessionId, resolve(dir, fileName))
+    fileWatcher.createFile(filePath)
+    invalidateCheckoutStatus(filePath)
     return sessionTree(sessionId)
   })
 
   ipcMain.handle('files:create-dir', (_event, sessionId: string | null, dirPath: string, dirName: string) => {
     const dir = authorize(sessionId, dirPath)
-    fileWatcher.createDir(authorize(sessionId, resolve(dir, dirName)))
+    const dirPathToCreate = authorize(sessionId, resolve(dir, dirName))
+    fileWatcher.createDir(dirPathToCreate)
+    invalidateCheckoutStatus(dirPathToCreate)
     return sessionTree(sessionId)
   })
 
@@ -168,7 +178,11 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       throw new Error('Path traversal denied: directory outside allowed directories')
     }
 
-    fileWatcher.importPaths(sourcePaths, resolvedDir)
+    try {
+      fileWatcher.importPaths(sourcePaths, resolvedDir)
+    } finally {
+      invalidateCheckoutStatus(resolvedDir)
+    }
 
     const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
     fileWatcher.notifyTreeChanged(sessionId, source)
@@ -182,6 +196,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     const resolvedDir = resolvePasteTargetDir(session, dirPath, isAllowed)
     const { ext, buffer } = decodeImageDataUrl(dataUrl)
     const filePath = writePastedImage(session, resolvedDir, ext, buffer, isAllowed)
+    invalidateCheckoutStatus(filePath)
 
     const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
     fileWatcher.notifyTreeChanged(sessionId, source)
@@ -199,6 +214,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     const buffer = image.toPNG()
     if (buffer.byteLength === 0) return { pasted: false }
     const filePath = writePastedImage(session, resolvedDir, 'png', buffer, isAllowed)
+    invalidateCheckoutStatus(filePath)
 
     const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
     fileWatcher.notifyTreeChanged(sessionId, source)

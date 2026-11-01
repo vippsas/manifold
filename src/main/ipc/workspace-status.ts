@@ -2,6 +2,7 @@ import type { WorkspaceRepoStatus } from '../../shared/workspace-types'
 import { isGitProject } from '../../shared/project-kind'
 import { gitExec } from '../git/git-exec'
 import { gitStatus } from '../fs/file-watcher-utils'
+import { getCachedCheckoutStatus } from '../fs/checkout-status-cache'
 import { parseWorkspaceStatus } from '../git/porcelain-status'
 import type { IpcDependencies } from './types'
 
@@ -23,9 +24,11 @@ export function createWorkspaceStatusReader({ workspaceManager, projectRegistry 
       const project = projectRegistry.getProject(projectId)
       if (!project || !isGitProject(project) || (selection && !selection.has(projectId))) return null
       const checkoutPath = workspace.worktreePaths?.[projectId] ?? project.path
+      const cached = getCachedCheckoutStatus(checkoutPath)
       const [branch, groups, upstreamAheadBehind] = await Promise.all([
-        gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], checkoutPath).then((out) => out.trim()).catch(() => ''),
-        gitStatus(checkoutPath).then(parseWorkspaceStatus).catch(() => ({ staged: [], unstaged: [], untracked: [] })),
+        cached?.branch || gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], checkoutPath).then((out) => out.trim()).catch(() => ''),
+        (cached ? Promise.resolve(cached.status) : gitStatus(checkoutPath))
+          .then(parseWorkspaceStatus).catch(() => ({ staged: [], unstaged: [], untracked: [] })),
         gitExec(['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], checkoutPath)
           .then((out) => {
             const [behind, ahead] = out.trim().split(/\s+/).map(Number)

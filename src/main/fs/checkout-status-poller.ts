@@ -1,6 +1,10 @@
 import * as path from 'node:path'
 import { buildChangeFingerprint, parseStatusWithConflicts } from './file-watcher-utils'
 import { isMissingGitError, isGitRepositoryError } from '../git/git-errors'
+import {
+  CHECKOUT_STATUS_INTERVAL_MS, invalidateCheckoutStatus, registerCheckoutStatus, removeCheckoutStatus,
+  type CheckoutStatusCacheEntry,
+} from './checkout-status-cache'
 
 export type GitStatusFn = (cwd: string) => Promise<string>
 export type GitBranchFn = (cwd: string) => Promise<string>
@@ -12,6 +16,7 @@ interface PrimarySubscriber {
 }
 
 interface Producer {
+  cache: CheckoutStatusCacheEntry
   timer: ReturnType<typeof setInterval> | null
   primary: Map<string, PrimarySubscriber>
   additional: Map<string, string>
@@ -77,6 +82,7 @@ export class CheckoutStatusPoller {
     if (!entry.primary.size) {
       entry.branch = ''
       entry.branchVersion++
+      if (entry.cache.raw) entry.cache.raw.branch = ''
     }
     this.removeUnused(key, entry)
   }
@@ -90,8 +96,9 @@ export class CheckoutStatusPoller {
   }
 
   unwatchAll(): void {
-    for (const entry of this.producers.values()) {
+    for (const [key, entry] of this.producers) {
       if (entry.timer) clearInterval(entry.timer)
+      removeCheckoutStatus(key, entry.cache)
     }
     this.producers.clear()
   }
@@ -100,12 +107,13 @@ export class CheckoutStatusPoller {
     let entry = this.producers.get(key)
     if (!entry) {
       entry = {
+        cache: registerCheckoutStatus(key),
         timer: null, primary: new Map(), additional: new Map(),
         status: '', fingerprint: '', branch: '', branchVersion: 0, subscriptionVersion: 0,
         polling: false, disabled: false,
       }
       const producer = entry
-      entry.timer = setInterval(() => { void this.poll(key, producer) }, 2000)
+      entry.timer = setInterval(() => { void this.poll(key, producer) }, CHECKOUT_STATUS_INTERVAL_MS)
       this.producers.set(key, entry)
     }
     return entry
@@ -115,6 +123,7 @@ export class CheckoutStatusPoller {
     if (entry.primary.size || entry.additional.size) return
     if (entry.timer) clearInterval(entry.timer)
     this.producers.delete(key)
+    removeCheckoutStatus(key, entry.cache)
   }
 
   private restartDisabled(key: string, entry: Producer): void {
@@ -128,7 +137,7 @@ export class CheckoutStatusPoller {
       subscriber.lastBranch = ''
       subscriber.notified = false
     }
-    entry.timer = setInterval(() => { void this.poll(key, entry) }, 2000)
+    entry.timer = setInterval(() => { void this.poll(key, entry) }, CHECKOUT_STATUS_INTERVAL_MS)
   }
 
   private active(key: string, entry: Producer): boolean {
@@ -155,12 +164,14 @@ export class CheckoutStatusPoller {
     // Keep ticks from overlapping a slow Git request or fingerprint pass.
     entry.polling = true
     const subscriptionVersion = entry.subscriptionVersion
+    const generation = entry.cache.generation
     try {
       const status = await this.gitStatus(key)
-      if (!this.active(key, entry)) return
+      if (!this.active(key, entry) || entry.cache.generation !== generation) return
+      entry.cache.raw = { status, branch: '', successfulAt: Date.now() }
       const snapshot = parseStatusWithConflicts(status)
       const fingerprint = await buildChangeFingerprint(key, snapshot.changes)
-      if (!this.active(key, entry)) return
+      if (!this.active(key, entry) || entry.cache.generation !== generation) return
       const initial = !entry.snapshot
       const changed = status !== entry.status || fingerprint !== entry.fingerprint
       entry.status = status
@@ -176,11 +187,13 @@ export class CheckoutStatusPoller {
       if (entry.primary.size) {
         const branchVersion = entry.branchVersion
         const branch = await this.gitBranch(key).catch(() => '')
-        if (!this.active(key, entry) || entry.branchVersion !== branchVersion) return
+        if (!this.active(key, entry) || entry.branchVersion !== branchVersion || entry.cache.generation !== generation) return
+        if (entry.cache.raw) entry.cache.raw.branch = branch
         entry.branch = branch && branch !== 'HEAD' ? branch : ''
         for (const [id, subscriber] of entry.primary) this.notifyPrimary(key, entry, id, subscriber, false)
       }
     } catch (err) {
+      if (this.active(key, entry)) invalidateCheckoutStatus(key)
       // A subscriber joining this request still needs a retry on the existing interval.
       if (this.active(key, entry) && entry.subscriptionVersion === subscriptionVersion
         && (isMissingGitError(err) || isGitRepositoryError(err))) {
