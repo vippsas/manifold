@@ -230,9 +230,7 @@ export function registerAgentHandlers(deps: IpcDependencies): void {
   )
 
   ipcMain.handle('agent:resume', async (_event, sessionId: string, runtimeId: string) => {
-    const session = await sessionManager.resumeSession(sessionId, runtimeId)
-    fileWatcher.watch(session.worktreePath, session.id)
-    return session
+    return sessionManager.resumeSession(sessionId, runtimeId)
   })
 
   ipcMain.handle('agent:replay', (_event, sessionId: string) => {

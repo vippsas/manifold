@@ -106,8 +106,9 @@ export class FileWatcher {
     this.polls.delete(key)
   }
 
-  watch(worktreePath: string, sessionId: string): void {
+  watch(worktreePath: string, sessionId: string, previousSessionId?: string): void {
     const existing = this.polls.get(worktreePath)
+    if (previousSessionId !== undefined && existing?.sessionId !== previousSessionId) return
     if (existing) {
       // A reused worktree (createWorktreeFromBranch) re-watches the same path for
       // a new session id. Re-point the entry so events carry the live sessionId —

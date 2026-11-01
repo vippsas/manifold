@@ -2,7 +2,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { WorktreeManager, type WorktreeInfo } from '../git/worktree-manager'
 import { isGitRepositoryError, isMissingGitError } from '../git/git-errors'
 import { ProjectRegistry } from '../store/project-registry'
-import type { FileWatcher } from '../fs/file-watcher'
 import { readWorktreeMeta } from '../git/worktree-meta'
 import { gitExec } from '../git/git-exec'
 import { prepareManagedWorktree } from '../git/managed-worktree'
@@ -31,7 +30,6 @@ export class SessionDiscovery {
     private sessions: Map<string, InternalSession>,
     private worktreeManager: WorktreeManager,
     private projectRegistry: ProjectRegistry,
-    private fileWatcher: FileWatcher | undefined,
   ) {}
 
   setVerdictRecorder(recorder: VerdictRecorder): void {
@@ -135,12 +133,6 @@ export class SessionDiscovery {
         }
         this.sessions.set(session.id, session)
         this.adoptForVerdict(session, project.baseBranch)
-
-        if (meta?.additionalDirs) {
-          for (const dir of meta.additionalDirs) {
-            this.fileWatcher?.watchAdditionalDir(dir, session.id)
-          }
-        }
       }
     }
 

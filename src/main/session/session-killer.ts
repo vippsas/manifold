@@ -57,14 +57,16 @@ export class SessionKiller {
       for (const dir of session.additionalDirs) {
         fileWatcher.unwatchAdditionalDir(dir, session.id)
       }
-      // Stop the worktree git-status poll on every teardown path (mode-switch
-      // included, not just the IPC layer), but only once no other live session
-      // shares the path — multiple sessions can watch one worktree, and several
-      // noWorktree sessions share the project path (#493, #534). Idempotent with
-      // any IPC-layer unwatch. Caller already removed `session` from the map, so
-      // the check sees only survivors.
-      if (!this.worktreeSharedWithOther(session.worktreePath)) {
+      // Caller already removed `session` from the map. Keep shared polls pointing
+      // at a survivor so file/conflict events and branch updates still reach it.
+      // Dormant sessions registered nothing, so closing one must not start a poll.
+      const survivor = Array.from(this.deps.sessions.values()).find(
+        (other) => other.worktreePath === session.worktreePath && other.checkoutWatched,
+      )
+      if (!survivor) {
         void fileWatcher.unwatch(session.worktreePath)
+      } else if (session.checkoutWatched) {
+        fileWatcher.watch(session.worktreePath, survivor.id, session.id)
       }
     }
 
@@ -84,12 +86,6 @@ export class SessionKiller {
     const safeSessionId = session.id.replace(/[^a-zA-Z0-9_-]/g, '_')
     const pastedImagesDir = path.join(os.tmpdir(), 'manifold-chat-images', safeSessionId)
     void fs.rm(pastedImagesDir, { recursive: true, force: true }).catch(() => { /* best-effort */ })
-  }
-
-  private worktreeSharedWithOther(worktreePath: string): boolean {
-    return Array.from(this.deps.sessions.values()).some(
-      (other) => other.worktreePath === worktreePath,
-    )
   }
 
 }

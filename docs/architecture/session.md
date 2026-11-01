@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-09-02
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -21,7 +21,8 @@ calls into it at all.
 
 ## Covered code
 
-- `src/main/session/session-manager.ts` — `SessionManager`, the façade that holds the `Map<string, InternalSession>` and delegates to the helpers below.
+- `src/main/session/session-manager.ts` — `SessionManager`, the public façade; creation, resume and configuration register checkout watchers through `watchCheckout()` (`:91`).
+- `src/main/session/session-manager-context.ts` — `SessionManagerContext`: shared session state, collaborator construction, branch-change propagation and slash-command caching (`:28`, `:49`, `:150`, `:165`).
 - `src/main/session/session-lifecycle.ts` — `SessionLifecycle`: create/resume orchestration (resume in-flight dedup, dismissal clearing, verdict adoption). It's a permissive create primitive; the one-in-place-agent-per-repo policy is enforced at the `agent:spawn` IPC layer.
 - `src/main/session/session-creator.ts` — `SessionCreator.create()`: resolves worktree + runtime, spawns the PTY, writes worktree meta.
 - `src/main/session/session-discovery.ts` — `SessionDiscovery`: rebuilds dormant sessions by scanning worktrees on disk.
@@ -41,18 +42,18 @@ calls into it at all.
 - `src/main/session/session-usage-accumulator.ts` — `SessionUsageAccumulator`: live token/turn tally for chat-mode turns; Claude adds per result, Codex replaces cumulative per-run totals before drain.
 - `src/main/session/verdict-pr-verifier.ts` — `verifyVerdictPullRequests()`: re-checks cached `pr_created` verdicts with stored PR URLs, stamps PR freshness metadata, and flips merged PRs to `outcome: 'merged'`.
 
-Not detailed here: `shell-*` (Manifold's AI shell prompt/suggestions), `nl-command-translator.*`, and `verdict-recorder.*` (per-session run records). They are session helpers, not the lifecycle core. **Cost estimation (the agent tab's hover):** Claude's transcript records tokens and `message.model`, never a price, so cost is derived, not read. `agent:session-usage` (`ipc/usage-handlers.ts`) → `readSessionCost()` → `readClaudeTranscriptUsage()` → `estimateCostUsd()`. The read is on hover, not on a timer, and it never touches `SessionUsageAccumulator` — `take()` (`session-usage-accumulator.ts:40`) deletes what it returns, so a hover served from it would silently zero the usage the verdict recorder writes at termination. The estimate carries a per-model breakdown (`CostEstimate.rows`, `model-pricing.ts:34`) so a session that switched models shows where each one spent — worth surfacing because caches are model-scoped, so a `/model` switch re-writes the entire cached prefix under the new model rather than reusing it. `contextTokens` (`transcript-usage-reader.ts:34`) is reported alongside the cumulative totals and is a different quantity: the newest non-sidechain request's own input + cache read + cache write, i.e. the live window the status line calls `Ctx`. Turn counting also skips local slash-command envelopes (`isLocalCommandEnvelope`, `transcript-usage-reader.ts:200`) — `/model` writes a `<command-name>` entry and a `<local-command-stdout>` entry as user rows, and counting them read a single switch as two extra turns. Two honesty constraints the code keeps: an unrecognised model yields no number at all, and the figure is what the API *would* charge — on a subscription plan it is not money spent, which the tooltip says. The price table is checked in, so it goes stale when Anthropic changes rates or ships a model. **Token-usage capture (#728):** interactive Claude is spawned with `--session-id <session.id>` (`session-creator.ts:136`) so its transcript is locatable, and resume passes `--resume <session.id>` when that transcript exists (`session-resume.ts:69`). Codex chat-mode JSONL handles `event_msg/user_message` and `event_msg/token_count` in the stream dispatcher (`session-stream-json.ts:132`, `:138`), maps cumulative totals in `recordCodexTokenCount()` (`codex-stream-usage.ts:41`), and stores them with `SessionUsageAccumulator.replaceRun()` (`session-usage-accumulator.ts:31`). At termination the app-level resolver drains live usage first, then falls back to Claude transcript usage or Codex rollout usage (`app/index.ts:112`, `:117`, `:120`), using the created/terminated timestamps passed by `VerdictRecorder` (`verdict-recorder.ts:165`, `:208`). Codex rollout lookup prefers a persisted thread id when available, otherwise matches `cwd`, `source IN ('cli', 'exec')`, and the Manifold session time window in `state_5.sqlite` (`codex-usage-reader.ts:96`, `:102`). The Codex thread id is stored in worktree meta (`worktree-meta.ts:22`, `session-meta-persister.ts:17`) and restored during discovery (`session-discovery.ts:121`, `:163`). Because a normal quit kills PTYs without firing `agent:exit`, `before-quit` first calls `finalizeAllForQuitSync()` (`verdict-recorder.ts:203`, via `sessionManager.finalizeActiveVerdictsForQuit()` at `app-lifecycle.ts:90`) to write active sessions' usage synchronously (`VerdictStore.upsert` is a synchronous atomic write). PR verification is a separate, user-triggered cache refresh: `verifyVerdictPullRequests()` filters `pr_created` records with a stored `metrics.prUrl`, uses URL-based status lookup so renamed/deleted branches do not matter, records `prCheckedAt`/`prState`/failure metadata, and updates only merged PRs to `merged` (`verdict-pr-verifier.ts:16`, `:27`, `:35`). One cross-cutting note: the zsh prompt generated by `shell-prompt.ts` seeds its segment toggles at spawn but re-sources the shared `~/.manifold/shell-prompt-segments.zsh` (`shell-prompt-config.ts:13`) whenever it changes, so prompt-segment settings reach already-running shells at their next prompt render (settings-handlers writes that file at boot and on updates).
+Not detailed here: `shell-*` (Manifold's AI shell prompt/suggestions), `nl-command-translator.*`, and `verdict-recorder.*` (per-session run records). They are session helpers, not the lifecycle core. **Cost estimation (the agent tab's hover):** Claude's transcript records tokens and `message.model`, never a price, so cost is derived, not read. `agent:session-usage` (`ipc/usage-handlers.ts`) → `readSessionCost()` → `readClaudeTranscriptUsage()` → `estimateCostUsd()`. The read is on hover, not on a timer, and it never touches `SessionUsageAccumulator` — `take()` (`session-usage-accumulator.ts:40`) deletes what it returns, so a hover served from it would silently zero the usage the verdict recorder writes at termination. The estimate carries a per-model breakdown (`CostEstimate.rows`, `model-pricing.ts:34`) so a session that switched models shows where each one spent — worth surfacing because caches are model-scoped, so a `/model` switch re-writes the entire cached prefix under the new model rather than reusing it. `contextTokens` (`transcript-usage-reader.ts:34`) is reported alongside the cumulative totals and is a different quantity: the newest non-sidechain request's own input + cache read + cache write, i.e. the live window the status line calls `Ctx`. Turn counting also skips local slash-command envelopes (`isLocalCommandEnvelope`, `transcript-usage-reader.ts:200`) — `/model` writes a `<command-name>` entry and a `<local-command-stdout>` entry as user rows, and counting them read a single switch as two extra turns. Two honesty constraints the code keeps: an unrecognised model yields no number at all, and the figure is what the API *would* charge — on a subscription plan it is not money spent, which the tooltip says. The price table is checked in, so it goes stale when Anthropic changes rates or ships a model. **Token-usage capture (#728):** interactive Claude is spawned with `--session-id <session.id>` (`session-creator.ts:136`) so its transcript is locatable, and resume passes `--resume <session.id>` when that transcript exists (`session-resume.ts:69`). Codex chat-mode JSONL handles `event_msg/user_message` and `event_msg/token_count` in the stream dispatcher (`session-stream-json.ts:132`, `:138`), maps cumulative totals in `recordCodexTokenCount()` (`codex-stream-usage.ts:41`), and stores them with `SessionUsageAccumulator.replaceRun()` (`session-usage-accumulator.ts:31`). At termination the app-level resolver drains live usage first, then falls back to Claude transcript usage or Codex rollout usage (`app/index.ts:112`, `:117`, `:120`), using the created/terminated timestamps passed by `VerdictRecorder` (`verdict-recorder.ts:165`, `:208`). Codex rollout lookup prefers a persisted thread id when available, otherwise matches `cwd`, `source IN ('cli', 'exec')`, and the Manifold session time window in `state_5.sqlite` (`codex-usage-reader.ts:96`, `:102`). The Codex thread id is stored in worktree meta (`worktree-meta.ts:22`, `session-meta-persister.ts:17`) and restored during discovery (`session-discovery.ts:131`, `:168`). Because a normal quit kills PTYs without firing `agent:exit`, `before-quit` first calls `finalizeAllForQuitSync()` (`verdict-recorder.ts:203`, via `sessionManager.finalizeActiveVerdictsForQuit()` at `app-lifecycle.ts:90`) to write active sessions' usage synchronously (`VerdictStore.upsert` is a synchronous atomic write). PR verification is a separate, user-triggered cache refresh: `verifyVerdictPullRequests()` filters `pr_created` records with a stored `metrics.prUrl`, uses URL-based status lookup so renamed/deleted branches do not matter, records `prCheckedAt`/`prState`/failure metadata, and updates only merged PRs to `merged` (`verdict-pr-verifier.ts:16`, `:27`, `:35`). One cross-cutting note: the zsh prompt generated by `shell-prompt.ts` seeds its segment toggles at spawn but re-sources the shared `~/.manifold/shell-prompt-segments.zsh` (`shell-prompt-config.ts:13`) whenever it changes, so prompt-segment settings reach already-running shells at their next prompt render (settings-handlers writes that file at boot and on updates).
 
 ## How it works
 
-`SessionManager` is the only public entry point. Its constructor builds and owns every
-helper, passing each the shared `this.sessions` map and lambdas (`sendToRenderer`,
-`getChatAdapter`, etc.) so they stay decoupled from the manager
-(`session-manager.ts:48`). Memory/verdict/dismissal collaborators are wired post-construction
+`SessionManager` is the only public entry point. Its inherited `SessionManagerContext`
+constructor builds and owns every helper, passing each the shared `this.sessions` map and
+lambdas (`sendToRenderer`, `getChatAdapter`, etc.) so they stay decoupled from the manager
+(`session-manager-context.ts:49`). Memory/verdict/dismissal collaborators are wired post-construction
 via setters (`setMemoryCapture`, `setVerdictRecorder`, `setDismissedAgents`, `setGitOps`, …).
 
 **Create.** `createSession()` delegates to `SessionLifecycle.createSession()`
-(`session-manager.ts:192`, `session-lifecycle.ts:38`), which resolves the project then calls
+(`session-manager.ts:81`, `session-lifecycle.ts:35`), which resolves the project then calls
 `SessionCreator.create()` (`session-creator.ts:36`). `noWorktree` agents run directly in the
 repo and share one working tree, which can only be on one branch at a time — so there is **one
 in-place agent per repo**. The `agent:spawn` IPC's `focusOrClearInPlaceSessions`
@@ -101,9 +102,9 @@ permanently: `runtime.kind === 'orchestrator'` forces chat mode and prevents a P
 `runtimeId: 'viola'` persists the harness identity. Lifecycle startup also skips the CLI
 slash-command probe for that runtime (`session-creator.ts:37`, `:126`,
 `session-lifecycle.ts:56`). `SessionManager` routes its input/interrupt/kill operations to the
-registered harness controller instead of the PTY I/O controller (`session-manager.ts:253`).
+registered harness controller instead of the PTY I/O controller (`session-manager.ts:104`).
 Workers Viola spawns carry `orchestratedBy` on the session and in worktree meta
-(`session-creator.ts:245`, `:316`), and discovery restores it (`session-discovery.ts:132`) so a
+(`session-creator.ts:245`, `:316`), and discovery restores it (`session-discovery.ts:130`) so a
 re-adopted worker keeps its guarded chat turns.
 Back in the lifecycle, the new
 session is added to the map, any dismissal recorded for that project + branch is lifted
@@ -133,8 +134,10 @@ user's `$SHELL` and branches on `detectShell()` (`shell-prompt.ts:41`): a zsh sh
 **Stop — and leave the place standing.** `killSession()` → `SessionKiller.killSession()`
 (`session-killer.ts:31`) deletes the session from the map, kills its PTYs (agent, dev-server,
 slash-command probe), clears chat + memory + image temp dirs and stops the file watcher — each
-`--add-dir` plus the worktree poll, the latter **only if no other live session shares the path**
-(`cleanupSession`, `session-killer.ts:54`; `worktreeSharedWithOther`, `:89`). It removes **no
+`--add-dir` plus the worktree poll, the latter **only if no other activated session shares the path**
+(`cleanupSession`, `session-killer.ts:54`). When the departing session owns a shared poll, cleanup
+re-points it to an activated survivor so file/conflict events and branch updates keep a live id
+(`session-killer.ts:63`). Closing a dormant session starts no poll. It removes **no
 worktree and no branch**: the checkout is the workspace's, and the workspace's other agents are
 still working there (`session-killer.ts:28`). `retireSession()` is now only the same teardown
 under a name that says why (agent-settings replacement, `:45`). The higher-level
@@ -143,8 +146,20 @@ killing and, for worktree-based sessions, checkout the base branch afterward —
 skip the base checkout for `noWorktree` sessions to avoid exposing build artifacts
 (`session-teardown.ts:53`); they no longer run `git worktree remove` either.
 
-**Resume.** `resumeSession()` (`session-lifecycle.ts:115`) is a no-op when a PTY already exists,
-and for chat-mode sessions only updates `runtimeId` (they never hold a long-running PTY).
+**Resume.** `SessionManager.resumeSession()` delegates runtime activation to the lifecycle,
+then calls the same `watchCheckout()` used on creation if the session still exists
+(`session-manager.ts:144`, `:91`). A kill during the awaited resume cannot leave orphan polls.
+Both interactive and chat resumes register the worktree and every persisted additional directory.
+Restored chat sessions can send a message without an explicit resume; `sendInput()` also
+registers their checkout watches on a nonempty message (`session-manager.ts:116`).
+The in-memory `checkoutWatched` flag records activation and registers additional directories
+only once. Later messages and repeated resumes still re-point the shared checkout poll to
+the activated session, because renderer file/conflict listeners filter by session id
+(`src/renderer/hooks/editor/useFileWatcher.ts:83`, `src/renderer/hooks/editor/useGitOperations.ts:70`).
+`FileWatcher` deduplicates worktree polls by path and additional-directory polls by session +
+path (`src/main/fs/file-watcher.ts:109`, `:85`), so repeated resumes do not add timers.
+The lifecycle is a no-op when a PTY already exists, and for chat-mode sessions only updates
+`runtimeId`, without spawning a PTY (`session-lifecycle.ts:86`, `:91`).
 For interactive sessions it serializes concurrent calls via `resumeInFlight`
 (`session-lifecycle.ts:32`) — a per-session-id in-flight promise map that ensures at most one
 PTY is spawned even if two callers race before either's spawn completes. It calls
@@ -169,33 +184,38 @@ exit from a replaced process cannot mark a newer process done (`session-stream-w
 **Branch tracking.** `branchName` is a reading of the checkout, not a fixed property of the
 session: the agent runs `git checkout -b`, the PR flow renames the branch, or the user switches
 it in the shell terminal. The constructor registers `applyBranchChange` with the file watcher's
-`setOnBranchChanged` (`session-manager.ts:138`), so each 2 s poll that reports a different branch
+`setOnBranchChanged` (`session-manager-context.ts:141`), so each 2 s poll that reports a different branch
 for a watched checkout moves **every session working in that checkout** onto it and broadcasts
 `agent:sessions-changed` — the watcher polls a path once, under whichever session id watched it
 last, and a checkout is on one branch, so its sibling agents moved with it. Nothing
 is persisted — worktree meta has no branch field; discovery re-reads the branch from the checkout
-(`session-discovery.ts:106`, `:150`). Only *watched* checkouts track it, and registering the
-watch is `createSession`'s own job (`watchCheckout`, `session-manager.ts:220`) — the checkout
-plus every `--add-dir` folder, for whoever created the session. Doing it at the `agent:spawn`
+(`session-discovery.ts:115`, `:155`). Only *watched* checkouts track it. Creation and resume
+register the checkout plus every `--add-dir` folder through `SessionManager.watchCheckout()`
+(`session-manager.ts:91`, `:144`), for whoever activated the session. Doing it at the `agent:spawn`
 handler instead left the paths of every session created straight through the manager unpolled —
 workspace agents above all (`workspace-manager.ts:217`), whose status bar then kept the branch
-the agent started on. Resume registers its own (`agent-handlers.ts:234`); a dormant session gets
-its branch fresh from discovery instead.
+the agent started on. The resume IPC delegates registration to the manager
+(`src/main/ipc/agent-handlers.ts:232`); dormant sessions get their branch fresh from discovery.
 
 **Discover-on-disk.** On launch the renderer's `agent:sessions` IPC calls
 `discoverSessionsForProject()` or `discoverAllSessions()`. `SessionDiscovery`
-(`session-discovery.ts:15`) lists the project's worktrees via `WorktreeManager.listWorktrees()`,
+(`session-discovery.ts:24`) lists the project's worktrees via `WorktreeManager.listWorktrees()`,
 and for any worktree not already tracked it reads its meta and inserts a dormant
 `InternalSession` with `status: 'done'`, `pid: null`, `ptyId: ''`
-(`session-discovery.ts:91`). If a project has no worktrees and nothing in memory, it falls
+(`session-discovery.ts:109`). Discovery preserves the persisted session id, runtime,
+additional directories and other metadata, but has no file-watcher dependency and starts
+no continuous polling (`session-discovery.ts:29`, `:109`). The offline regression discovers
+five dormant worktrees with a real `FileWatcher` and an injected Git-status function,
+checks metadata restoration, then advances fake timers by 10 s with zero status calls
+(`session-discovery.test.ts:98`). If a project has no worktrees and nothing in memory, it falls
 back to checking whether the main repo sits on a non-base branch and, if so, surfaces that as
-a dormant `noWorktree` session (`session-discovery.ts:136`). `discoverAllSessions()`
-(`session-discovery.ts:168`) repeats this across all projects and additionally stubs
+a dormant `noWorktree` session (`session-discovery.ts:146`). `discoverAllSessions()`
+(`session-discovery.ts:179`) repeats this across all projects and additionally stubs
 simple-mode projects living under the managed projects base, picking a feature branch when
-the repo is parked on base (`session-discovery.ts:215`). Both branch-state fallbacks skip
+the repo is parked on base (`session-discovery.ts:223`). Both branch-state fallbacks skip
 branches the user explicitly deleted: they consult the persisted `DismissedAgentsStore`
-(wired via `setDismissedAgents`, `session-discovery.ts:31`) so a deleted dormant agent is not
-resurrected from leftover branch checkout state (`session-discovery.ts:140`, `:222`; #679).
+(wired via `setDismissedAgents`, `session-discovery.ts:39`) so a deleted dormant agent is not
+resurrected from leftover branch checkout state (`session-discovery.ts:148`, `:233`; #679).
 
 ### Pushing a folder into a running agent
 
@@ -234,11 +254,11 @@ nothing.
 
 ## Key types and entry points
 
-- `SessionManager` — `session-manager.ts`. Public surface includes `createSession`, `resumeSession`, `configureSession`, `killSession`, discovery, input/interrupt/resize, `renameSession`, `setSessionLocked` (deletion protection; mirrors `renameSession` — mutate → `persistSessionMeta` → broadcast, `session-manager.ts:266`), and shell-session creation. There is no `killAllSessionsOnWorktree`: a checkout is not a thing agents are killed by.
-- `SessionLifecycle` — `session-lifecycle.ts:30`. `createSession()` / `resumeSession()` orchestration behind the manager's delegating methods (`session-manager.ts:192`, `:206`).
+- `SessionManager` — `session-manager.ts`. Public surface includes `createSession`, `resumeSession`, `configureSession`, `killSession`, discovery, input/interrupt/resize, `renameSession`, `setSessionLocked` (deletion protection; mirrors `renameSession` — mutate → `persistSessionMeta` → broadcast, `session-manager.ts:214`), and shell-session creation. There is no `killAllSessionsOnWorktree`: a checkout is not a thing agents are killed by.
+- `SessionLifecycle` — `session-lifecycle.ts:30`. `createSession()` / `resumeSession()` orchestration behind the manager's delegating methods (`session-manager.ts:81`, `:144`).
 - `InternalSession` — `session-types.ts:14`. Extends `AgentSession` (`src/shared/types.ts:15`) with `ptyId`, `outputBuffer`, `streamJsonLineBuffer`, `nonInteractiveOutputMode`, shell/NL state, etc. `toPublicSession()` (`session-public.ts:4`) projects it down for IPC.
 - `SessionCreator.create()` — `session-creator.ts:35`. The worktree-resolution + spawn decision tree.
-- `SessionDiscovery.discoverSessionsForProject()` — `session-discovery.ts:43`. The serialized on-disk scan.
+- `SessionDiscovery.discoverSessionsForProject()` — `session-discovery.ts:57`. The serialized on-disk scan.
 - `resumeAgentSession()` — `session-resume.ts:13`. Re-spawn for interactive sessions.
 - `SessionStreamWirer.wireOutputStreaming()` / `wireStreamJsonOutput()` — `session-stream-wirer.ts:112` / `:189`. PTY → renderer wiring.
 
@@ -248,20 +268,20 @@ nothing.
 - **Git / worktrees** (`src/main/git`): `WorktreeManager`, `BranchCheckoutManager`, `worktree-meta` (`readWorktreeMeta`/`writeWorktreeMeta`), `managed-worktree` (`prepareManagedWorktree`, `commitManagedWorktree`), and raw `gitExec`. Session meta lives in the worktree, not a central store — that is what makes discovery possible.
 - **IPC** (`src/main/ipc/agent-handlers.ts`): `agent:spawn` → `createSession`, `agent:resume` → `resumeSession`, `agent:configure` → `configureSession`, `agent:kill` → killer, `agent:sessions` → discovery, `agent:replay` → `getOutputBuffer`, plus the `shell:*` handlers. There is no `agent:kill-worktree` — removing a checkout is `workspace:remove`. `agent:set-locked` → `setSessionLocked` toggles deletion protection, and `agent:kill` refuses a locked session before any teardown.
 - **Renderer / preload** (`src/preload/index.ts:151`): the renderer never touches the map; it listens to `agent:output`, `agent:activity`, `agent:activity-state`, `agent:status`, `agent:exit`, and `agent:sessions-changed`, all emitted through `SessionManager.sendToRenderer`.
-- **Store** (`src/main/store`): `ProjectRegistry` resolves project path/baseBranch and caches `slashCommands`; `VerdictStore` backs the verdict recorder; `DismissedAgentsStore` records explicitly deleted agents so discovery skips them (`setDismissedAgents`, `session-manager.ts:149`).
+- **Store** (`src/main/store`): `ProjectRegistry` resolves project path/baseBranch and caches `slashCommands`; `VerdictStore` backs the verdict recorder; `DismissedAgentsStore` records explicitly deleted agents so discovery skips them (`setDismissedAgents`, `session-manager.ts:42`).
 - **Memory** (`src/main/memory`): `MemoryCapture` (start/stop per session), `MemoryInjector.injectContext()` (on create and resume), `MemoryCompressor.compressSession()` (on developer-mode teardown).
 - **Dev server** (`src/main/app/dev-server-manager.ts`): owns `spawnPrintModeFollowUp`, `startDevServerSession`, and `probeSlashCommands`; the manager delegates the chat-mode follow-up turn and dev-server lifecycle to it.
 
 ## Invariants & gotchas
 
-- **Concurrent-spawn guards.** Two operations carry in-flight promise maps to prevent races: `discoveryInFlight` (`session-discovery.ts:16`) serializes `discoverSessionsForProject` per project id; `resumeInFlight` (`session-lifecycle.ts:32`) deduplicates concurrent `resumeSession` calls so only one PTY is ever spawned per session.
+- **Concurrent-spawn guards.** Two operations carry in-flight promise maps to prevent races: `discoveryInFlight` (`session-discovery.ts:25`) serializes `discoverSessionsForProject` per project id; `resumeInFlight` (`session-lifecycle.ts:32`) deduplicates concurrent `resumeSession` calls so only one PTY is ever spawned per session.
 - **One `noWorktree` (in-place) agent per project.** In-place agents share the repo's single working tree/HEAD (only one branch at a time), so a second can't coexist. `focusOrClearInPlaceSessions` (`agent-handlers.ts`), invoked from `agent:spawn`: focuses a *live* in-place session when the new spawn targets the same/no branch, throws when a *different* branch/PR is requested, and otherwise clears *finished* in-place sessions so discovery cannot resurrect a dead branch state. `agent:spawn` serializes concurrent no-worktree spawns per project (`noWorktreeSpawnsInFlight`) to close the check-then-create race. `SessionManager.createSession` itself stays permissive — the policy is at the IPC layer.
-- **Discovery never resurrects a dismissed branch.** Deleting an agent (from its tab's × in the Agent panel) records a project+branch dismissal (`agent-handlers.ts`, `agent:kill`); both dormant-session fallbacks check it (`session-discovery.ts:140`, `:222`) and creating a new session on that branch lifts it (`session-lifecycle.ts:84`). Internal kills (mode switch, respawn) don't record dismissals — only the explicit `agent:kill` IPC path does (#679).
+- **Discovery never resurrects a dismissed branch.** Deleting an agent (from its tab's × in the Agent panel) records a project+branch dismissal (`agent-handlers.ts`, `agent:kill`); both dormant-session fallbacks check it (`session-discovery.ts:148`, `:233`) and creating a new session on that branch lifts it (`session-lifecycle.ts:84`). Internal kills (mode switch, respawn) don't record dismissals — only the explicit `agent:kill` IPC path does (#679).
 - **A locked agent cannot be deleted.** `locked` is persisted in the worktree meta (`worktree-meta.ts:25`), written by `session-meta-persister.ts:18`, read back at all three discovery construction sites, and surfaced by `toPublicSession` — so the protection survives a restart. Deletion is refused at both ends: the renderer's single `requestDeleteAgent` chokepoint never opens the confirm dialog (`hooks/app/useAppOverlays.ts:79`), and `agent:kill` throws before any teardown. Locking only blocks deletion — it never stops or interrupts the running agent.
 
 - **Deferred chat sessions have `ptyId: ''` and status `waiting`.** Treat empty `ptyId` as "no live process"; `resumeSession` and many helpers short-circuit on it. Each chat turn is a fresh print-mode process, not a persistent PTY.
 - **Interactive Codex working sets require a writable sandbox.** When a session has additional directories, `SessionCreator` adds `--sandbox workspace-write` before Codex's repeated `--add-dir` flags (`session-creator.ts:147`). This overrides a read-only user profile for that multi-root launch; otherwise Codex ignores every extra writable root.
-- **Closing an agent removes nothing.** No teardown path in this folder removes a worktree or deletes a branch — not `killSession`, not `retireSession`, not the mode-switch teardowns (`session-killer.ts:28`, `session-teardown.ts`). Checkouts come and go with their workspace (`workspace-manager.ts:69`). The shared-path guard survives only for *unwatching*, since several sessions can poll one checkout (`session-killer.ts:66`).
+- **Closing an agent removes nothing.** No teardown path in this folder removes a worktree or deletes a branch — not `killSession`, not `retireSession`, not the mode-switch teardowns (`session-killer.ts:28`, `session-teardown.ts`). Checkouts come and go with their workspace (`workspace-manager.ts:69`). Shared-path teardown preserves an activated survivor's poll and re-points it only if the departing session owns it (`session-killer.ts:63`).
 - **Teardown skips base checkout for `noWorktree`.** Checking out base in the live repo dir would drop `.gitignore` and surface `node_modules` as untracked, breaking the next spawn (`session-teardown.ts:53`).
 - **Meta is the source of truth on disk.** If `writeWorktreeMeta` fails, `nonInteractive` and friends are lost on next launch (both `session-creator.ts:187` and `session-meta-persister.ts:16` log this loudly). Discovery reconstructs sessions purely from worktree meta + branch state.
 - **`outputBuffer` is bounded.** It is trimmed to the trailing 50 KB once over 100 KB, so detectors and `agent:replay` only ever see recent output.
