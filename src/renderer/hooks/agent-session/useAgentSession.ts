@@ -27,13 +27,16 @@ async function fetchProjectSessions(projectId: string): Promise<AgentSession[]> 
 }
 
 function applyProjectSessions(
+  projectId: string,
   result: AgentSession[],
   preferredSessionId: string | null | undefined,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
+  setLoadedProjectId: React.Dispatch<React.SetStateAction<string | null>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>,
   clearedRef: React.MutableRefObject<boolean>,
 ): void {
   setSessions(result)
+  setLoadedProjectId(projectId)
   setActiveSessionId((prev) => {
     // The list is per repo, the view is per workspace. A selection cleared on
     // purpose — entering a workspace with no agent of its own — must survive a
@@ -51,6 +54,7 @@ function applyProjectSessions(
 
 interface UseAgentSessionResult {
   sessions: AgentSession[]
+  loadedProjectId: string | null
   activeSessionId: string | null
   activeSession: AgentSession | null
   spawnAgent: (options: SpawnAgentOptions) => Promise<AgentSession | null>
@@ -68,6 +72,7 @@ interface UseAgentSessionResult {
 
 export function useAgentSession(projectId: string | null): UseAgentSessionResult {
   const [sessions, setSessions] = useState<AgentSession[]>([])
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null)
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   // True from an explicit `setActiveSession(null)` until a session is selected
   // by any route (sidebar, dock, spawn). See `applyProjectSessions`. Set
@@ -80,7 +85,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   }, [])
 
   const { refreshSessions, rememberedActiveSessionRef } = useFetchSessionsOnProjectChange(
-    projectId, activeSessionId, sessions, setSessions, setActiveSessionId, clearedRef,
+    projectId, activeSessionId, sessions, setSessions, setLoadedProjectId, setActiveSessionId, clearedRef,
   )
   useStatusListener(setSessions)
   useExitListener(setSessions)
@@ -99,7 +104,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
-  return { sessions, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef }
+  return { sessions, loadedProjectId, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef }
 }
 
 interface FetchSessionsResult {
@@ -112,6 +117,7 @@ function useFetchSessionsOnProjectChange(
   activeSessionId: string | null,
   sessions: AgentSession[],
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
+  setLoadedProjectId: React.Dispatch<React.SetStateAction<string | null>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>,
   clearedRef: React.MutableRefObject<boolean>,
 ): FetchSessionsResult {
@@ -138,14 +144,14 @@ function useFetchSessionsOnProjectChange(
       try {
         const result = await fetchProjectSessions(projectId)
         if (requestId !== requestIdRef.current) return null
-        applyProjectSessions(result, preferredSessionId, setSessions, setActiveSessionId, clearedRef)
+        applyProjectSessions(projectId, result, preferredSessionId, setSessions, setLoadedProjectId, setActiveSessionId, clearedRef)
         return result
       } catch {
         // IPC not ready yet during init, sessions will arrive via events
         return null
       }
     },
-    [projectId, setSessions, setActiveSessionId, clearedRef]
+    [projectId, setSessions, setLoadedProjectId, setActiveSessionId, clearedRef]
   )
 
   useEffect(() => {
@@ -153,6 +159,7 @@ function useFetchSessionsOnProjectChange(
       requestIdRef.current += 1
       rememberedActiveSessionRef.current = null
       setSessions([])
+      setLoadedProjectId(null)
       setActiveSessionId(null)
       return
     }
@@ -160,7 +167,7 @@ function useFetchSessionsOnProjectChange(
     const remembered = lastSessionByProjectRef.current.get(projectId) ?? null
     rememberedActiveSessionRef.current = remembered
     void syncSessions(remembered)
-  }, [projectId, setSessions, setActiveSessionId, syncSessions])
+  }, [projectId, setSessions, setLoadedProjectId, setActiveSessionId, syncSessions])
 
   useIpcListener<AgentSessionsChangedEvent>(
     'agent:sessions-changed',

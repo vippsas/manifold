@@ -59,8 +59,8 @@ export function App(): React.JSX.Element {
   }, [settings.uiScale])
 
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
-  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession: selectSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
-  const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
+  const { sessions, loadedProjectId, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession: selectSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
+  const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions, loadedProjectId)
   const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const { activeWorkspaceId, setActiveWorkspaceId: selectWorkspace } = usePersistedActiveWorkspace(workspaces)
   const workspaceGitStatus = useWorkspaceRepoStatuses(activeWorkspaceId)

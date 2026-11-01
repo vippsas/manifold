@@ -79,7 +79,7 @@ function Harness({ handle, onSetActiveProject }: {
   const [activeProjectId, setActiveProject] = useState<string | null>('p1')
   const [activeWorkspaceId, selectWorkspace] = useState<string | null>('w1')
   const agent = useAgentSession(activeProjectId)
-  const { sessionsByProject } = useAllProjectSessions(projects, activeProjectId, agent.sessions)
+  const { sessionsByProject } = useAllProjectSessions(projects, activeProjectId, agent.sessions, agent.loadedProjectId)
   const sessionsByWorkspace = useMemo(
     () => groupSessionsByWorkspace(sessionsByProject, workspaces), [sessionsByProject],
   )

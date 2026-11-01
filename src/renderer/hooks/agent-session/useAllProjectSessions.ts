@@ -22,21 +22,26 @@ async function fetchProjectSessions(projectId: string): Promise<AgentSession[]> 
 export function useAllProjectSessions(
   projects: Project[],
   activeProjectId: string | null,
-  activeProjectSessions: AgentSession[]
+  activeProjectSessions: AgentSession[],
+  loadedProjectId: string | null
 ): UseAllProjectSessionsResult {
   const [backgroundSessions, setBackgroundSessions] = useState<Record<string, AgentSession[]>>({})
 
   // Keep a snapshot before this repo becomes a background repo. Its next IPC
   // refresh may finish after the incoming repo loads; its tabs must survive.
+  // A late spawn reply can append a foreign session after a repo switch.
+  // Nonempty rows identify their repo before a post-spawn resync finishes.
   useEffect(() => {
-    if (!activeProjectId || activeProjectSessions.some((s) => s.projectId !== activeProjectId)) return
+    if (!activeProjectId
+      || (activeProjectSessions.length === 0 && loadedProjectId !== activeProjectId)
+      || activeProjectSessions.some((s) => s.projectId !== activeProjectId)) return
     setBackgroundSessions((prev) => {
       const cached = prev[activeProjectId]
       if (cached && cached.length === activeProjectSessions.length
         && cached.every((s, i) => s === activeProjectSessions[i])) return prev
       return { ...prev, [activeProjectId]: activeProjectSessions }
     })
-  }, [activeProjectId, activeProjectSessions])
+  }, [activeProjectId, activeProjectSessions, loadedProjectId])
 
   useEffect(() => {
     let cancelled = false
@@ -88,7 +93,8 @@ export function useAllProjectSessions(
   }, [])
 
   const sessionsByProject: Record<string, AgentSession[]> = { ...backgroundSessions }
-  if (activeProjectId && activeProjectSessions.every((s) => s.projectId === activeProjectId)) {
+  if (activeProjectId && (activeProjectSessions.length > 0 || loadedProjectId === activeProjectId)
+    && activeProjectSessions.every((s) => s.projectId === activeProjectId)) {
     sessionsByProject[activeProjectId] = activeProjectSessions
   }
 

@@ -95,15 +95,22 @@ repo so its session metadata stays loaded (`useWorkspaceEntry.ts:38`). Workspace
 follow the workspace's `projectIds` order, preserving the primary and sibling panel identities
 when the active repo changes the session map's insertion order (`session-workspace-map.ts:35`).
 The all-project session cache retains the departing repo while its background refresh is pending
-and rejects the departing list as an incoming repo override (`hooks/agent-session/useAllProjectSessions.ts:31`, `:91`).
+and only snapshots or overrides the active repo when every row belongs to it. Empty lists
+also require a matching `loadedProjectId`; nonempty lists keep newly spawned agents visible
+before discovery finishes (`hooks/agent-session/useAllProjectSessions.ts:35`, `:96`). Session
+loading sets that id alongside the reply and clears it on reset
+(`hooks/agent-session/useAgentSession.ts:38`, `:162`).
 Project-session loading preserves an explicit valid
 selection ahead of repo memory, whose capture now uses a settled selection instead of a
-project-change cleanup (`hooks/agent-session/useAgentSession.ts:44`, `:125`). The existing
+project-change cleanup (`hooks/agent-session/useAgentSession.ts:49`, `:131`). The existing
 `rememberedActiveSessionRef` and dock-restore protection remain in place (#773).
 `useWorkspaceEntry.test.ts` pins the same-batch race and shared-repo memory;
 `useWorkspaceEntry.navigation.test.tsx` drives real cards, favorites, command dispatch and
-dockview tab activation against a fake preload boundary. Native macOS rendering still
-requires a live app check.
+dockview tab activation against a fake preload boundary. `useAllProjectSessions.test.ts` pins
+an empty departing repo with the incoming reply pending on every render and in the retained
+background cache, a late spawn reply that must not cache a foreign session under the active
+repo, and immediate visibility of a spawned agent while discovery is pending. Native macOS
+rendering still requires a live app check.
 
 **Sibling tabs: auto for ungrouped agents, remembered for grouped ones.**
 `useAgentSiblingDockTabs` creates a tab per live ungrouped agent in the active workspace, and
