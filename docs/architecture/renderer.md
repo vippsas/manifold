@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-11-01T21:08:42Z
+updated: 2026-11-01T21:18:28Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -876,14 +876,10 @@ keeps an empty tree without an error (`hooks/editor/useFileWatcher.ts:37`), and
 `useWorkspaceTree` leaves its cache and expanded paths intact (`hooks/editor/useWorkspaceTree.ts:73`).
 Discovery pushes `files:tree-changed` for the adopted id, so the selected tree retries
 (`useFileWatcher.ts:96`), an uncached session folder can retry by id before its root is known
-(`useWorkspaceTree.ts:133`), and ahead/behind refreshes (`hooks/editor/useGitOperations.ts:43`).
+(`useWorkspaceTree.ts:133`), and ahead/behind refreshes (`hooks/editor/useGitOperations.ts:39`).
 Request counters keep a late pre-discovery reply from overwriting a newer successful
-refresh (`useFileWatcher.ts:39`, `useGitOperations.ts:33`). Ahead/behind ignores ordinary
-tree events and retries only for `reason: 'session-discovered'` (`useGitOperations.ts:43`).
-`App` also passes the selected session's branch name so shell checkouts refresh counts
-without changing sessions (`App.tsx:145`, `useGitOperations.ts:90`). The first branch name
-listed for the same session skips that effect's refresh, preserving a single discovery
-retry (`useGitOperations.ts:94`).
+refresh (`useFileWatcher.ts:39`, `useGitOperations.ts:29`). Ahead/behind ignores ordinary
+tree events and retries only for `reason: 'session-discovered'` (`useGitOperations.ts:39`).
 
 Which folder is watched, is a
 question about **paths, not session ids**: a workspace owns the checkout its agents share, so the

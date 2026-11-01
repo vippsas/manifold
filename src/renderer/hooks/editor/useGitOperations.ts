@@ -17,16 +17,12 @@ export interface UseGitOperationsResult {
   refreshAheadBehind: () => Promise<void>
 }
 
-export function useGitOperations(
-  sessionId: string | null,
-  branchName?: string,
-): UseGitOperationsResult {
+export function useGitOperations(sessionId: string | null): UseGitOperationsResult {
   const [aheadBehind, setAheadBehind] = useState<AheadBehind>({ ahead: 0, behind: 0 })
   const [conflicts, setConflicts] = useState<string[]>([])
   const sessionRef = useRef(sessionId)
   sessionRef.current = sessionId
   const aheadBehindRequest = useRef(0)
-  const previousSelection = useRef({ sessionId, branchName })
 
   const refreshAheadBehind = useCallback(async (): Promise<void> => {
     if (!sessionRef.current) return
@@ -86,21 +82,15 @@ export function useGitOperations(
     return unsubscribe
   }, [])
 
-  // Refresh ahead/behind when the session or its checkout branch changes.
+  // Refresh ahead/behind when the session changes.
   useEffect(() => {
-    const previous = previousSelection.current
-    previousSelection.current = { sessionId, branchName }
-    // Discovery already retries; listing its branch must not retry a second time.
-    if (sessionId === previous.sessionId && previous.branchName === undefined && branchName !== undefined) {
-      return
-    }
     if (sessionId) {
       void refreshAheadBehind()
     } else {
       setAheadBehind({ ahead: 0, behind: 0 })
       setConflicts([])
     }
-  }, [sessionId, branchName, refreshAheadBehind])
+  }, [sessionId, refreshAheadBehind])
 
   return { aheadBehind, conflicts, commit, aiGenerate, getPRContext, resolveConflict, refreshAheadBehind }
 }

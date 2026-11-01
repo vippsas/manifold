@@ -12,25 +12,6 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('useGitOperations session discovery', () => {
-  it('refreshes counts when a shell checkout changes the branch of the same session', async () => {
-    api.discover('restored')
-    api.invoke.mockResolvedValueOnce({ ahead: 0, behind: 0 })
-    const { result, rerender } = renderHook(
-      ({ branchName }) => useGitOperations('restored', branchName),
-      { initialProps: { branchName: 'main' } },
-    )
-    await act(async () => {})
-    expect(result.current.aheadBehind).toEqual({ ahead: 0, behind: 0 })
-    expect(api.invoke).toHaveBeenCalledTimes(1)
-
-    await act(async () => {
-      api.emit('files:tree-changed', { sessionId: 'restored', rootPath: restoredTree.path })
-      rerender({ branchName: 'feature' })
-    })
-    expect(result.current.aheadBehind).toEqual({ ahead: 2, behind: 1 })
-    expect(api.invoke).toHaveBeenCalledTimes(2)
-  })
-
   it.each([{ ahead: 2, behind: 1 }, { ahead: 0, behind: 0 }])(
     'ignores file edit bursts after the registered session returns $ahead ahead and $behind behind',
     async (counts) => {
@@ -80,7 +61,7 @@ describe('useGitOperations session discovery', () => {
       const { result, rerender } = renderHook(
         ({ sessions }) => {
           const activeSession = sessions.find((session) => session.id === 'restored')
-          return useGitOperations(activeSession?.id ?? 'restored', activeSession?.branchName)
+          return useGitOperations(activeSession?.id ?? 'restored')
         },
         { initialProps: { sessions: [] as Pick<AgentSession, 'id' | 'branchName'>[] } },
       )
@@ -102,23 +83,6 @@ describe('useGitOperations session discovery', () => {
       expect(api.invoke).toHaveBeenLastCalledWith('git:ahead-behind', 'restored')
     },
   )
-
-  it('refreshes when switching to a session whose branch is already known', async () => {
-    api.discover('other')
-    const { result, rerender } = renderHook(
-      ({ sessionId, branchName }) => useGitOperations(sessionId, branchName),
-      { initialProps: { sessionId: 'restored', branchName: undefined as string | undefined } },
-    )
-    await act(async () => {})
-    expect(result.current.aheadBehind).toEqual({ ahead: 0, behind: 0 })
-
-    await act(async () => {
-      rerender({ sessionId: 'other', branchName: 'feature' })
-    })
-    expect(result.current.aheadBehind).toEqual({ ahead: 2, behind: 1 })
-    expect(api.invoke).toHaveBeenCalledTimes(2)
-    expect(api.invoke).toHaveBeenLastCalledWith('git:ahead-behind', 'other')
-  })
 
   it('keeps the discovered counts when an earlier empty read arrives late', async () => {
     let resolveMiss!: (value: { ahead: number; behind: number }) => void
