@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { getRelativePath } from '../../../shared/relative-path'
 
 export interface UseFileOperationsResult {
-  handleSelectFile: (filePath: string) => void
+  handleSelectFile: (filePath: string) => string
   handleDeleteFile: (filePath: string) => Promise<void>
   handleRenameFile: (oldPath: string, newPath: string) => Promise<void>
   handleCreateFile: (dirPath: string, fileName: string) => Promise<boolean>
@@ -31,11 +31,12 @@ export function useFileOperations(
   openInTerminal: (dirPath: string) => Promise<void>
 ): UseFileOperationsResult {
   const handleSelectFile = useCallback(
-    (filePath: string): void => {
+    (filePath: string): string => {
       expandAncestors(filePath)
       const visiblePaneId = ensureEditorVisible()
       const targetPaneId = codeViewSelectFile(filePath, visiblePaneId)
       ensureEditorVisible(targetPaneId)
+      return targetPaneId
     },
     [expandAncestors, codeViewSelectFile, ensureEditorVisible]
   )

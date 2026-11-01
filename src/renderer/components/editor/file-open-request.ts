@@ -14,6 +14,8 @@ export interface ScmFileTarget {
 }
 
 export interface FileOpenRequest {
+  /** Pane that handled the open; absent before any file has been requested. */
+  paneId?: string
   path: string | null
   line?: number
   column?: number

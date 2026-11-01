@@ -36,7 +36,7 @@ interface UseEditorPaneHandlersArgs {
     findEditorPanelForSplit: (paneId: string, direction: 'right' | 'below') => string | null
   }
   ensureEditorVisible: (preferredPaneId?: string | null) => string
-  handleSelectFile: (path: string) => void
+  handleSelectFile: (path: string) => string
   setActiveSession: (id: string | null) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
 }
@@ -68,7 +68,7 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
   const [pendingSearchOpen, setPendingSearchOpen] = useState<SearchOpenTarget | null>(null)
 
   const openSearchResultInActiveSession = useCallback((target: SearchOpenTarget): void => {
-    setLastFileOpenRequest({ path: target.path, line: target.line, column: target.column, source: 'search' })
+    const request = { path: target.path, line: target.line, column: target.column, source: 'search' as const }
     if (target.openInSplit) {
       const referencePaneId = ensureEditorVisible(codeView.activeEditorPaneId)
       const splitPaneId = dockLayout.splitEditorPane(referencePaneId, 'right')
@@ -76,11 +76,13 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
         codeView.createPane(splitPaneId, referencePaneId)
         codeView.setActivePane(splitPaneId)
         const targetPaneId = codeView.handleSelectFile(target.path, splitPaneId)
+        setLastFileOpenRequest({ ...request, paneId: targetPaneId })
         dockLayout.focusPanel(targetPaneId)
         return
       }
     }
-    handleSelectFile(target.path)
+    const paneId = handleSelectFile(target.path)
+    setLastFileOpenRequest({ ...request, paneId })
   }, [codeView, dockLayout, ensureEditorVisible, handleSelectFile])
 
   useEffect(() => {
@@ -92,7 +94,8 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
   }, [activeSessionId, openSearchResultInActiveSession, pendingSearchOpen, restoredSessionId])
 
   const handleSelectFileWithDefaultView = useCallback((filePath: string): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'default' }); handleSelectFile(filePath)
+    const paneId = handleSelectFile(filePath)
+    setLastFileOpenRequest({ paneId, path: filePath, source: 'default' })
   }, [handleSelectFile])
 
   const handleOpenSearchResult = useCallback((target: SearchOpenTarget): void => {
@@ -113,11 +116,13 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
   // the editor shows the uncommitted diff (VS Code's SCM click) instead of the
   // session's base-branch diff.
   const handleSelectFileFromSourceControl = useCallback((filePath: string, scm: ScmFileTarget): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'sourceControl', scm }); handleSelectFile(filePath)
+    const paneId = handleSelectFile(filePath)
+    setLastFileOpenRequest({ paneId, path: filePath, source: 'sourceControl', scm })
   }, [handleSelectFile])
 
   const handleSelectFileFromFileTree = useCallback((filePath: string): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'fileTree' }); handleSelectFile(filePath)
+    const paneId = handleSelectFile(filePath)
+    setLastFileOpenRequest({ paneId, path: filePath, source: 'fileTree' })
   }, [handleSelectFile])
 
   const handleSelectOpenFile = useCallback((filePath: string, paneId: string): void => {
@@ -125,9 +130,9 @@ export function useEditorPaneHandlers(args: UseEditorPaneHandlersArgs): UseEdito
   }, [codeView, dockLayout])
 
   const handleSelectFileFromMarkdownPreview = useCallback((filePath: string, paneId: string): void => {
-    setLastFileOpenRequest({ path: filePath, source: 'markdownPreview' })
     codeView.setActivePane(paneId)
     const targetPaneId = codeView.handleSelectFile(filePath, paneId)
+    setLastFileOpenRequest({ paneId: targetPaneId, path: filePath, source: 'markdownPreview' })
     dockLayout.focusPanel(targetPaneId)
   }, [codeView, dockLayout])
 

@@ -40,6 +40,18 @@ function setup(deps: ReturnType<typeof makeDeps>) {
   )
 }
 
+describe('useFileOperations.handleSelectFile', () => {
+  it('returns the pane used to open the file', () => {
+    const deps = makeDeps()
+    deps.codeViewSelectFile.mockReturnValue('pane-2')
+    const { result } = setup(deps)
+
+    expect(result.current.handleSelectFile('/root/src/foo.txt')).toBe('pane-2')
+    expect(deps.codeViewSelectFile).toHaveBeenCalledWith('/root/src/foo.txt', 'pane-1')
+    expect(deps.ensureEditorVisible).toHaveBeenLastCalledWith('pane-2')
+  })
+})
+
 describe('useFileOperations.handleCreateFile', () => {
   it('opens the newly created file in the editor on success', async () => {
     const deps = makeDeps()

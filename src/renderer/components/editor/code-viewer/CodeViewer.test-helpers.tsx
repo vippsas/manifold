@@ -16,6 +16,7 @@ export function makeOpenFile(overrides: Partial<OpenFile> = {}): OpenFile {
 
 export function makeOpenRequest(overrides: Partial<FileOpenRequest> = {}): FileOpenRequest {
   return {
+    paneId: 'editor',
     path: null,
     source: 'default',
     ...overrides,

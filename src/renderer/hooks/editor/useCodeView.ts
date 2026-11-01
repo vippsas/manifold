@@ -11,6 +11,7 @@ import {
   resolveActiveEditorPaneId,
 } from './editor-pane-utils'
 import { useCodeViewFileOps } from './useCodeViewFileOps'
+import { copyCodeViewerModes } from '../../components/editor/code-viewer/useCodeViewerModes'
 
 export interface OpenFile {
   path: string
@@ -198,6 +199,7 @@ export function useCodeView(
       return
     }
 
+    copyCodeViewerModes(filePath, sourcePane.id, targetPaneId)
     const next = ensureEditorPane(prev, targetPaneId, sourcePane.id).map((pane) => {
       if (pane.id === sourcePane.id) {
         const openFilePaths = pane.openFilePaths.filter((path) => path !== filePath)

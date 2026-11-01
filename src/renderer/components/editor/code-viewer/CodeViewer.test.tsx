@@ -116,7 +116,7 @@ describe('CodeViewer — editor & diff', () => {
   })
 
   it('remounts the diff editor when an open file is refreshed from disk', async () => {
-    const openFile = makeOpenFile()
+    const openFile = makeOpenFile({ path: '/repo/diff-refresh.ts' })
     const { rerender } = renderViewer({
       fileDiffText: 'diff --git a/file.ts b/file.ts',
       originalContent: 'const value = 0',
@@ -131,6 +131,7 @@ describe('CodeViewer — editor & diff', () => {
     })
 
     const refreshedFile = makeOpenFile({
+      path: openFile.path,
       content: 'const value = 2',
       refreshVersion: 1,
     })
@@ -177,7 +178,7 @@ describe('CodeViewer — editor & diff', () => {
 
   it('opens in editor instead of diff when the file was opened from the file tree', async () => {
     const openFile = makeOpenFile({
-      path: '/repo/src/index.ts',
+      path: '/repo/src/from-tree.ts',
       content: 'new',
     })
 
@@ -198,7 +199,7 @@ describe('CodeViewer — editor & diff', () => {
 
   it('opens in editor instead of diff when the file was opened from markdown preview', async () => {
     const openFile = makeOpenFile({
-      path: '/repo/src/index.ts',
+      path: '/repo/src/from-markdown.ts',
       content: 'new',
     })
 
