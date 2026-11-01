@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-11-01T20:50:46Z
+updated: 2026-11-01T21:07:34Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -147,11 +147,12 @@ skip the base checkout for `noWorktree` sessions to avoid exposing build artifac
 (`session-teardown.ts:53`); they no longer run `git worktree remove` either.
 
 **Resume.** `SessionManager.resumeSession()` delegates runtime activation to the lifecycle,
-then calls the same `watchCheckout()` used on creation if the session still exists
-(`session-manager.ts:144`, `:91`). A kill during the awaited resume cannot leave orphan polls.
-Both interactive and chat resumes register the worktree and every persisted additional directory.
-Restored chat sessions can send a message without an explicit resume; `sendInput()` also
-registers their checkout watches on a nonempty message (`session-manager.ts:116`).
+then calls the same `watchCheckout()` used on creation when the tracked session has a PTY or is
+in chat mode (`session-manager.ts:145`, `:146`, `:147`, `:91`). A dormant interactive same-id
+replacement stays unpolled even when a second resume joins the cancelled in-flight promise.
+Interactive and chat resumes register the worktree and every persisted additional directory.
+Chat resumes spawn no PTY; a nonempty message also registers checkout watches through
+`sendInput()` (`session-manager.ts:116`).
 The in-memory `checkoutWatched` flag records activation and registers additional directories
 only once. Later messages and repeated resumes re-register the same primary subscription,
 which is a strict no-op: no extra poll, cached replay, conflict or verdict notification.
@@ -163,11 +164,19 @@ The lifecycle is a no-op when a PTY already exists, and for chat-mode sessions o
 For interactive sessions it serializes concurrent calls via `resumeInFlight`
 (`session-lifecycle.ts:32`) — a per-session-id in-flight promise map that ensures at most one
 PTY is spawned even if two callers race before either's spawn completes. It calls
-`resumeAgentSession()` (`session-resume.ts:15`), which re-reads worktree meta for missing
+`resumeAgentSession()` (`session-resume.ts:18`), which re-reads worktree meta for missing
 fields, refreshes managed-worktree guards, injects memory context, spawns a new PTY, and
 re-wires output/exit. For interactive Claude it adds `--resume <session.id>` when an on-disk
-transcript for that id exists (`session-resume.ts:65`), so the resumed conversation continues
+transcript for that id exists (`session-resume.ts:73`), so the resumed conversation continues
 in the same transcript. This is the path that brings a dormant discovered session back to life.
+After each await, the helper checks `sessions.get(sessionId) === session` via a predicate
+from the lifecycle (`session-lifecycle.ts:103`). Metadata, guard refresh (including failures),
+memory injection, and transcript lookup all abort before spawning or wiring if the session
+was killed, retired, or replaced (`session-resume.ts:29`, `:54`, `:58`, `:78`). Completion skips
+memory capture and session-change notification for a removed/replaced session, and `finally`
+clears `resumeInFlight` (`session-lifecycle.ts:109`, `:115`). Cancellation resolves with the
+original public snapshot without re-registering it; deferred-await regressions cover each
+boundary and same-id replacement, including checkout watchers (`session-manager-resume-race.test.ts:92`).
 Resumed interactive workspace agents rebuild their runtime-specific working-set arguments from
 `additionalDirs`, so changing runtime or returning from chat to terminal does not lose access to
 the workspace's other repositories (`session-resume.ts`).

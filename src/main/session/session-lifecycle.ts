@@ -99,10 +99,17 @@ export class SessionLifecycle {
     const inflight = this.resumeInFlight.get(sessionId)
     if (inflight) return inflight
 
-    const promise = resumeAgentSession(session, runtimeId, this.deps.ptyPool, this.deps.streamWirer, this.deps.getMemoryInjector() ?? undefined)
+    // A kill or settings replacement can remove this session during any resume await.
+    const isSessionCurrent = () => this.deps.sessions.get(sessionId) === session
+    const promise = resumeAgentSession(
+      session, runtimeId, this.deps.ptyPool, this.deps.streamWirer,
+      this.deps.getMemoryInjector() ?? undefined, isSessionCurrent,
+    )
       .then(() => {
-        this.deps.getMemoryCapture()?.startCapturing(sessionId)
-        this.deps.notifySessionsChanged(session.projectId)
+        if (isSessionCurrent()) {
+          this.deps.getMemoryCapture()?.startCapturing(sessionId)
+          this.deps.notifySessionsChanged(session.projectId)
+        }
         return toPublicSession(session)
       })
       .finally(() => {
