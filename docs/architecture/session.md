@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-11-01T20:29:51Z
+updated: 2026-11-01T20:44:44Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -147,8 +147,8 @@ skip the base checkout for `noWorktree` sessions to avoid exposing build artifac
 (`session-teardown.ts:53`); they no longer run `git worktree remove` either.
 
 **Resume.** `SessionManager.resumeSession()` delegates runtime activation to the lifecycle,
-then calls the same `watchCheckout()` used on creation if the session still exists
-(`session-manager.ts:144`, `:91`). A kill during the awaited resume cannot leave orphan polls.
+then calls the same `watchCheckout()` used on creation if the same session object is still tracked
+(`session-manager.ts:145`, `:147`, `:91`). A kill or same-id replacement during resume cannot start polls.
 Both interactive and chat resumes register the worktree and every persisted additional directory.
 Restored chat sessions can send a message without an explicit resume; `sendInput()` also
 registers their checkout watches on a nonempty message (`session-manager.ts:116`).
@@ -175,7 +175,7 @@ was killed, retired, or replaced (`session-resume.ts:29`, `:54`, `:58`, `:78`). 
 memory capture and session-change notification for a removed/replaced session, and `finally`
 clears `resumeInFlight` (`session-lifecycle.ts:109`, `:115`). Cancellation resolves with the
 original public snapshot without re-registering it; deferred-await regressions cover each
-boundary and same-id replacement (`session-manager-resume-race.test.ts:85`).
+boundary and same-id replacement, including checkout watchers (`session-manager-resume-race.test.ts:92`).
 Resumed interactive workspace agents rebuild their runtime-specific working-set arguments from
 `additionalDirs`, so changing runtime or returning from chat to terminal does not lose access to
 the workspace's other repositories (`session-resume.ts`).

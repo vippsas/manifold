@@ -17,6 +17,7 @@ import { prepareManagedWorktree } from '../git/managed-worktree'
 import { locateClaudeTranscript } from './transcript-usage-reader'
 import type { InternalSession } from './session-types'
 import type { PtyPool } from '../agent/pty-pool'
+import type { FileWatcher } from '../fs/file-watcher'
 import type { MemoryCapture } from '../memory/memory-capture'
 import type { MemoryInjector } from '../memory/memory-injector'
 import { createMockProjectRegistry, createMockWorktreeManager } from './session-manager.test-helpers'
@@ -31,7 +32,7 @@ function dormantSession(): InternalSession {
   return {
     id: 'restored', projectId: 'proj-1', runtimeId: 'claude', branchName: 'feature',
     worktreePath: '/offline/checkout', status: 'done', pid: null, ptyId: '',
-    outputBuffer: '', additionalDirs: [],
+    outputBuffer: '', additionalDirs: ['/offline/extra'],
   }
 }
 
@@ -64,6 +65,7 @@ describe('SessionManager — removal during interactive resume', () => {
   let session: InternalSession
   let injectContext: ReturnType<typeof vi.fn<MemoryInjector['injectContext']>>
   let startCapturing: ReturnType<typeof vi.fn>
+  let fileWatcher: Pick<FileWatcher, 'watch' | 'watchAdditionalDir' | 'unwatch' | 'unwatchAdditionalDir' | 'setOnBranchChanged'>
 
   beforeEach(() => {
     vi.resetAllMocks()
@@ -71,8 +73,13 @@ describe('SessionManager — removal during interactive resume', () => {
     vi.mocked(prepareManagedWorktree).mockResolvedValue(undefined)
     vi.mocked(locateClaudeTranscript).mockResolvedValue(null)
     ptyPool = new FakePtyPool()
+    fileWatcher = {
+      watch: vi.fn(), watchAdditionalDir: vi.fn(), unwatch: vi.fn(),
+      unwatchAdditionalDir: vi.fn(), setOnBranchChanged: vi.fn(),
+    }
     manager = new TestSessionManager(
       createMockWorktreeManager(), ptyPool as unknown as PtyPool, createMockProjectRegistry(),
+      undefined, fileWatcher as FileWatcher,
     )
     session = dormantSession()
     manager.trackSession(session)
@@ -104,8 +111,8 @@ describe('SessionManager — removal during interactive resume', () => {
         const resume = manager.resumeSession(session.id, 'claude')
         await entered.promise
 
-        if (removal === 'kill') await manager.killSession(session.id)
-        else manager.retireSession(session.id)
+        if (removal === 'retire') manager.retireSession(session.id)
+        else await manager.killSession(session.id)
         const replacement = dormantSession()
         if (removal === 'replace') manager.trackSession(replacement)
         manager.notifySessionsChanged.mockClear()
@@ -118,6 +125,8 @@ describe('SessionManager — removal during interactive resume', () => {
         expect(session.ptyId).toBe('')
         expect(startCapturing).not.toHaveBeenCalled()
         expect(manager.notifySessionsChanged).not.toHaveBeenCalled()
+        expect(fileWatcher.watch).not.toHaveBeenCalled()
+        expect(fileWatcher.watchAdditionalDir).not.toHaveBeenCalled()
         expect(manager.hasPendingResume(session.id)).toBe(false)
         if (checkpoint === 'metadata') expect(prepareManagedWorktree).not.toHaveBeenCalled()
         if (checkpoint === 'metadata' || checkpoint.startsWith('worktree')) {
@@ -127,12 +136,21 @@ describe('SessionManager — removal during interactive resume', () => {
         if (removal === 'replace') {
           expect(manager.getSession(session.id)).toMatchObject({ id: replacement.id, status: 'done' })
           expect(replacement.ptyId).toBe('')
+          expect(replacement.checkoutWatched).not.toBe(true)
         } else {
           expect(manager.getSession(session.id)).toBeUndefined()
         }
       },
     )
   }
+
+  it('watches the checkout and additional directories after a successful resume', async () => {
+    await expect(manager.resumeSession(session.id, 'claude')).resolves.toMatchObject({ status: 'running' })
+
+    expect(fileWatcher.watch).toHaveBeenCalledExactlyOnceWith(session.worktreePath, session.id)
+    expect(fileWatcher.watchAdditionalDir).toHaveBeenCalledExactlyOnceWith('/offline/extra', session.id)
+    expect(session.checkoutWatched).toBe(true)
+  })
 
   it('allows a rediscovered session with the same id to resume after cancellation settles', async () => {
     const entered = deferred()
