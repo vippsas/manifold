@@ -82,24 +82,22 @@ describe('SessionManager — dormant checkout activation', () => {
   }
 
   for (const nonInteractive of [false, true]) {
-    it(`watches the entire checkout on ${nonInteractive ? 'chat' : 'interactive'} resume`, async () => {
+    it(`watches the entire checkout on ${nonInteractive ? 'a chat message' : 'interactive resume'}`, async () => {
       await discover(nonInteractive)
       const watch = vi.spyOn(watcher, 'watch')
       const watchAdditionalDir = vi.spyOn(watcher, 'watchAdditionalDir')
 
       const resumed = await manager.resumeSession('restored', 'codex')
-
       expect(resumed.id).toBe('restored')
+      if (nonInteractive) manager.sendInput('restored', 'hi')
       expect(watch).toHaveBeenCalledWith('/checkout', 'restored')
       expect(watchAdditionalDir.mock.calls).toEqual([
         ['/extra/one', 'restored'], ['/extra/two', 'restored'],
       ])
-      expect(ptyPool.launches).toHaveLength(nonInteractive ? 0 : 1)
-      if (!nonInteractive) {
-        expect(ptyPool.launches[0].args).toEqual(expect.arrayContaining([
-          '--add-dir', '/extra/one', '--add-dir', '/extra/two',
-        ]))
-      }
+      expect(ptyPool.launches).toHaveLength(1)
+      expect(ptyPool.launches[0].args).toEqual(expect.arrayContaining([
+        '--add-dir', '/extra/one', '--add-dir', '/extra/two',
+      ]))
 
       statuses.set('/checkout', '?? new.txt\n')
       statuses.set('/extra/one', '?? extra.txt\n')
@@ -117,7 +115,7 @@ describe('SessionManager — dormant checkout activation', () => {
       })
     })
 
-    it(`does not duplicate poll entries on repeated ${nonInteractive ? 'chat' : 'interactive'} resume`, async () => {
+    it(`${nonInteractive ? 'does not start polls' : 'does not duplicate poll entries'} on repeated resume`, async () => {
       await discover(nonInteractive)
       await Promise.all([
         manager.resumeSession('restored', 'codex'),
@@ -130,7 +128,7 @@ describe('SessionManager — dormant checkout activation', () => {
       await vi.advanceTimersByTimeAsync(10_000)
 
       for (const dir of ['/checkout', '/extra/one', '/extra/two']) {
-        expect(gitStatusFn.mock.calls.filter(([cwd]) => cwd === dir)).toHaveLength(5)
+        expect(gitStatusFn.mock.calls.filter(([cwd]) => cwd === dir)).toHaveLength(nonInteractive ? 0 : 5)
       }
       expect(ptyPool.launches).toHaveLength(nonInteractive ? 0 : 1)
     })
@@ -165,7 +163,7 @@ describe('SessionManager — dormant checkout activation', () => {
   for (const activation of ['message', 'resume'] as const) {
     it(`routes shared checkout events to a chat session reactivated by ${activation}`, async () => {
       await discover(true)
-      await manager.resumeSession('restored', 'codex')
+      manager.sendInput('restored', 'hi')
       await manager.createSession({
         projectId: 'project', runtimeId: 'codex', prompt: '', nonInteractive: true,
         existingWorktreePath: '/checkout',

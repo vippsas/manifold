@@ -144,6 +144,28 @@ describe('SessionManager — removal during interactive resume', () => {
     )
   }
 
+  it('does not watch a dormant replacement when a second resume joins the cancelled resume', async () => {
+    const entered = deferred()
+    const release = deferred()
+    injectContext.mockImplementationOnce(async () => { entered.resolve(); await release.promise })
+    const resume = manager.resumeSession(session.id, 'claude')
+    await entered.promise
+    await manager.killSession(session.id)
+    const replacement = dormantSession()
+    manager.trackSession(replacement)
+    const joinedResume = manager.resumeSession(replacement.id, 'claude')
+    release.resolve()
+
+    await Promise.all([resume, joinedResume])
+
+    expect(fileWatcher.watch).not.toHaveBeenCalled()
+    expect(fileWatcher.watchAdditionalDir).not.toHaveBeenCalled()
+    expect(replacement.checkoutWatched).not.toBe(true)
+    expect(replacement.ptyId).toBe('')
+    expect(ptyPool.launches).toHaveLength(0)
+    expect(manager.hasPendingResume(session.id)).toBe(false)
+  })
+
   it('watches the checkout and additional directories after a successful resume', async () => {
     await expect(manager.resumeSession(session.id, 'claude')).resolves.toMatchObject({ status: 'running' })
 

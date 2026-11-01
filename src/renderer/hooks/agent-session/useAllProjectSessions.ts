@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { AgentSession, Project } from '../../../shared/types'
+import type { AgentSession, AgentStatus, Project } from '../../../shared/types'
 import { useIpcListener } from '../app/useIpc'
 
 interface UseAllProjectSessionsResult {
   sessionsByProject: Record<string, AgentSession[]>
+  backgroundDiscoverySettled: boolean
   removeSession: (sessionId: string) => void
 }
 
@@ -26,8 +27,11 @@ export function useAllProjectSessions(
   loadedProjectId: string | null
 ): UseAllProjectSessionsResult {
   const [backgroundSessions, setBackgroundSessions] = useState<Record<string, AgentSession[]>>({})
+  const [settledProjectIdsKey, setSettledProjectIdsKey] = useState<string | null>(null)
   const activeProjectRef = useRef(activeProjectId)
   activeProjectRef.current = activeProjectId
+  const loadedProjectRef = useRef(loadedProjectId)
+  loadedProjectRef.current = loadedProjectId
   const previousActiveProjectRef = useRef(activeProjectId)
   const snapshotVersions = useRef(new Map<string, number>())
   const dirtyProjects = useRef(new Set<string>())
@@ -58,21 +62,25 @@ export function useAllProjectSessions(
     const versions = new Map(snapshotVersions.current)
 
     const fetchAll = async (): Promise<void> => {
-      const entries = await Promise.all(
+      await Promise.all(
         projectIds
           .filter((id) => id !== activeId)
-          .map(async (id) => [id, await fetchProjectSessions(id)] as const)
+          .map(async (id) => {
+            const sessions = await fetchProjectSessions(id)
+            if (cancelled || sessions === null) return
+            // Apply this reply before waiting for slower repos, so subsequent
+            // lifecycle events cannot be lost or overwritten by a delayed batch.
+            setBackgroundSessions((prev) => {
+              // Discovery started before a tab switch must not replace the newer
+              // snapshot saved while that repo was active.
+              if (snapshotVersions.current.get(id) !== versions.get(id)) return prev
+              return { ...prev, [id]: sessions }
+            })
+          })
       )
       if (cancelled) return
-      setBackgroundSessions((prev) => {
-        const next = Object.fromEntries(projectIds.map((id) => [id, prev[id] ?? []]))
-        for (const [id, sessions] of entries) {
-          // Discovery started before a tab switch must not replace the newer
-          // snapshot saved while that repo was active.
-          if (sessions !== null && snapshotVersions.current.get(id) === versions.get(id)) next[id] = sessions
-        }
-        return next
-      })
+      setBackgroundSessions((prev) => Object.fromEntries(projectIds.map((id) => [id, prev[id] ?? []])))
+      setSettledProjectIdsKey(projectIdsKey)
     }
 
     void fetchAll()
@@ -117,6 +125,44 @@ export function useAllProjectSessions(
     )
   )
 
+  const updateBackgroundSession = useCallback((sessionId: string, status: AgentStatus, clearPid = false): void => {
+    const loadedActiveId = activeProjectRef.current === loadedProjectRef.current ? activeProjectRef.current : null
+    const versions = new Map(snapshotVersions.current)
+    setBackgroundSessions((prev) => {
+      let next = prev
+      for (const [projectId, sessions] of Object.entries(prev)) {
+        // Loaded active rows belong to useAgentSession. A queued event must also
+        // leave a newer active/departure snapshot alone.
+        if (projectId === loadedActiveId
+          || (projectId === activeProjectRef.current && projectId === loadedProjectRef.current)
+          || snapshotVersions.current.get(projectId) !== versions.get(projectId)) continue
+        const index = sessions.findIndex((session) => session.id === sessionId)
+        if (index === -1) continue
+        const session = sessions[index]
+        if (session.status === status && (!clearPid || session.pid === null)) continue
+        const updated = [...sessions]
+        updated[index] = { ...session, status, ...(clearPid ? { pid: null } : {}) }
+        if (next === prev) next = { ...prev }
+        next[projectId] = updated
+      }
+      return next
+    })
+  }, [])
+
+  useIpcListener<{ sessionId: string; status: AgentStatus }>(
+    'agent:status',
+    useCallback(({ sessionId, status }) => {
+      updateBackgroundSession(sessionId, status)
+    }, [updateBackgroundSession])
+  )
+
+  useIpcListener<{ sessionId: string }>(
+    'agent:exit',
+    useCallback(({ sessionId }) => {
+      updateBackgroundSession(sessionId, 'done', true)
+    }, [updateBackgroundSession])
+  )
+
   const removeSession = useCallback((sessionId: string): void => {
     setBackgroundSessions((prev) => {
       const next: Record<string, AgentSession[]> = {}
@@ -133,5 +179,5 @@ export function useAllProjectSessions(
     sessionsByProject[activeProjectId] = activeProjectSessions
   }
 
-  return { sessionsByProject, removeSession }
+  return { sessionsByProject, backgroundDiscoverySettled: settledProjectIdsKey === projectIdsKey, removeSession }
 }

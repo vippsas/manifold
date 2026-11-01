@@ -3,13 +3,14 @@ import type { Project, AgentSession } from '../../../shared/types'
 
 interface Args {
   sessionsByProject: Record<string, AgentSession[]>
+  backgroundDiscoverySettled: boolean
   activeProjectId: string | null
   projects: Project[]
   setActiveProject: (id: string) => void
 }
 
 export function useAutoSelectActiveProject(args: Args): void {
-  const { sessionsByProject, activeProjectId, projects, setActiveProject } = args
+  const { sessionsByProject, backgroundDiscoverySettled, activeProjectId, projects, setActiveProject } = args
   const didAutoSelectRef = useRef(false)
 
   useEffect(() => {
@@ -20,10 +21,11 @@ export function useAutoSelectActiveProject(args: Args): void {
       didAutoSelectRef.current = true
       return
     }
+    if (!backgroundDiscoverySettled) return
     const projectWithAgents = projects.find((p) => (sessionsByProject[p.id] ?? []).length > 0)
     if (projectWithAgents) {
       didAutoSelectRef.current = true
       setActiveProject(projectWithAgents.id)
     }
-  }, [sessionsByProject, activeProjectId, projects, setActiveProject])
+  }, [sessionsByProject, backgroundDiscoverySettled, activeProjectId, projects, setActiveProject])
 }
