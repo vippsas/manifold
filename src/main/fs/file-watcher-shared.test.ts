@@ -19,8 +19,9 @@ class FakeGit {
 
 class FakeTreeWatcher {
   roots = new Set<string>()
+  watches: string[] = []
   listener?: (sessionId: string, root: string) => void
-  watch(root: string): void { this.roots.add(root) }
+  watch(root: string): void { this.watches.push(root); this.roots.add(root) }
   async unwatch(root: string): Promise<void> { this.roots.delete(root) }
   async unwatchAll(): Promise<void> { this.roots.clear() }
   setOnTreeChanged(fn: (sessionId: string, root: string) => void): void { this.listener = fn }
@@ -106,6 +107,7 @@ describe('FileWatcher shared checkout subscriptions', () => {
     branchChanged.mockClear()
     verdict.mockClear()
     watcher.watch('/repo/a/', 's1')
+    expect(tree.watches).toEqual(['/repo/a'])
     expect(send).not.toHaveBeenCalled()
     expect(branchChanged).not.toHaveBeenCalled()
     expect(verdict).not.toHaveBeenCalled()

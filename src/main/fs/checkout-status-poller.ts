@@ -48,6 +48,7 @@ export class CheckoutStatusPoller {
     const key = path.resolve(checkout)
     const entry = this.producer(key)
     if (entry.primary.has(sessionId)) return
+    this.restartDisabled(key, entry)
     const subscriber: PrimarySubscriber = { lastBranch: '', notified: false }
     entry.primary.set(sessionId, subscriber)
     if (entry.snapshot) this.notifyPrimary(key, entry, sessionId, subscriber, false)
@@ -58,6 +59,7 @@ export class CheckoutStatusPoller {
     const key = path.resolve(dir)
     const entry = this.producer(key)
     if (entry.additional.has(sessionId)) return
+    this.restartDisabled(key, entry)
     entry.additional.set(sessionId, dir)
     if (entry.snapshot) this.events.additional(sessionId, dir, entry.snapshot)
     if (!entry.snapshot) void this.poll(key, entry)
@@ -109,6 +111,20 @@ export class CheckoutStatusPoller {
     if (entry.primary.size || entry.additional.size) return
     if (entry.timer) clearInterval(entry.timer)
     this.producers.delete(key)
+  }
+
+  private restartDisabled(key: string, entry: Producer): void {
+    if (!entry.disabled) return
+    entry.disabled = false
+    entry.snapshot = undefined
+    entry.status = ''
+    entry.fingerprint = ''
+    entry.branch = ''
+    for (const subscriber of entry.primary.values()) {
+      subscriber.lastBranch = ''
+      subscriber.notified = false
+    }
+    entry.timer = setInterval(() => { void this.poll(key, entry) }, 2000)
   }
 
   private active(key: string, entry: Producer): boolean {

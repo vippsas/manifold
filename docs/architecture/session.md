@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-11-01T18:49:21Z
+updated: 2026-11-01T19:21:00Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -157,7 +157,7 @@ only once. Later messages and repeated resumes re-register the same primary subs
 which is a strict no-op: no extra poll, cached replay, conflict or verdict notification.
 `FileWatcher` shares one producer per normalized absolute checkout across both primary and
 additional-directory subscribers, and fans events out under every subscribed session id
-(`src/main/fs/checkout-status-poller.ts:46`, `:56`, `:128`).
+(`src/main/fs/checkout-status-poller.ts:47`, `:58`, `:134`).
 The lifecycle is a no-op when a PTY already exists, and for chat-mode sessions only updates
 `runtimeId`, without spawning a PTY (`session-lifecycle.ts:86`, `:91`).
 For interactive sessions it serializes concurrent calls via `resumeInFlight`
@@ -187,7 +187,7 @@ it in the shell terminal. The constructor registers `applyBranchChange` with the
 `setOnBranchChanged` (`session-manager-context.ts:141`), so each 2 s poll that reports a different branch
 for a watched checkout moves **every session working in that checkout** onto it and broadcasts
 `agent:sessions-changed`. The watcher polls once per normalized path and reports the branch
-under each primary subscriber id (`src/main/fs/checkout-status-poller.ts:147`). Nothing
+under each primary subscriber id (`src/main/fs/checkout-status-poller.ts:173`). Nothing
 is persisted — worktree meta has no branch field; discovery re-reads the branch from the checkout
 (`session-discovery.ts:115`, `:155`). Only *watched* checkouts track it. Creation and resume
 register the checkout plus every `--add-dir` folder through `SessionManager.watchCheckout()`

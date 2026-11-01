@@ -123,6 +123,58 @@ function Harness({ handle, onSetActiveProject }: {
 }
 
 describe('workspace navigation restores the dock tab (#945)', () => {
+  it.each(['tab', 'workspace'])('resumes a dormant cross-repo agent after loading through %s (#1014)', async (route) => {
+    const handle: { current: Handle | null } = { current: null }
+    const dormant: AgentSession = { ...sessions[3], status: 'done', pid: null }
+    let listed = sessions
+    let holdReply = false
+    let finishLoad: ((rows: AgentSession[]) => void) | undefined
+    let finishResume: ((session: AgentSession) => void) | undefined
+    const invoke = vi.mocked(window.electronAPI.invoke).getMockImplementation()!
+    vi.mocked(window.electronAPI.invoke).mockImplementation((...args) => {
+      if (args[0] === 'agent:sessions') {
+        if (args[1] === 'p3' && holdReply) {
+          return new Promise<AgentSession[]>((resolve) => { finishLoad = resolve })
+        }
+        return Promise.resolve(listed.filter((s) => s.projectId === args[1]))
+      }
+      if (args[0] === 'agent:resume') {
+        return new Promise<AgentSession>((resolve) => { finishResume = resolve })
+      }
+      return invoke(...args)
+    })
+    const view = render(<Harness handle={handle} />)
+    await waitFor(() => expect(handle.current?.api?.getPanel(siblingPanelId('d'))).toBeDefined())
+    await waitFor(() => expect(handle.current?.activeWorktreePath).toBe('/wt/a'))
+    if (route === 'workspace') {
+      // Remember d while it is running, then let it become dormant while away.
+      act(() => { handle.current!.api!.getPanel(siblingPanelId('d'))!.api.setActive() })
+      await waitFor(() => expect(handle.current?.activeWorktreePath).toBe('/wt/d'))
+      fireEvent.click(within(screen.getByTestId('cards')).getByText('Two'))
+      await waitFor(() => expect(handle.current?.activeWorktreePath).toBe('/wt/c'))
+    }
+    listed = sessions.map((s) => s.id === dormant.id ? dormant : s)
+    holdReply = true
+
+    if (route === 'tab') act(() => { handle.current!.api!.getPanel(siblingPanelId('d'))!.api.setActive() })
+    else fireEvent.click(within(screen.getByTestId('cards')).getByText('One'))
+
+    expect(handle.current?.activeSessionId).toBe('d')
+    expect(handle.current?.activeProjectId).toBe('p3')
+    expect(handle.current?.activeWorktreePath).toBeNull()
+    expect(finishLoad).toBeDefined()
+    expect(window.electronAPI.invoke).not.toHaveBeenCalledWith('agent:resume', 'd', 'codex')
+    await act(async () => { finishLoad!([dormant]) })
+    expect(vi.mocked(window.electronAPI.invoke).mock.calls.filter(([channel]) => channel === 'agent:resume'))
+      .toEqual([['agent:resume', 'd', 'codex']])
+
+    view.rerender(<Harness handle={handle} />)
+    await act(async () => { finishResume!({ ...dormant, status: 'running', pid: 42 }) })
+    expect(handle.current?.activeWorktreePath).toBe('/wt/d')
+    expect(vi.mocked(window.electronAPI.invoke).mock.calls.filter(([channel]) => channel === 'agent:resume'))
+      .toHaveLength(1)
+  })
+
   it.each([false, true])('loads and remembers a cross-repo tab without replacing panels (delayed refresh: %s)', async (delayRefresh) => {
     const handle: { current: Handle | null } = { current: null }
     const setActiveProject = vi.fn()

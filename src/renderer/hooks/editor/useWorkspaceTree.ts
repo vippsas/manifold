@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FileTreeNode } from '../../../shared/types'
 import { useIpcListener } from '../app/useIpc'
 
@@ -52,7 +52,8 @@ export function useWorkspaceTree(source: FolderSource): UseWorkspaceTreeResult {
   const [entry, setEntry] = useState<CachedFolder>(
     () => cache.get(key) ?? { tree: null, expandedPaths: new Set() },
   )
-  const [reloadCount, setReloadCount] = useState(0)
+  const reload = useRef<() => void>(() => {})
+  const refresh = useCallback((): void => reload.current(), [])
 
   useEffect(() => {
     setEntry(cache.get(key) ?? { tree: null, expandedPaths: new Set() })
@@ -60,31 +61,57 @@ export function useWorkspaceTree(source: FolderSource): UseWorkspaceTreeResult {
 
   useEffect(() => {
     let cancelled = false
-    const request = source.kind === 'project'
-      ? window.electronAPI.invoke('files:tree-by-project', source.id, source.workspaceId)
-      : window.electronAPI.invoke('files:tree', source.id)
+    let pending = false
+    let trailing = false
+    let scheduled: ReturnType<typeof setTimeout> | null = null
 
-    void request
-      .then((result) => {
-        if (cancelled) return
-        const tree = result as FileTreeNode
-        setEntry((current) => {
-          // Open the root on the first load — a folder that expands to a single
-          // collapsed row looks broken.
-          const expandedPaths = current.expandedPaths.size > 0
-            ? current.expandedPaths
-            : new Set([tree.path])
-          const next = { tree, expandedPaths }
-          cache.set(key, next)
-          return next
-        })
-      })
-      .catch(() => {
+    const load = async (): Promise<void> => {
+      pending = true
+      try {
+        const tree = await (source.kind === 'project'
+          ? window.electronAPI.invoke('files:tree-by-project', source.id, source.workspaceId)
+          : window.electronAPI.invoke('files:tree', source.id)) as FileTreeNode
+        if (!cancelled) {
+          setEntry((current) => {
+            // Open the root on the first load — a folder that expands to a single
+            // collapsed row looks broken.
+            const expandedPaths = current.expandedPaths.size > 0
+              ? current.expandedPaths
+              : new Set([tree.path])
+            const next = { tree, expandedPaths }
+            cache.set(key, next)
+            return next
+          })
+        }
+      } catch {
         // Keep whatever was cached; a worktree can be mid-delete or unreadable.
-      })
+      } finally {
+        pending = false
+        if (!cancelled && trailing) {
+          trailing = false
+          schedule()
+        }
+      }
+    }
 
-    return () => { cancelled = true }
-  }, [key, source.kind, source.id, reloadCount])
+    const schedule = (): void => {
+      if (scheduled !== null) return
+      if (pending) { trailing = true; return }
+      // Batch the per-session fan-out for one root before starting its walk.
+      scheduled = setTimeout(() => {
+        scheduled = null
+        void load()
+      }, 0)
+    }
+    reload.current = schedule
+    void load()
+
+    return () => {
+      cancelled = true
+      if (scheduled !== null) clearTimeout(scheduled)
+      reload.current = () => {}
+    }
+  }, [key, source.kind, source.id])
 
   const onToggleExpand = useCallback((path: string): void => {
     setEntry((current) => {
@@ -95,8 +122,6 @@ export function useWorkspaceTree(source: FolderSource): UseWorkspaceTreeResult {
       return next
     })
   }, [key])
-
-  const refresh = useCallback((): void => setReloadCount((count) => count + 1), [])
 
   // Which folder this is, as the main process names it in its events.
   const rootPath = entry.tree?.path ?? null

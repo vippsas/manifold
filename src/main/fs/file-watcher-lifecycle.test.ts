@@ -152,11 +152,52 @@ describe('FileWatcher shared producer lifecycle', () => {
     watcher.watchAdditionalDir('/repo/a/', 's2')
     watcher.watchAdditionalDir('/repo/a', 's3')
     await vi.advanceTimersByTimeAsync(0)
-    watcher.watch('/repo/a', 's4')
+    watcher.watch('/repo/a', 's1')
+    watcher.watchAdditionalDir('/repo/a', 's2')
     await vi.advanceTimersByTimeAsync(8000)
     expect(status).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(0)
     expect(send).not.toHaveBeenCalled()
+  })
+
+  describe.each([
+    Object.assign(new Error('spawn git ENOENT'), { code: 'ENOENT', syscall: 'spawn git' }),
+    new Error('fatal: not a git repository'),
+  ])('recovery after %s', (error) => {
+    it.each(['primary', 'additional'])('restarts for a new %s subscriber without replaying stale state', async (role) => {
+      status.mockResolvedValue('?? old.txt\n')
+      watcher.watchAdditionalDir('/repo/a/', 'workspace')
+      watcher.watch('/repo/a', 'old-primary')
+      await vi.advanceTimersByTimeAsync(0)
+      await watcher.unwatch('/repo/a', 'old-primary')
+      status.mockRejectedValue(error)
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(status).toHaveBeenCalledTimes(2)
+      expect(vi.getTimerCount()).toBe(0)
+      send.mockClear()
+      onBranch.mockClear()
+
+      status.mockResolvedValue('')
+      branch.mockResolvedValue('recreated')
+      if (role === 'primary') watcher.watch('/repo/a', 'new')
+      else watcher.watchAdditionalDir('/repo/a', 'new')
+      expect(send).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(status).toHaveBeenCalledTimes(3)
+      expect(send).toHaveBeenCalledWith('files:changed', {
+        sessionId: 'workspace', source: '/repo/a/', changes: [],
+      })
+      expect(send).toHaveBeenCalledWith('files:changed', role === 'primary'
+        ? { sessionId: 'new', changes: [] }
+        : { sessionId: 'new', source: '/repo/a', changes: [] })
+      if (role === 'primary') {
+        expect(send).toHaveBeenCalledWith('agent:conflicts', { sessionId: 'new', conflicts: [] })
+        expect(onBranch).toHaveBeenCalledExactlyOnceWith('new', 'recreated')
+      } else expect(onBranch).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(1)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(status).toHaveBeenCalledTimes(4)
+    })
   })
 
   it('retries transient errors on the next tick', async () => {
