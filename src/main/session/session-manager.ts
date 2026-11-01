@@ -1,13 +1,6 @@
 import type { AgentSession, AgentSettingsUpdate, ShellPromptSegments, SpawnAgentOptions } from '../../shared/types'
-import { WorktreeManager } from '../git/worktree-manager'
-import { BranchCheckoutManager } from '../git/branch-checkout-manager'
 import { PtyPool } from '../agent/pty-pool'
-import { ProjectRegistry } from '../store/project-registry'
-import { DevServerManager } from '../app/dev-server-manager'
-import { SessionCreator } from './session-creator'
-import { SessionTeardown } from './session-teardown'
 import { persistSessionMeta } from './session-meta-persister'
-import { FileWatcher } from '../fs/file-watcher'
 import { chatStorageKey, type ChatAdapter } from '../agent/chat-adapter'
 import type { MemoryCapture } from '../memory/memory-capture'
 import type { MemoryCompressor } from '../memory/memory-compressor'
@@ -15,20 +8,13 @@ import type { MemoryInjector } from '../memory/memory-injector'
 import type { BrowserWindow } from 'electron'
 import type { GitOperationsManager } from '../git/git-operations'
 import type { InternalSession } from './session-types'
-import { SessionStreamWirer } from './session-stream-wirer'
-import { SessionUsageAccumulator } from './session-usage-accumulator'
 import type { SessionUsage } from './transcript-usage-reader'
-import { SessionDiscovery } from './session-discovery'
-import { ShellSessionController } from './shell-session-controller'
-import { SessionKiller } from './session-killer'
-import { SessionLifecycle } from './session-lifecycle'
 import { toPublicSession } from './session-public'
-import { SessionIoController } from './session-io-controller'
-import { SessionWorkingSet } from './session-working-set'
 import type { VerdictRecorder } from './verdict-recorder'
 import type { DismissedAgentsStore } from '../store/dismissed-agents-store'
 import { sendSessionManagerRendererEvent } from './session-manager-renderer'
 import { getRuntimeById } from '../agent/runtimes'
+import { SessionManagerContext } from './session-manager-context'
 
 export interface ViolaHarnessController {
   send(sessionId: string, input: string): void
@@ -36,143 +22,8 @@ export interface ViolaHarnessController {
   disposeSession(sessionId: string): void
 }
 
-export class SessionManager {
-  private sessions: Map<string, InternalSession> = new Map()
-  private mainWindow: BrowserWindow | null = null
-  private chatAdapter: ChatAdapter | null = null
-  private memoryCapture: MemoryCapture | null = null
-  private memoryCompressor: MemoryCompressor | null = null
-  private memoryInjector: MemoryInjector | null = null
-  private streamWirer: SessionStreamWirer
-  private devServer: DevServerManager
-  private discovery: SessionDiscovery
-  private sessionCreator: SessionCreator
-  private teardown: SessionTeardown
-  private shellController: ShellSessionController
-  private killer: SessionKiller
-  private ioController: SessionIoController
-  private workingSet: SessionWorkingSet
-  private lifecycle: SessionLifecycle
-  private verdictRecorder: VerdictRecorder | null = null
-  private dismissedAgents: Pick<DismissedAgentsStore, 'has' | 'delete'> | null = null
-  private readonly usageAccumulator = new SessionUsageAccumulator()
+export class SessionManager extends SessionManagerContext {
   private violaHarness: ViolaHarnessController | null = null
-
-  constructor(
-    private worktreeManager: WorktreeManager,
-    private ptyPool: PtyPool,
-    private projectRegistry: ProjectRegistry,
-    private branchCheckoutManager?: BranchCheckoutManager,
-    private fileWatcher?: FileWatcher,
-    private getThemeType?: () => 'light' | 'dark',
-  ) {
-    this.streamWirer = new SessionStreamWirer(
-      this.ptyPool,
-      () => this.chatAdapter,
-      this.sendToRenderer.bind(this),
-      this.fileWatcher,
-      persistSessionMeta,
-      (session) => this.devServer.startDevServer(session),
-      (session, commands) => this.cacheSlashCommands(session.projectId, commands),
-      (session, usage) => this.usageAccumulator.recordTurn(session.id, usage),
-      (session, runId, usage, turns) => this.usageAccumulator.replaceRun(session.id, runId, usage, turns),
-      persistSessionMeta,
-    )
-    this.devServer = new DevServerManager(
-      this.ptyPool,
-      () => this.chatAdapter,
-      this.sessions,
-      this.projectRegistry,
-      this.sendToRenderer.bind(this),
-      this.streamWirer,
-      (id) => this.killSession(id),
-    )
-    this.discovery = new SessionDiscovery(
-      this.sessions,
-      this.worktreeManager,
-      this.projectRegistry,
-      this.fileWatcher,
-    )
-    this.sessionCreator = new SessionCreator(
-      this.worktreeManager,
-      this.ptyPool,
-      this.projectRegistry,
-      this.streamWirer,
-      () => this.chatAdapter,
-      this.branchCheckoutManager,
-      () => this.memoryInjector,
-      this.getThemeType,
-    )
-    this.teardown = new SessionTeardown(
-      this.sessions,
-      this.ptyPool,
-      this.projectRegistry,
-      (id) => this.killSession(id),
-      () => this.memoryCompressor,
-    )
-    this.shellController = new ShellSessionController(
-      this.ptyPool,
-      this.streamWirer,
-      this.sessions,
-    )
-    this.killer = new SessionKiller({
-      sessions: this.sessions,
-      ptyPool: this.ptyPool,
-      getFileWatcher: () => this.fileWatcher,
-      getMemoryCapture: () => this.memoryCapture,
-      getChatAdapter: () => this.chatAdapter,
-      notifySessionsChanged: (projectId) => this.notifySessionsChanged(projectId),
-    })
-    this.ioController = new SessionIoController({
-      sessions: this.sessions,
-      ptyPool: this.ptyPool,
-      shellController: this.shellController,
-      getMemoryCapture: () => this.memoryCapture,
-      spawnPrintModeFollowUp: (session, input) => this.devServer.spawnPrintModeFollowUp(session, input),
-      trackActivity: (session) => this.streamWirer.trackActivity(session),
-    })
-    this.workingSet = new SessionWorkingSet({
-      sessions: this.sessions,
-      ptyPool: this.ptyPool,
-      getFileWatcher: () => this.fileWatcher,
-      persist: persistSessionMeta,
-      sendToRenderer: (channel, payload) => this.sendToRenderer(channel, payload),
-    })
-    this.lifecycle = new SessionLifecycle({
-      sessions: this.sessions,
-      projectRegistry: this.projectRegistry,
-      sessionCreator: this.sessionCreator,
-      ptyPool: this.ptyPool,
-      streamWirer: this.streamWirer,
-      probeSlashCommands: (session) => this.devServer.probeSlashCommands(session),
-      getMemoryCapture: () => this.memoryCapture,
-      getMemoryInjector: () => this.memoryInjector,
-      getVerdictRecorder: () => this.verdictRecorder,
-      getDismissedAgents: () => this.dismissedAgents,
-      notifySessionsChanged: (projectId) => this.notifySessionsChanged(projectId),
-    })
-    this.fileWatcher?.setOnBranchChanged((sessionId, branch) => this.applyBranchChange(sessionId, branch))
-  }
-
-  /** A session's branch is not fixed at creation: the agent runs `git checkout -b`,
-   *  the PR flow renames the branch, or the user switches it in the shell. The
-   *  name is what the status bar shows and what "Create PR" pushes, so follow the
-   *  checkout instead of keeping the name the session started on. A checkout is on
-   *  one branch, so this moves every sibling agent working in it — the watcher
-   *  polls the path once, under whichever session id last watched it. */
-  private applyBranchChange(sessionId: string, branch: string): void {
-    const watched = this.sessions.get(sessionId)
-    if (!watched) return
-
-    const affectedProjects = new Set<string>()
-    for (const session of this.sessions.values()) {
-      if (session.worktreePath !== watched.worktreePath) continue
-      if (session.branchName === branch) continue
-      session.branchName = branch
-      affectedProjects.add(session.projectId)
-    }
-    for (const projectId of affectedProjects) this.notifySessionsChanged(projectId)
-  }
 
   setChatAdapter(adapter: ChatAdapter): void { this.chatAdapter = adapter }
 
@@ -214,7 +65,7 @@ export class SessionManager {
     this.notificationService = service
   }
 
-  private sendToRenderer(channel: string, ...args: unknown[]): void {
+  protected sendToRenderer(channel: string, ...args: unknown[]): void {
     sendSessionManagerRendererEvent({
       mainWindow: this.mainWindow,
       statusListener: this.statusListener,
@@ -223,7 +74,7 @@ export class SessionManager {
     }, channel, args)
   }
 
-  private notifySessionsChanged(projectId: string): void {
+  protected notifySessionsChanged(projectId: string): void {
     this.sendToRenderer('agent:sessions-changed', { projectId })
   }
 
@@ -233,7 +84,7 @@ export class SessionManager {
     return session
   }
 
-  /** Every session polls the folders it works in, whoever created it. Doing this
+  /** Active sessions poll the folders they work in, on creation and resume. Doing this
    *  at the `agent:spawn` handler instead left workspace agents (created straight
    *  through the manager) unpolled, so their status bar kept the branch the
    *  session started on after the agent ran `git checkout -b`. */
@@ -259,7 +110,9 @@ export class SessionManager {
   }
 
   sendInput(sessionId: string, input: string): void {
-    if (this.sessions.get(sessionId)?.runtimeId === 'viola') {
+    const session = this.sessions.get(sessionId)
+    if (session?.nonInteractive && input.trim()) this.watchCheckout(session)
+    if (session?.runtimeId === 'viola') {
       if (!this.violaHarness) throw new Error('Viola harness is not available')
       this.memoryCapture?.recordInput(sessionId, input)
       this.violaHarness.send(sessionId, input.trim())
@@ -284,7 +137,11 @@ export class SessionManager {
     this.sendToRenderer('agent:status', { sessionId, status })
   }
 
-  async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> { return this.lifecycle.resumeSession(sessionId, runtimeId) }
+  async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> {
+    const session = await this.lifecycle.resumeSession(sessionId, runtimeId)
+    this.watchCheckout(session)
+    return session
+  }
 
   async renameSession(sessionId: string, displayName: string): Promise<AgentSession> {
     const session = this.sessions.get(sessionId)
@@ -380,14 +237,6 @@ export class SessionManager {
   getSessionStatus(sessionId: string): string | null { return this.sessions.get(sessionId)?.status ?? null }
 
   getSlashCommands(sessionId: string): string[] { return this.sessions.get(sessionId)?.slashCommands ?? [] }
-
-  /** Persist the captured slash-command list on the project so future chat sessions have it before the first message. */
-  private cacheSlashCommands(projectId: string, commands: string[]): void {
-    const project = this.projectRegistry.getProject(projectId)
-    if (project && JSON.stringify(project.slashCommands) !== JSON.stringify(commands)) {
-      this.projectRegistry.updateProject(projectId, { slashCommands: commands })
-    }
-  }
 
   listSessions(): AgentSession[] { return Array.from(this.sessions.values()).map(toPublicSession) }
 

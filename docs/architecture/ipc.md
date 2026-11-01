@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-09-10
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -74,8 +74,11 @@ Examples: `settings:changed` is broadcast to all live windows after `settings:up
 guard it, call one manager method, return its result. `agent:spawn` resolves the project,
 enforces one in-place agent per repo via `focusOrClearInPlaceSessions` (focuses an existing live
 in-place session for the same/no target, throws if a different branch/PR is requested, else clears
-finished in-place sessions), then calls `sessionManager.createSession()`, starts the file watch,
-and returns the session; concurrent no-worktree spawns per project are serialized
+finished in-place sessions), then calls `sessionManager.createSession()` and returns the session;
+watcher registration belongs to the manager. `agent:resume` likewise delegates to
+`sessionManager.resumeSession()`, which registers both the worktree and its additional
+directories for interactive and chat sessions (`agent-handlers.ts:232`,
+`src/main/session/session-manager.ts:140`); concurrent no-worktree spawns per project are serialized
 (`agent-handlers.ts`). `git:commit` resolves the
 session, rejects plain-folder projects, and calls `gitOps.commit()` (`git-handlers.ts:64`).
 `git:has-uncommitted-changes` resolves the project and returns whether `git status --porcelain`
@@ -121,7 +124,8 @@ platform process without a shell (`file-handlers.ts:229`, `open-terminal.ts:12-6
 - **There is no `agent:kill-worktree`.** A checkout belongs to a workspace, not to the agents in it, so the channel that deleted one from an agent row is gone from the handlers and from the preload allowlist. Removing a checkout is `workspace:remove` (`ipc/workspace-handlers.ts`, `workspace/workspace-manager.ts:69`).
 - **Deletion locks** (`src/main/ipc/agent-handlers.ts`): `agent:set-locked` → `setSessionLocked` toggles an agent's deletion protection, and `agent:kill` throws on a locked session before any teardown (`agent-handlers.ts:140`, `:113`). The renderer gates this too, so the handler is the backstop against a stale UI or a direct IPC call. Internal lifecycle kills (mode switch, respawn) call `killSession` directly and bypass the handler, so a lock never blocks a respawn.
 - **Git** (`src/main/git`): `gitOps`, `diffProvider`, `prCreator`, `branchCheckout` back the `git:*`, `diff:*`, and `pr:create` channels. `branch:suggest` uses `generateBranchName` (`agent-handlers.ts:66`).
-- **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `agent:spawn` starts the watch, and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:delete-app` still unwatches the path explicitly.
+- **FS** (`src/main/fs`): `fileWatcher` backs every `files:*` channel and the file-tree responses; `SessionManager.watchCheckout` starts worktree and additional-directory watches on creation
+  and resume (`src/main/session/session-manager.ts:91`, `:140`), and teardown unwatch is owned by `SessionKiller.cleanupSession` (guarded by shared-path liveness) rather than the `agent:kill` handler, so killing one session can't stop polling for a sibling on the same worktree. `agent:delete-app` still unwatches the path explicitly.
 - **Store** (`src/main/store`): `projectRegistry`, `settingsStore`, `viewStateStore`, `shellTabStore`, `dockLayoutStore`, `searchViewStore`, `verdictStore` are all reached only through their handler namespaces.
 - **Memory / search** (`src/main/memory`, `src/main/search`): `memory:*` queries the per-project SQLite DB directly (`memoryStore.getDb`, `memory-handlers.ts:97`); `search:*` calls the search services with `memoryStore` + `gitOps`.
 - **Plugins** (`src/main/plugins`): `plugins:*` is a near-1:1 bridge onto `PluginManager`, including a renderer→host webview channel (`plugins:webview-to-host`) and a host→renderer push (`plugins:contributions-changed`).
