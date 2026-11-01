@@ -226,6 +226,16 @@ branches the user explicitly deleted: they consult the persisted `DismissedAgent
 (wired via `setDismissedAgents`, `session-discovery.ts:39`) so a deleted dormant agent is not
 resurrected from leftover branch checkout state (`session-discovery.ts:148`, `:233`; #679).
 
+Each newly adopted session invokes the discovery callback **after** registration
+(`session-discovery.ts:135`, `:173`, `:258`). `SessionManagerContext` uses it to push
+`files:tree-changed` with `{ sessionId, rootPath, reason: 'session-discovered' }`
+(`session-manager-context.ts:83`). The reason lets ahead/behind retry on discovery
+without refreshing on ordinary file edits (`src/renderer/hooks/editor/useGitOperations.ts:42`).
+Restored renderer panes can therefore retry an early empty tree or ahead/behind read
+without waiting for file activity or starting dormant-session polling. Repeated discovery
+of an already tracked session emits no new signal; all three adoption paths are pinned
+by `session-discovery.test.ts:150`.
+
 ### Pushing a folder into a running agent
 
 A session's working set is decided when its process is spawned — the `--add-dir` flags are argv,

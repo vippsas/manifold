@@ -30,6 +30,7 @@ export class SessionDiscovery {
     private sessions: Map<string, InternalSession>,
     private worktreeManager: WorktreeManager,
     private projectRegistry: ProjectRegistry,
+    private onDiscovered?: (session: InternalSession) => void,
   ) {}
 
   setVerdictRecorder(recorder: VerdictRecorder): void {
@@ -133,6 +134,7 @@ export class SessionDiscovery {
         }
         this.sessions.set(session.id, session)
         this.adoptForVerdict(session, project.baseBranch)
+        this.onDiscovered?.(session)
       }
     }
 
@@ -169,6 +171,7 @@ export class SessionDiscovery {
             locked: meta?.locked,
           }
           this.sessions.set(session.id, session)
+          this.onDiscovered?.(session)
         }
       } catch {
         // Git command failed — project directory may be gone
@@ -253,6 +256,7 @@ export class SessionDiscovery {
               locked: meta?.locked,
             }
             this.sessions.set(session.id, session)
+            this.onDiscovered?.(session)
           }
         } catch {
           // Git command failed — project directory may be gone

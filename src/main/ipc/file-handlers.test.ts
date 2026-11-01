@@ -1,9 +1,9 @@
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentSession, FileTreeNode } from '../../shared/types'
-import type { IpcDependencies } from './types'
+import { makeDeps, makeSession } from './file-handlers.test-helpers'
 
 const mocks = vi.hoisted(() => {
   const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>()
@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => {
       handlers.set(channel, fn)
     }),
     showItemInFolder: vi.fn(),
-    readImage: vi.fn(),
     openTerminal: vi.fn(),
   }
 })
@@ -21,64 +20,49 @@ const mocks = vi.hoisted(() => {
 vi.mock('electron', () => ({
   ipcMain: { handle: mocks.handle },
   shell: { showItemInFolder: mocks.showItemInFolder },
-  clipboard: { readImage: mocks.readImage },
+  clipboard: { readImage: vi.fn() },
 }))
 
 vi.mock('./open-terminal', () => ({
   openTerminal: mocks.openTerminal,
 }))
 
-function makeSession(worktreePath: string, additionalDirs: string[] = []): AgentSession {
-  return {
-    id: 'sess-1',
-    projectId: 'proj-1',
-    runtimeId: 'codex',
-    branchName: 'main',
-    worktreePath,
-    status: 'running',
-    pid: 1,
-    additionalDirs,
-  }
-}
-
-function makeDeps(
-  session: AgentSession,
-  tree: FileTreeNode,
-  openFolders: {
-    projectPaths?: string[]
-    otherSessions?: AgentSession[]
-    workspaceWorktreePaths?: Record<string, string>
-  } = {},
-): IpcDependencies {
-  const projects = (openFolders.projectPaths ?? []).map((path, index) => ({ id: `proj-${index}`, path }))
-  const workspaces = openFolders.workspaceWorktreePaths
-    ? [{ id: 'w1', name: 'w1', projectIds: [], createdAt: '', worktreePaths: openFolders.workspaceWorktreePaths }]
-    : []
-  return {
-    sessionManager: {
-      getSession: vi.fn(() => session),
-      listSessions: vi.fn(() => [session, ...(openFolders.otherSessions ?? [])]),
-    },
-    workspaceManager: { list: vi.fn(() => workspaces), get: vi.fn((id: string) => workspaces.find((w) => w.id === id)) },
-    projectRegistry: { getProject: vi.fn(), listProjects: vi.fn(() => projects) },
-    fileWatcher: {
-      getFileTree: vi.fn(() => tree),
-      notifyTreeChanged: vi.fn(),
-      readFile: vi.fn((path: string) => `contents of ${path}`),
-    },
-  } as unknown as IpcDependencies
-}
-
 describe('registerFileHandlers', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
     mocks.handlers.clear()
-    mocks.readImage.mockReturnValue({
-      isEmpty: () => true,
-      toPNG: () => Buffer.alloc(0),
-    })
     mocks.openTerminal.mockResolvedValue(undefined)
+  })
+
+  it('resolves a missing session tree to null, then reads it after registration', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const session = makeSession('/worktree')
+    const tree: FileTreeNode = { name: 'repo', path: '/worktree', isDirectory: true, children: [] }
+    const deps = makeDeps(session, tree)
+    const sessions = new Map<string, AgentSession>()
+    deps.sessionManager.getSession = (id) => sessions.get(id)
+    registerFileHandlers(deps)
+    const handler = mocks.handlers.get('files:tree')!
+
+    await expect(handler({}, session.id)).resolves.toBeNull()
+    expect(deps.fileWatcher.getFileTree).not.toHaveBeenCalled()
+
+    sessions.set(session.id, session)
+    await expect(handler({}, session.id)).resolves.toEqual(tree)
+    expect(deps.fileWatcher.getFileTree).toHaveBeenCalledWith('/worktree')
+  })
+
+  it('still rejects an unknown session when authorizing an additional directory', async () => {
+    const { registerFileHandlers } = await import('./file-handlers')
+    const tree: FileTreeNode = { name: 'repo', path: '/worktree', isDirectory: true, children: [] }
+    const deps = makeDeps(makeSession('/worktree'), tree)
+    deps.sessionManager.getSession = () => undefined
+    registerFileHandlers(deps)
+
+    expect(() => mocks.handlers.get('files:tree-dir')!({}, 'missing', '/extra'))
+      .toThrow('Session not found: missing')
+    expect(deps.fileWatcher.getFileTree).not.toHaveBeenCalled()
   })
 
   // The sidebar hangs a file tree under every repo and worktree, all open at
@@ -243,95 +227,6 @@ describe('registerFileHandlers', () => {
     }
   })
 
-  it('writes a pasted clipboard image into the requested directory', async () => {
-    const { registerFileHandlers } = await import('./file-handlers')
-    const root = await mkdtemp(join(tmpdir(), 'manifold-paste-image-test-'))
-    const targetDir = join(root, 'assets')
-    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
-
-    try {
-      await mkdir(targetDir)
-      const deps = makeDeps(makeSession(root), tree)
-      registerFileHandlers(deps)
-      const handler = mocks.handlers.get('files:paste-image')
-      if (!handler) throw new Error('files:paste-image handler was not registered')
-
-      const result = await handler({}, 'sess-1', targetDir, 'data:image/png;base64,iVBORw==')
-
-      expect(result).toEqual({ path: join(targetDir, 'pasted-image.png'), tree })
-      await expect(readFile(join(targetDir, 'pasted-image.png'))).resolves.toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
-      expect(deps.fileWatcher.notifyTreeChanged).toHaveBeenCalledWith('sess-1', undefined)
-    } finally {
-      await rm(root, { recursive: true, force: true })
-    }
-  })
-
-  it('chooses a suffix instead of overwriting an existing pasted image', async () => {
-    const { registerFileHandlers } = await import('./file-handlers')
-    const root = await mkdtemp(join(tmpdir(), 'manifold-paste-image-test-'))
-    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
-
-    try {
-      const deps = makeDeps(makeSession(root), tree)
-      registerFileHandlers(deps)
-      const handler = mocks.handlers.get('files:paste-image')
-      if (!handler) throw new Error('files:paste-image handler was not registered')
-
-      await handler({}, 'sess-1', root, 'data:image/png;base64,iVBORw==')
-      const result = await handler({}, 'sess-1', root, 'data:image/png;base64,iVBORw==')
-
-      expect(result).toEqual({ path: join(root, 'pasted-image-1.png'), tree })
-      await expect(readFile(join(root, 'pasted-image.png'))).resolves.toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
-      await expect(readFile(join(root, 'pasted-image-1.png'))).resolves.toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
-    } finally {
-      await rm(root, { recursive: true, force: true })
-    }
-  })
-
-  it('rejects paste targets outside the active session roots', async () => {
-    const { registerFileHandlers } = await import('./file-handlers')
-    const root = await mkdtemp(join(tmpdir(), 'manifold-paste-image-test-'))
-    const outside = await mkdtemp(join(tmpdir(), 'manifold-paste-image-outside-'))
-    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
-
-    try {
-      registerFileHandlers(makeDeps(makeSession(root), tree))
-      const handler = mocks.handlers.get('files:paste-image')
-      if (!handler) throw new Error('files:paste-image handler was not registered')
-
-      await expect(handler({}, 'sess-1', outside, 'data:image/png;base64,iVBORw=='))
-        .rejects.toThrow('Path traversal denied')
-    } finally {
-      await rm(root, { recursive: true, force: true })
-      await rm(outside, { recursive: true, force: true })
-    }
-  })
-
-  it('writes the current system clipboard image into the requested directory', async () => {
-    const { registerFileHandlers } = await import('./file-handlers')
-    const root = await mkdtemp(join(tmpdir(), 'manifold-paste-clipboard-image-test-'))
-    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
-
-    try {
-      mocks.readImage.mockReturnValue({
-        isEmpty: () => false,
-        toPNG: () => Buffer.from([0x89, 0x50, 0x4e, 0x47]),
-      })
-      const deps = makeDeps(makeSession(root), tree)
-      registerFileHandlers(deps)
-      const handler = mocks.handlers.get('files:paste-clipboard-image')
-      if (!handler) throw new Error('files:paste-clipboard-image handler was not registered')
-
-      const result = await handler({}, 'sess-1', root)
-
-      expect(result).toEqual({ pasted: true, path: join(root, 'pasted-image.png'), tree })
-      await expect(readFile(join(root, 'pasted-image.png'))).resolves.toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
-      expect(deps.fileWatcher.notifyTreeChanged).toHaveBeenCalledWith('sess-1', undefined)
-    } finally {
-      await rm(root, { recursive: true, force: true })
-    }
-  })
-
   it('rejects a ../ traversal dirPath for files:dir-branch', async () => {
     const { registerFileHandlers } = await import('./file-handlers')
     const root = await mkdtemp(join(tmpdir(), 'manifold-dir-branch-test-'))
@@ -343,24 +238,6 @@ describe('registerFileHandlers', () => {
       if (!handler) throw new Error('files:dir-branch handler was not registered')
 
       await expect(handler({}, 'sess-1', '../../../etc')).rejects.toThrow('Directory not in allowed paths')
-    } finally {
-      await rm(root, { recursive: true, force: true })
-    }
-  })
-
-  it('returns pasted=false when the system clipboard has no image', async () => {
-    const { registerFileHandlers } = await import('./file-handlers')
-    const root = await mkdtemp(join(tmpdir(), 'manifold-paste-clipboard-image-test-'))
-    const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
-
-    try {
-      const deps = makeDeps(makeSession(root), tree)
-      registerFileHandlers(deps)
-      const handler = mocks.handlers.get('files:paste-clipboard-image')
-      if (!handler) throw new Error('files:paste-clipboard-image handler was not registered')
-
-      expect(await handler({}, 'sess-1', root)).toEqual({ pasted: false })
-      expect(deps.fileWatcher.notifyTreeChanged).not.toHaveBeenCalled()
     } finally {
       await rm(root, { recursive: true, force: true })
     }

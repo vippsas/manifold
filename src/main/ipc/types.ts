@@ -44,6 +44,11 @@ export interface IpcDependencies {
   send?: (channel: string, ...args: unknown[]) => void
 }
 
+/** Layout restore can request reads before discovery, or after session teardown. */
+export function resolveSessionForRead(sessionManager: SessionManager, sessionId: string): AgentSession | null {
+  return sessionManager.getSession(sessionId) ?? null
+}
+
 export function resolveSession(sessionManager: SessionManager, sessionId: string): AgentSession {
   const session = sessionManager.getSession(sessionId)
   if (!session) throw new Error(`Session not found: ${sessionId}`)

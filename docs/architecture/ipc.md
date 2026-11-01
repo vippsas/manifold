@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-11-01T18:50:38Z
+updated: 2026-11-01T21:18:28Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -18,13 +18,14 @@ managers documented on the other architecture pages (`session.md`, `git.md`, etc
 ## Covered code
 
 - `src/main/app/ipc-handlers.ts` — `registerIpcHandlers(deps)`, the single entry point that calls every `register*Handlers` function in order and inlines a few one-off channels (`font:load-data`, `app:version`, `updater:*`, `release-notes:*`).
-- `src/main/ipc/types.ts` — `IpcDependencies` (the manager bag passed to every handler module) and `resolveSession()` (throw-on-missing session lookup).
+- `src/main/ipc/types.ts` — `IpcDependencies` (the manager bag passed to every handler module) and the strict `resolveSession()` / nullable `resolveSessionForRead()` lookups.
 - `src/main/ipc/agent-handlers.ts` — `agent:*` lifecycle, plus `branch:suggest`, `shell:*`, and the read-only `git:list-*`/`git:fetch-pr-branch` channels.
 - `src/main/ipc/usage-handlers.ts` — `agent:session-usage`, the agent tab's cost hover. Looks the session up, returns `null` for a missing session or a non-Claude runtime, and otherwise delegates to `readSessionCost()` (`session/session-cost.ts`). Deliberately reads only the on-disk transcript: the live accumulator that the verdict recorder drains is destructive (`SessionUsageAccumulator.take`), so serving a hover from it would steal usage the verdict still needs. See `session.md`.
 - `src/main/ipc/chat-image-handlers.ts` — `chat:save-pasted-image`/`chat:read-pasted-image` and the allow-listed image-path resolution they share.
-- `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the mutating `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`, `git:has-uncommitted-changes`), plus the workspace-scoped Source Control channels: read-only `git:workspace-status` (branch, optional upstream `ahead`/`behind`, and `staged`/`unstaged`/`untracked` groups for each requested repo checkout), `git:workspace-stage` / `git:workspace-unstage` / `git:workspace-discard` (a path array each, so a whole group is one call), `git:workspace-commit` (per-repo commit; its `stageAll` flag picks between the index-only `commitManagedWorktreeIndex` and the stage-all `gitOps.commit`), `git:workspace-checkout` (mode-aware switch, `checkout -b [startPoint]`, or detached checkout), `git:workspace-pull` (the serialized status-bar sync: `pull --ff-only`, then `push`, returning a `GitSyncResult` whose failure arm includes the failed command, reason, and output), and `git:workspace-file-diff` (one file's uncommitted diff + original, its `staged` flag choosing HEAD-vs-index or index-vs-worktree, for the editor's SCM-click diff). Checkout and sync operations emit `workspace:list-changed` so Source Control, the status bar, and workspace list refresh, including after a sync command failure that may have updated refs. The session-scoped comparisons (diff, PR target, ahead/behind, pr-context) use `baseBranchFor(session, project)` = `session.baseBranch || project.baseBranch`, so a no-worktree agent based off a selected branch compares against that branch; workspace status instead compares `@{upstream}...HEAD` for VS Code-style sync counts.
+- `src/main/ipc/git-handlers.ts` — `diff:*`, `pr:create`, and the `git:*` channels (`git:commit`, `git:ai-generate`, `git:ahead-behind`, `git:resolve-conflict`, `git:pr-context`, `git:fetch`, `git:has-uncommitted-changes`), plus the workspace-scoped Source Control channels: read-only `git:workspace-status` (branch, optional upstream `ahead`/`behind`, and `staged`/`unstaged`/`untracked` groups for each requested repo checkout), `git:workspace-stage` / `git:workspace-unstage` / `git:workspace-discard` (a path array each, so a whole group is one call), `git:workspace-commit` (per-repo commit; its `stageAll` flag picks between the index-only `commitManagedWorktreeIndex` and the stage-all `gitOps.commit`), `git:workspace-checkout` (mode-aware switch, `checkout -b [startPoint]`, or detached checkout), `git:workspace-pull` (the serialized status-bar sync: `pull --ff-only`, then `push`, returning a `GitSyncResult` whose failure arm includes the failed command, reason, and output), and `git:workspace-file-diff` (one file's uncommitted diff + original, its `staged` flag choosing HEAD-vs-index or index-vs-worktree, for the editor's SCM-click diff). Checkout and sync operations emit `workspace:list-changed` so Source Control, the status bar, and workspace list refresh, including after a sync command failure that may have updated refs. The session-scoped comparisons (diff, PR target, ahead/behind, pr-context) use `baseBranchFor(session, project)` = `session.baseBranch || project.baseBranch`, so a no-worktree agent based off a selected branch compares against that branch; workspace status instead compares `@{upstream}...HEAD` for VS Code-style sync counts.
 - `src/main/ipc/workspace-status.ts` — the workspace status reader registered by `git-handlers.ts:151`. An optional project-ID array restricts status collection to affected member repos; omitting it reads every Git repo, skipping plain folders. Each selected repo still uses the same branch, porcelain-status and upstream-count commands and failure fallbacks (`workspace-status.ts:19`). Concurrent calls for the same workspace merge before launching Git and share an in-flight promise; mid-flight selections union into one trailing round, and a full request supersedes partial invalidations. All callers receive the merged latest rows after pending rounds finish, and settled or failed flights are removed rather than cached (`workspace-status.ts:46`). Different workspaces remain independent. `workspace-status.test.ts` counts Git command calls during deferred rounds and checks partial/full invalidation, trailing status correctness and failure recovery.
-- `src/main/ipc/file-handlers.ts` — `files:*` tree/read/write/rename/import/paste/reveal/search, all path-guarded against traversal.
+- `src/main/ipc/file-handlers.ts` — `files:*` tree/read/write/rename/import/paste/reveal/search, with path authorization for file access.
+- `src/main/ipc/file-handler-utils.ts` — extracted path-prefix checks, image encoding/paste helpers, and git-grep parsing used by the file handlers.
 - `src/main/ipc/open-terminal.ts` — platform command selection for the path-guarded `files:open-terminal` channel: macOS `open`, Linux `x-terminal-emulator`.
 - `src/main/ipc/project-handlers.ts` — `projects:*` (list/add/clone/create-new/remove/update) and the `*-dialog` + `storage:open-dialog` native-dialog channels.
 - `src/main/ipc/settings-handlers.ts` — `settings:*`, `runtimes:list`, `ollama:list-models`, `view-state:*`, `shell-tabs:*`, `dock-layout:*`. Also keeps the zsh prompt-segments file in sync with settings (`settings-handlers.ts:16`) so live shells follow prompt-segment changes.
@@ -93,18 +94,18 @@ is non-empty (used by the New Agent form's dirty-repo confirmation).
 `file-handlers.ts` resolves every path and rejects anything outside the folders the user has
 open — **the workspace roots**: every registered project path, **every workspace's checkout of
 each repo**, plus every session's worktree and `additionalDirs` (`workspaceRoots`,
-`file-handlers.ts:29`; `isAllowed`, `:52`; enforced on `files:read`, `files:write`,
+`file-handlers.ts:27`; `isAllowed`, `:47`; enforced on `files:read`, `files:write`,
 `files:delete`, `files:rename`, etc.). The workspace's checkouts are listed in their own right,
 not merely through the sessions working in them, because a workspace is browsable from the
 moment it exists — before any agent has run in it. It is deliberately *not* scoped to the
 selected session: the sidebar hangs a tree under every repo, all open at once, and a click there
 opens a file without first selecting its repo. Reading, saving, revealing and **creating** take
 the session id as an optional hint for resolving a relative path and work with none at all
-(`authorize`, `:59`; `files:create-file`/`files:create-dir`, `:156`, `:162`) — a workspace can
+(`authorize`, `:54`; `files:create-file`/`files:create-dir`, `:151`, `:157`) — a workspace can
 be browsed and edited before an agent has ever run in it, so requiring a session id there made
 "New File"/"New Folder" fail silently. One repo can be open in several workspaces at once, each with its own
 checkout, so `files:tree-by-project` takes an optional `workspaceId` that decides *which*
-checkout's files come back; without it the repo's own clone answers (`file-handlers.ts:75`).
+checkout's files come back; without it the repo's own clone answers (`file-handlers.ts:70`).
 `chat-image-handlers.ts`
 restricts pasted/read-back chat images to a small allow-list of directories
 (`resolveReadableChatImagePath`, `chat-image-handlers.ts:26`). `project-handlers.ts` rejects
@@ -112,13 +113,14 @@ clone URLs beginning with `-` to avoid argument injection into `git clone`
 (`project-handlers.ts:69`). Several handlers reject non-git projects with an explicit error
 (`isGitProject` checks throughout `git-handlers.ts` and `agent-handlers.ts`).
 `files:open-terminal` applies the same path guard before `openTerminal()` launches a detached
-platform process without a shell (`file-handlers.ts:229`, `open-terminal.ts:12-60`).
+platform process without a shell (`file-handlers.ts:213`, `open-terminal.ts:12-60`).
 
 ## Key types and entry points
 
 - `registerIpcHandlers(deps)` — `ipc-handlers.ts:22`. The only thing the app boot calls; registers everything.
 - `IpcDependencies` — `types.ts:21`. The manager bag; the contract between the IPC layer and every subsystem. `send?` is the optional renderer-push hook used by `plugin-handlers.ts`.
-- `resolveSession(sessionManager, id)` — `types.ts:45`. Shared helper that returns an `AgentSession` or throws `Session not found`; used by the mutating git handlers.
+- `resolveSession(sessionManager, id)` — `types.ts:52`. Shared helper that returns an `AgentSession` or throws `Session not found`; used by the mutating git handlers.
+- `resolveSessionForRead(sessionManager, id)` — `types.ts:48`. Nullable lookup used only by `files:tree` and `git:ahead-behind`; does not change authorization or the strict lookup.
 - `register*Handlers(deps)` — one per module (e.g. `registerAgentHandlers`, `agent-handlers.ts:63`). Each owns one namespace and is independently unit-tested.
 
 ## Interactions
@@ -139,7 +141,7 @@ platform process without a shell (`file-handlers.ts:229`, `open-terminal.ts:12-6
 - **The registration list is manual.** Adding a namespace means writing a `register*Handlers` function *and* wiring it into `registerIpcHandlers` (`ipc-handlers.ts:22`). A forgotten line silently leaves the channels unregistered, and the renderer call rejects with "No handler registered".
 - **This layer is `handle`-only; events go the other way.** Don't add `ipcMain.on` here. Renderer→main is request/response; main→renderer is `webContents.send`. Mixing the two in one channel breaks the preload allow-list model.
 - **Path guards live in the handler, not the manager.** `fileWatcher` will read/write whatever absolute path it's given; the traversal guard is `isAllowed`/`authorize` in `file-handlers.ts`, resolved against the workspace roots. A new `files:*` channel that skips it is an arbitrary-file-access hole.
-- **Handlers must tolerate a missing session.** Sessions can be torn down mid-flight while a renderer refresh is in flight; `diff:get` returns an empty diff rather than throwing for exactly this race (`git-handlers.ts:15`), whereas `resolveSession`-based channels deliberately throw.
+- **Restored session reads can miss before discovery or after teardown.** `files:tree` resolves to `null` (`file-handlers.ts:62`) and `git:ahead-behind` resolves to `{ ahead: 0, behind: 0 }` (`git-handlers.ts:101`) for an unknown id, without rejecting the IPC promise. `diff:get` likewise returns an empty diff (`git-handlers.ts:32`). Mutations such as `git:commit`/`git:resolve-conflict` keep the strict lookup (`types.ts:52`), and path-authorizing `files:tree-dir` and `files:dir-branch` still reject an unknown id (`file-handlers.ts:77`, `:86`). Discovery emits `files:tree-changed` with the adopted session id, root path and `reason: 'session-discovered'` (`src/main/session/session-manager-context.ts:83`), letting restored trees and ahead/behind retry immediately. `useGitOperations` retries ahead/behind on `files:tree-changed` only for this discovery reason (`src/renderer/hooks/editor/useGitOperations.ts:39`); ordinary file edits cannot change commit counts. File-tree listeners still handle both discovery and ordinary tree changes (`src/renderer/hooks/editor/useFileWatcher.ts:96`).
 - **Plain-folder projects reject git channels.** Most `git:*`/`diff:*`/`pr:create` handlers guard with `isGitProject` and either throw or return an empty result; do the same for any new git-touching channel.
 - **Removing a project must drop its derived stores and references.** A project id is a fresh uuid on every add, so anything keyed by it (verdicts, chat, memory, agent dismissals, workspace membership) is unreachable once the project is removed and re-added. `projects:remove` therefore deletes the verdict/chat/memory/dismissal data and detaches the id from every workspace (`project-handlers.ts:209`–`:213`) but leaves the on-disk repo in place; only `agent:delete-app` additionally `fs.rm`s the project directory (`project-handlers.ts:208`, `agent-handlers.ts:150`).
 - **Registration is once-per-process, and must stay that way.** Channels are global to the main process and `ipcMain.handle` throws if a channel is registered twice, so the `ipcHandlersRegistered` guard in `window-factory.ts:100` ensures a second window does *not* re-register. New handler modules must be idempotent-by-omission: register in `registerIpcHandlers`, nowhere else.

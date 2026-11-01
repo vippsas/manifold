@@ -70,8 +70,8 @@ export function useWorkspaceTree(source: FolderSource): UseWorkspaceTreeResult {
       try {
         const tree = await (source.kind === 'project'
           ? window.electronAPI.invoke('files:tree-by-project', source.id, source.workspaceId)
-          : window.electronAPI.invoke('files:tree', source.id)) as FileTreeNode
-        if (!cancelled) {
+          : window.electronAPI.invoke('files:tree', source.id)) as FileTreeNode | null
+        if (!cancelled && tree) {
           setEntry((current) => {
             // Open the root on the first load — a folder that expands to a single
             // collapsed row looks broken.
@@ -129,9 +129,11 @@ export function useWorkspaceTree(source: FolderSource): UseWorkspaceTreeResult {
   // A tree-watched checkout (any session's, not just the selected one) reports
   // the folder it changed; an add-dir folder is git-polled instead and names
   // itself in `source`. Either way, only this folder's events reload it.
-  useIpcListener<{ rootPath?: string }>('files:tree-changed', useCallback((event) => {
-    if (rootPath && event.rootPath === rootPath) refresh()
-  }, [rootPath, refresh]))
+  // A restored session can match by id before its first tree reveals the root.
+  useIpcListener<{ sessionId: string; rootPath?: string }>('files:tree-changed', useCallback((event) => {
+    if ((source.kind === 'session' && event.sessionId === source.id)
+      || (rootPath && event.rootPath === rootPath)) refresh()
+  }, [source.kind, source.id, rootPath, refresh]))
 
   useIpcListener<{ source?: string }>('files:changed', useCallback((event) => {
     if (rootPath && event.source === rootPath) refresh()

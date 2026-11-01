@@ -14,7 +14,7 @@ import {
 import { withRepoLock } from '../git/repo-lock'
 import { getRuntimeById } from '../agent/runtimes'
 import type { IpcDependencies } from './types'
-import { resolveSession } from './types'
+import { resolveSession, resolveSessionForRead } from './types'
 
 /** The base branch to diff/PR/compare against: the session's own base branch
  *  (e.g. a no-worktree agent based off a selected branch) or the project's. */
@@ -99,7 +99,8 @@ export function registerGitHandlers(deps: IpcDependencies): void {
   })
 
   ipcMain.handle('git:ahead-behind', async (_event, sessionId: string): Promise<AheadBehind> => {
-    const session = resolveSession(sessionManager, sessionId)
+    const session = resolveSessionForRead(sessionManager, sessionId)
+    if (!session) return { ahead: 0, behind: 0 }
     const project = projectRegistry.getProject(session.projectId)
     if (!project) throw new Error(`Project not found: ${session.projectId}`)
     if (!isGitProject(project)) return { ahead: 0, behind: 0 }
