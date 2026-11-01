@@ -21,10 +21,12 @@ export async function resumeAgentSession(
   ptyPool: PtyPool,
   streamWirer: SessionStreamWirer,
   memoryInjector?: MemoryInjector,
+  isSessionCurrent: () => boolean = () => true,
 ): Promise<void> {
   const needsCodexThreadId = runtimeId === 'codex' && !session.codexThreadId
   if (!session.ollamaModel || !session.simpleTemplateTitle || !session.simplePromptInstructions || needsCodexThreadId) {
     const meta = await readWorktreeMeta(session.worktreePath)
+    if (!isSessionCurrent()) return
     if (meta?.ollamaModel) {
       session.ollamaModel = meta.ollamaModel
     }
@@ -49,9 +51,11 @@ export async function resumeAgentSession(
       // Best-effort: session resume should not fail just because worktree
       // guards could not be refreshed.
     }
+    if (!isSessionCurrent()) return
   }
 
   await memoryInjector?.injectContext(session)
+  if (!isSessionCurrent()) return
 
   const runtimeArgs = [...(runtime.args ?? [])]
   if (session.additionalDirs.length > 0) {
@@ -71,6 +75,7 @@ export async function resumeAgentSession(
       worktreePath: session.worktreePath,
       sessionId: session.id,
     })
+    if (!isSessionCurrent()) return
     if (transcript) runtimeArgs.push('--resume', session.id)
   }
 

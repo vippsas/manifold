@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-11-01T19:21:00Z
+updated: 2026-11-01T20:29:51Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -163,11 +163,19 @@ The lifecycle is a no-op when a PTY already exists, and for chat-mode sessions o
 For interactive sessions it serializes concurrent calls via `resumeInFlight`
 (`session-lifecycle.ts:32`) — a per-session-id in-flight promise map that ensures at most one
 PTY is spawned even if two callers race before either's spawn completes. It calls
-`resumeAgentSession()` (`session-resume.ts:15`), which re-reads worktree meta for missing
+`resumeAgentSession()` (`session-resume.ts:18`), which re-reads worktree meta for missing
 fields, refreshes managed-worktree guards, injects memory context, spawns a new PTY, and
 re-wires output/exit. For interactive Claude it adds `--resume <session.id>` when an on-disk
-transcript for that id exists (`session-resume.ts:65`), so the resumed conversation continues
+transcript for that id exists (`session-resume.ts:73`), so the resumed conversation continues
 in the same transcript. This is the path that brings a dormant discovered session back to life.
+After each await, the helper checks `sessions.get(sessionId) === session` via a predicate
+from the lifecycle (`session-lifecycle.ts:103`). Metadata, guard refresh (including failures),
+memory injection, and transcript lookup all abort before spawning or wiring if the session
+was killed, retired, or replaced (`session-resume.ts:29`, `:54`, `:58`, `:78`). Completion skips
+memory capture and session-change notification for a removed/replaced session, and `finally`
+clears `resumeInFlight` (`session-lifecycle.ts:109`, `:115`). Cancellation resolves with the
+original public snapshot without re-registering it; deferred-await regressions cover each
+boundary and same-id replacement (`session-manager-resume-race.test.ts:85`).
 Resumed interactive workspace agents rebuild their runtime-specific working-set arguments from
 `additionalDirs`, so changing runtime or returning from chat to terminal does not lose access to
 the workspace's other repositories (`session-resume.ts`).
