@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { startTransition } from 'react'
-import { flushSync } from 'react-dom'
 import type { AgentSession } from '../../../shared/types'
 import { useAgentSession } from './useAgentSession'
 import { useAllProjectSessions } from './useAllProjectSessions'
@@ -154,29 +152,45 @@ describe('background session lifecycle events', () => {
     expect(mockInvoke).not.toHaveBeenCalled()
   })
 
-  it('keeps a later departure snapshot ahead of a queued older status event', async () => {
+  it('keeps lifecycle events for a cached repo left before its active discovery completes', async () => {
     const one = makeSession('one', 'p1')
-    const old = makeSession('two', 'p2')
-    const fresh = { ...old, status: 'done' as const, pid: null }
-    mockInvoke.mockResolvedValue([old])
-    const { result, rerender } = renderHook(({ active, sessions }) =>
-      useAllProjectSessions(projects, active, sessions, active), {
-      initialProps: { active: 'p1', sessions: [one] },
+    const two = makeSession('two', 'p2')
+    let finishSecond!: (sessions: AgentSession[]) => void
+    let holdSecond = false
+    mockInvoke.mockImplementation((_channel: string, projectId: string) => {
+      if (projectId === 'p1') return Promise.resolve([one])
+      return holdSecond
+        ? new Promise<AgentSession[]>((resolve) => { finishSecond = resolve })
+        : Promise.resolve([two])
     })
-    await waitFor(() => expect(result.current.sessionsByProject.p2).toEqual([old]))
+    const { result, rerender } = renderHook(({ projectId }) => {
+      const agent = useAgentSession(projectId)
+      return { agent, ...useAllProjectSessions(projects, projectId, agent.sessions, agent.loadedProjectId) }
+    }, { initialProps: { projectId: 'p1' } })
+    await waitFor(() => expect(result.current.sessionsByProject).toEqual({ p1: [one], p2: [two] }))
+    // Visit p2 first so departure has a snapshot and will not rediscover it.
+    rerender({ projectId: 'p2' })
+    await waitFor(() => expect(result.current.agent.loadedProjectId).toBe('p2'))
+    rerender({ projectId: 'p1' })
+    await waitFor(() => expect(result.current.agent.loadedProjectId).toBe('p1'))
+    holdSecond = true
+    rerender({ projectId: 'p2' })
+    expect(result.current.agent.loadedProjectId).toBe('p1')
     mockInvoke.mockClear()
 
-    act(() => {
-      startTransition(() => { getListener('agent:status')({ sessionId: old.id, status: 'waiting' }) })
-      flushSync(() => { rerender({ active: 'p2', sessions: [fresh] }) })
-    })
-    rerender({ active: 'p1', sessions: [one] })
-
-    expect(result.current.sessionsByProject.p2).toEqual([fresh])
+    act(() => { emit('agent:status', { sessionId: two.id, status: 'done' }) })
+    expect(result.current.sessionsByProject.p2).toEqual([{ ...two, status: 'done' }])
+    act(() => { emit('agent:exit', { sessionId: two.id, code: 0 }) })
+    expect(result.current.sessionsByProject.p2).toEqual([{ ...two, status: 'done', pid: null }])
     expect(mockInvoke).not.toHaveBeenCalled()
+    rerender({ projectId: 'p1' })
+    await act(async () => { finishSecond([two]) })
+
+    expect(result.current.sessionsByProject.p2).toEqual([{ ...two, status: 'done', pid: null }])
+    expect(mockInvoke.mock.calls).toEqual([['agent:sessions', 'p1']])
   })
 
-  it('keeps a later dirty refresh ahead of an older status event', async () => {
+  it('lets a later dirty refresh replace older event state by write order, without a version bump', async () => {
     const one = makeSession('one', 'p1')
     const old = makeSession('two', 'p2')
     const fresh = { ...old, status: 'done' as const, pid: null }
@@ -194,10 +208,13 @@ describe('background session lifecycle events', () => {
     expect(mockInvoke).toHaveBeenCalledTimes(2)
     mockInvoke.mockClear()
 
-    await act(async () => {
-      startTransition(() => { getListener('agent:status')({ sessionId: old.id, status: 'waiting' }) })
-      finishRefresh([fresh])
+    // Refreshes do not advance snapshotVersions. This tests write ordering,
+    // not the snapshot-version guard exercised in the version tests.
+    act(() => {
+      getListener('agent:status')({ sessionId: old.id, status: 'waiting' })
     })
+    expect(result.current.sessionsByProject.p2).toEqual([{ ...old, status: 'waiting' }])
+    await act(async () => { finishRefresh([fresh]) })
 
     expect(result.current.sessionsByProject.p2).toEqual([fresh])
     expect(mockInvoke).not.toHaveBeenCalled()

@@ -4,6 +4,7 @@ import { useIpcListener } from '../app/useIpc'
 
 interface UseAllProjectSessionsResult {
   sessionsByProject: Record<string, AgentSession[]>
+  backgroundDiscoverySettled: boolean
   removeSession: (sessionId: string) => void
 }
 
@@ -26,8 +27,11 @@ export function useAllProjectSessions(
   loadedProjectId: string | null
 ): UseAllProjectSessionsResult {
   const [backgroundSessions, setBackgroundSessions] = useState<Record<string, AgentSession[]>>({})
+  const [settledProjectIdsKey, setSettledProjectIdsKey] = useState<string | null>(null)
   const activeProjectRef = useRef(activeProjectId)
   activeProjectRef.current = activeProjectId
+  const loadedProjectRef = useRef(loadedProjectId)
+  loadedProjectRef.current = loadedProjectId
   const previousActiveProjectRef = useRef(activeProjectId)
   const snapshotVersions = useRef(new Map<string, number>())
   const dirtyProjects = useRef(new Set<string>())
@@ -76,6 +80,7 @@ export function useAllProjectSessions(
       )
       if (cancelled) return
       setBackgroundSessions((prev) => Object.fromEntries(projectIds.map((id) => [id, prev[id] ?? []])))
+      setSettledProjectIdsKey(projectIdsKey)
     }
 
     void fetchAll()
@@ -121,14 +126,15 @@ export function useAllProjectSessions(
   )
 
   const updateBackgroundSession = useCallback((sessionId: string, status: AgentStatus, clearPid = false): void => {
-    const activeId = activeProjectRef.current
+    const loadedActiveId = activeProjectRef.current === loadedProjectRef.current ? activeProjectRef.current : null
     const versions = new Map(snapshotVersions.current)
     setBackgroundSessions((prev) => {
       let next = prev
       for (const [projectId, sessions] of Object.entries(prev)) {
-        // Active rows belong to useAgentSession. A queued event must also
+        // Loaded active rows belong to useAgentSession. A queued event must also
         // leave a newer active/departure snapshot alone.
-        if (projectId === activeId || projectId === activeProjectRef.current
+        if (projectId === loadedActiveId
+          || (projectId === activeProjectRef.current && projectId === loadedProjectRef.current)
           || snapshotVersions.current.get(projectId) !== versions.get(projectId)) continue
         const index = sessions.findIndex((session) => session.id === sessionId)
         if (index === -1) continue
@@ -173,5 +179,5 @@ export function useAllProjectSessions(
     sessionsByProject[activeProjectId] = activeProjectSessions
   }
 
-  return { sessionsByProject, removeSession }
+  return { sessionsByProject, backgroundDiscoverySettled: settledProjectIdsKey === projectIdsKey, removeSession }
 }

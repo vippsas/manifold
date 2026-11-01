@@ -60,7 +60,7 @@ export function App(): React.JSX.Element {
 
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
   const { sessions, loadedProjectId, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession: selectSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
-  const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions, loadedProjectId)
+  const { sessionsByProject, backgroundDiscoverySettled, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions, loadedProjectId)
   const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const { activeWorkspaceId, setActiveWorkspaceId: selectWorkspace } = usePersistedActiveWorkspace(workspaces)
   const workspaceGitStatus = useWorkspaceRepoStatuses(activeWorkspaceId, {
@@ -90,7 +90,7 @@ export function App(): React.JSX.Element {
     return map
   }, [sessionsByWorkspace])
 
-  useAutoSelectActiveProject({ sessionsByProject, activeProjectId, projects, setActiveProject })
+  useAutoSelectActiveProject({ sessionsByProject, backgroundDiscoverySettled, activeProjectId, projects, setActiveProject })
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(effectiveSessionId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
