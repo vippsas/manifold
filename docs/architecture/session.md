@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-11-01
+updated: 2026-11-01T19:21:00Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -134,10 +134,10 @@ user's `$SHELL` and branches on `detectShell()` (`shell-prompt.ts:41`): a zsh sh
 **Stop — and leave the place standing.** `killSession()` → `SessionKiller.killSession()`
 (`session-killer.ts:31`) deletes the session from the map, kills its PTYs (agent, dev-server,
 slash-command probe), clears chat + memory + image temp dirs and stops the file watcher — each
-`--add-dir` plus the worktree poll, the latter **only if no other activated session shares the path**
-(`cleanupSession`, `session-killer.ts:54`). When the departing session owns a shared poll, cleanup
-re-points it to an activated survivor so file/conflict events and branch updates keep a live id
-(`session-killer.ts:63`). Closing a dormant session starts no poll. It removes **no
+`--add-dir` plus its primary subscription via `unwatch(worktreePath, session.id)`
+(`cleanupSession`, `session-killer.ts:54`). Other primary and additional-directory subscribers
+keep receiving events from the same producer; no survivor handoff is needed. Closing an
+unsubscribed dormant session is a no-op for the watcher. It removes **no
 worktree and no branch**: the checkout is the workspace's, and the workspace's other agents are
 still working there (`session-killer.ts:28`). `retireSession()` is now only the same teardown
 under a name that says why (agent-settings replacement, `:45`). The higher-level
@@ -153,11 +153,11 @@ Both interactive and chat resumes register the worktree and every persisted addi
 Restored chat sessions can send a message without an explicit resume; `sendInput()` also
 registers their checkout watches on a nonempty message (`session-manager.ts:116`).
 The in-memory `checkoutWatched` flag records activation and registers additional directories
-only once. Later messages and repeated resumes still re-point the shared checkout poll to
-the activated session, because renderer file/conflict listeners filter by session id
-(`src/renderer/hooks/editor/useFileWatcher.ts:83`, `src/renderer/hooks/editor/useGitOperations.ts:70`).
-`FileWatcher` deduplicates worktree polls by path and additional-directory polls by session +
-path (`src/main/fs/file-watcher.ts:109`, `:85`), so repeated resumes do not add timers.
+only once. Later messages and repeated resumes re-register the same primary subscription,
+which is a strict no-op: no extra poll, cached replay, conflict or verdict notification.
+`FileWatcher` shares one producer per normalized absolute checkout across both primary and
+additional-directory subscribers, and fans events out under every subscribed session id
+(`src/main/fs/checkout-status-poller.ts:47`, `:58`, `:134`).
 The lifecycle is a no-op when a PTY already exists, and for chat-mode sessions only updates
 `runtimeId`, without spawning a PTY (`session-lifecycle.ts:86`, `:91`).
 For interactive sessions it serializes concurrent calls via `resumeInFlight`
@@ -186,8 +186,8 @@ session: the agent runs `git checkout -b`, the PR flow renames the branch, or th
 it in the shell terminal. The constructor registers `applyBranchChange` with the file watcher's
 `setOnBranchChanged` (`session-manager-context.ts:141`), so each 2 s poll that reports a different branch
 for a watched checkout moves **every session working in that checkout** onto it and broadcasts
-`agent:sessions-changed` — the watcher polls a path once, under whichever session id watched it
-last, and a checkout is on one branch, so its sibling agents moved with it. Nothing
+`agent:sessions-changed`. The watcher polls once per normalized path and reports the branch
+under each primary subscriber id (`src/main/fs/checkout-status-poller.ts:173`). Nothing
 is persisted — worktree meta has no branch field; discovery re-reads the branch from the checkout
 (`session-discovery.ts:115`, `:155`). Only *watched* checkouts track it. Creation and resume
 register the checkout plus every `--add-dir` folder through `SessionManager.watchCheckout()`
@@ -225,8 +225,9 @@ them, and `WorkspaceManager.addProject()` hands it to `SessionManager.addWorking
 delegates to `SessionWorkingSet.addDirToWorkspace()` (`session-working-set.ts:55`).
 
 **State first, delivery second.** Every matching live session gets the folder recorded — pushed
-onto `additionalDirs`, mapped into `workspaceWorktreePaths`, persisted, watched, and broadcast as
-`agent:dirs-changed` (`session-working-set.ts:90`). That alone is enough for two of the three
+onto `additionalDirs`, mapped into `workspaceWorktreePaths`, persisted, and broadcast as
+`agent:dirs-changed`. Only activated (`checkoutWatched`) sessions subscribe immediately; dormant
+sessions pick the directory up on resume or their first chat turn (`session-working-set.ts:90`, `:100`). That alone is enough for two of the three
 cases, because both re-derive their flags from that array rather than remembering argv:
 a print-mode/chat follow-up rebuilds its command per turn (`app/dev-server-manager.ts:190`) and
 `resumeAgentSession()` rebuilds it on the next launch (`session-resume.ts:57`).
@@ -281,7 +282,7 @@ nothing.
 
 - **Deferred chat sessions have `ptyId: ''` and status `waiting`.** Treat empty `ptyId` as "no live process"; `resumeSession` and many helpers short-circuit on it. Each chat turn is a fresh print-mode process, not a persistent PTY.
 - **Interactive Codex working sets require a writable sandbox.** When a session has additional directories, `SessionCreator` adds `--sandbox workspace-write` before Codex's repeated `--add-dir` flags (`session-creator.ts:147`). This overrides a read-only user profile for that multi-root launch; otherwise Codex ignores every extra writable root.
-- **Closing an agent removes nothing.** No teardown path in this folder removes a worktree or deletes a branch — not `killSession`, not `retireSession`, not the mode-switch teardowns (`session-killer.ts:28`, `session-teardown.ts`). Checkouts come and go with their workspace (`workspace-manager.ts:69`). Shared-path teardown preserves an activated survivor's poll and re-points it only if the departing session owns it (`session-killer.ts:63`).
+- **Closing an agent removes nothing.** No teardown path in this folder removes a worktree or deletes a branch — not `killSession`, not `retireSession`, not the mode-switch teardowns (`session-killer.ts:28`, `session-teardown.ts`). Checkouts come and go with their workspace (`workspace-manager.ts:69`). Shared-path teardown removes only the departing session's subscriptions (`session-killer.ts:54`); other consumers keep the producer alive.
 - **Teardown skips base checkout for `noWorktree`.** Checking out base in the live repo dir would drop `.gitignore` and surface `node_modules` as untracked, breaking the next spawn (`session-teardown.ts:53`).
 - **Meta is the source of truth on disk.** If `writeWorktreeMeta` fails, `nonInteractive` and friends are lost on next launch (both `session-creator.ts:187` and `session-meta-persister.ts:16` log this loudly). Discovery reconstructs sessions purely from worktree meta + branch state.
 - **`outputBuffer` is bounded.** It is trimmed to the trailing 50 KB once over 100 KB, so detectors and `agent:replay` only ever see recent output.

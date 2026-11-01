@@ -97,7 +97,7 @@ export class SessionWorkingSet {
       additionalDirs: [...session.additionalDirs],
     })
     this.deps.persist(session)
-    this.deps.getFileWatcher()?.watchAdditionalDir(dir, session.id)
+    if (session.checkoutWatched) this.deps.getFileWatcher()?.watchAdditionalDir(dir, session.id)
   }
 
   private async inject(session: InternalSession, text: string, needsConfirm: boolean, dir: string): Promise<void> {

@@ -76,7 +76,9 @@ guard it, call one manager method, return its result. `agent:spawn` resolves the
 enforces one in-place agent per repo via `focusOrClearInPlaceSessions` (focuses an existing live
 in-place session for the same/no target, throws if a different branch/PR is requested, else clears
 finished in-place sessions), then calls `sessionManager.createSession()` and returns the session;
-watcher registration belongs to the manager. `agent:resume` likewise delegates to
+watcher registration belongs to the manager. Clearing a finished in-place session relies on
+`killSession` to remove only its subscriptions; the handler never unwatches the shared path
+(`agent-handlers.ts:71`, `src/main/session/session-killer.ts:54`). `agent:resume` likewise delegates to
 `sessionManager.resumeSession()`, which registers both the worktree and its additional
 directories for interactive and chat sessions (`agent-handlers.ts:232`,
 `src/main/session/session-manager.ts:140`); concurrent no-worktree spawns per project are serialized

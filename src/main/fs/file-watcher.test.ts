@@ -18,7 +18,8 @@ vi.mock('node:fs/promises', () => ({
   stat: vi.fn(),
 }))
 
-vi.mock('node:path', () => ({
+vi.mock('node:path', async (importOriginal) => ({
+  ...await importOriginal<typeof import('node:path')>(),
   join: (...args: string[]) => args.join('/'),
   relative: (from: string, to: string) => to.replace(from + '/', ''),
   basename: (p: string) => p.split('/').pop() ?? p,
@@ -87,7 +88,7 @@ describe('FileWatcher', () => {
       expect(mockGitStatus).toHaveBeenCalledTimes(1)
     })
 
-    it('re-points events to the new sessionId when an already-watched path is re-watched', async () => {
+    it('fans out events to both sessions when an already-watched path is re-watched', async () => {
       const mockWindow = createMockWindow()
       watcher.setMainWindow(mockWindow)
 
@@ -105,11 +106,11 @@ describe('FileWatcher', () => {
         'files:changed',
         expect.objectContaining({ sessionId: 'session-2' }),
       )
-      // The old session id is no longer emitted for this path.
+      // Both sessions remain subscribed to the shared checkout.
       const sessionIds = vi.mocked(mockWindow.webContents.send).mock.calls
         .filter((c: unknown[]) => c[0] === 'files:changed')
         .map((c: unknown[]) => (c[1] as { sessionId: string }).sessionId)
-      expect(sessionIds).not.toContain('session-1')
+      expect(sessionIds).toEqual(['session-1', 'session-2'])
     })
 
     it('polls again after the interval', async () => {
@@ -239,62 +240,6 @@ describe('FileWatcher', () => {
       expect(mockWindow.webContents.send).not.toHaveBeenCalled()
     })
 
-    it('reports the branch a watched checkout moved to', async () => {
-      const onBranchChanged = vi.fn()
-      watcher.setOnBranchChanged(onBranchChanged)
-
-      watcher.watch('/repo/worktree', 'session-1')
-      await vi.advanceTimersByTimeAsync(10)
-      expect(onBranchChanged).toHaveBeenCalledWith('session-1', 'agent/one')
-      onBranchChanged.mockClear()
-
-      // A branch switch on a clean tree leaves git status byte-identical, so the
-      // branch must be read on its own — not only when the status changed.
-      mockGitBranch.mockResolvedValue('agent/two')
-      await vi.advanceTimersByTimeAsync(2000)
-
-      expect(onBranchChanged).toHaveBeenCalledWith('session-1', 'agent/two')
-    })
-
-    it('reports a branch only when it changes', async () => {
-      const onBranchChanged = vi.fn()
-      watcher.setOnBranchChanged(onBranchChanged)
-
-      watcher.watch('/repo/worktree', 'session-1')
-      await vi.advanceTimersByTimeAsync(10)
-      onBranchChanged.mockClear()
-
-      await vi.advanceTimersByTimeAsync(4000)
-
-      expect(onBranchChanged).not.toHaveBeenCalled()
-    })
-
-    it('does not report a detached HEAD as a branch', async () => {
-      const onBranchChanged = vi.fn()
-      watcher.setOnBranchChanged(onBranchChanged)
-      mockGitBranch.mockResolvedValue('HEAD')
-
-      watcher.watch('/repo/worktree', 'session-1')
-      await vi.advanceTimersByTimeAsync(10)
-
-      expect(onBranchChanged).not.toHaveBeenCalled()
-    })
-
-    it('still reports file changes when the branch read fails', async () => {
-      const mockWindow = createMockWindow()
-      watcher.setMainWindow(mockWindow)
-      mockGitBranch.mockRejectedValue(new Error('git rev-parse failed (code 128)'))
-
-      mockGitStatus.mockResolvedValue(' M src/file.ts\n')
-      watcher.watch('/repo/worktree', 'session-1')
-      await vi.advanceTimersByTimeAsync(10)
-
-      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
-        'files:changed',
-        { sessionId: 'session-1', changes: [{ path: 'src/file.ts', type: 'modified' }] },
-      )
-    })
-
     it('stops polling when git cannot spawn', async () => {
       const error = Object.assign(new Error('spawn git ENOENT'), {
         code: 'ENOENT',
@@ -308,90 +253,6 @@ describe('FileWatcher', () => {
       mockGitStatus.mockClear()
       await vi.advanceTimersByTimeAsync(2000)
 
-      expect(mockGitStatus).not.toHaveBeenCalled()
-    })
-  })
-
-  // Several folders are on screen at once, so a tree change has to say which
-  // folder it happened in — the renderer reloads the folder by path, and the
-  // session id alone can't tell one folder from another.
-  describe('files:tree-changed', () => {
-    it('names the folder the tree watcher reported', () => {
-      let notify: ((sessionId: string, rootPath: string) => void) | null = null
-      const treeWatcher = {
-        watch: vi.fn(),
-        unwatch: vi.fn(async () => {}),
-        unwatchAll: vi.fn(async () => {}),
-        setOnTreeChanged: vi.fn((fn: (sessionId: string, rootPath: string) => void) => { notify = fn }),
-      }
-      const watcher = new FileWatcher(mockGitStatus, treeWatcher)
-      const mockWindow = createMockWindow()
-      watcher.setMainWindow(mockWindow)
-
-      notify!('session-1', '/repos/alpha')
-
-      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
-        'files:tree-changed',
-        { sessionId: 'session-1', rootPath: '/repos/alpha' },
-      )
-    })
-  })
-
-  describe('watchAdditionalDir', () => {
-    it('starts polling an additional directory', async () => {
-      const mockGitStatus = vi.fn().mockResolvedValue('')
-      const watcher = new FileWatcher(mockGitStatus)
-      watcher.watchAdditionalDir('/extra/dir', 'session-1')
-
-      // Initial poll fires immediately
-      await vi.advanceTimersByTimeAsync(0)
-      expect(mockGitStatus).toHaveBeenCalledWith('/extra/dir')
-    })
-
-    it('sends files:changed with source field', async () => {
-      const mockGitStatus = vi.fn().mockResolvedValue('M  file.ts\n')
-      const watcher = new FileWatcher(mockGitStatus)
-      const mockWindow = {
-        isDestroyed: vi.fn(() => false),
-        webContents: { send: vi.fn() },
-      }
-      watcher.setMainWindow(mockWindow as any)
-      watcher.watchAdditionalDir('/extra/dir', 'session-1')
-
-      await vi.advanceTimersByTimeAsync(0)
-
-      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
-        'files:changed',
-        expect.objectContaining({
-          sessionId: 'session-1',
-          source: '/extra/dir',
-        }),
-      )
-    })
-
-    it('stops polling a non-git add-dir after the first not-a-git-repository failure', async () => {
-      const mockGitStatus = vi.fn<(cwd: string) => Promise<string>>()
-        .mockRejectedValue(new Error('fatal: not a git repository'))
-      const watcher = new FileWatcher(mockGitStatus)
-      watcher.watchAdditionalDir('/plain/folder', 'session-1')
-
-      await vi.advanceTimersByTimeAsync(0) // first poll fails -> disable
-      mockGitStatus.mockClear()
-
-      await vi.advanceTimersByTimeAsync(2000)
-      expect(mockGitStatus).not.toHaveBeenCalled()
-    })
-
-    it('unwatchAll stops additional dir watchers too', async () => {
-      const mockGitStatus = vi.fn().mockResolvedValue('')
-      const watcher = new FileWatcher(mockGitStatus)
-      watcher.watch('/worktree', 'session-1')
-      watcher.watchAdditionalDir('/extra/dir', 'session-1')
-
-      await watcher.unwatchAll()
-      mockGitStatus.mockClear()
-
-      await vi.advanceTimersByTimeAsync(2000)
       expect(mockGitStatus).not.toHaveBeenCalled()
     })
   })

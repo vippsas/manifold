@@ -57,17 +57,7 @@ export class SessionKiller {
       for (const dir of session.additionalDirs) {
         fileWatcher.unwatchAdditionalDir(dir, session.id)
       }
-      // Caller already removed `session` from the map. Keep shared polls pointing
-      // at a survivor so file/conflict events and branch updates still reach it.
-      // Dormant sessions registered nothing, so closing one must not start a poll.
-      const survivor = Array.from(this.deps.sessions.values()).find(
-        (other) => other.worktreePath === session.worktreePath && other.checkoutWatched,
-      )
-      if (!survivor) {
-        void fileWatcher.unwatch(session.worktreePath)
-      } else if (session.checkoutWatched) {
-        fileWatcher.watch(session.worktreePath, survivor.id, session.id)
-      }
+      void fileWatcher.unwatch(session.worktreePath, session.id)
     }
 
     this.deps.getMemoryCapture()?.stopCapturing(session.id)
