@@ -14,6 +14,8 @@ export interface ShellSuggestionState {
 export interface InternalSession extends AgentSession {
   ptyId: string
   outputBuffer: string
+  /** Checkout activated; additional-directory watches persist across chat turns. */
+  checkoutWatched?: boolean
   displayName?: string
   taskDescription?: string
   simpleTemplateTitle?: string

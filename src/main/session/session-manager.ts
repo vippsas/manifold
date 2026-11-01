@@ -89,7 +89,11 @@ export class SessionManager extends SessionManagerContext {
    *  through the manager) unpolled, so their status bar kept the branch the
    *  session started on after the agent ran `git checkout -b`. */
   private watchCheckout(session: AgentSession): void {
+    const internal = this.sessions.get(session.id)
+    if (!internal) return
     this.fileWatcher?.watch(session.worktreePath, session.id)
+    if (internal.checkoutWatched) return
+    internal.checkoutWatched = true
     for (const dir of session.additionalDirs) this.fileWatcher?.watchAdditionalDir(dir, session.id)
   }
 
@@ -139,7 +143,7 @@ export class SessionManager extends SessionManagerContext {
 
   async resumeSession(sessionId: string, runtimeId: string): Promise<AgentSession> {
     const session = await this.lifecycle.resumeSession(sessionId, runtimeId)
-    this.watchCheckout(session)
+    if (this.sessions.has(sessionId)) this.watchCheckout(session)
     return session
   }
 
