@@ -1,9 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createWorkspaceStatusReader } from './workspace-status'
+import { CheckoutStatusPoller } from '../fs/checkout-status-poller'
 
 const git = vi.hoisted(() => ({ exec: vi.fn(), status: vi.fn() }))
 vi.mock('../git/git-exec', () => ({ gitExec: git.exec }))
-vi.mock('../fs/file-watcher-utils', () => ({ gitStatus: git.status }))
+vi.mock('../fs/file-watcher-utils', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../fs/file-watcher-utils')>(),
+  gitStatus: git.status,
+  buildChangeFingerprint: async () => 'fixture',
+}))
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -119,5 +124,114 @@ describe('workspace status single-flight', () => {
     await expect(read('ws')).rejects.toThrow('discovery failed')
     fail = false
     await expect(read('ws')).resolves.toEqual([])
+  })
+})
+
+describe('workspace status shared checkout cache', () => {
+  let poller: CheckoutStatusPoller
+  const events = { primary: vi.fn(), additional: vi.fn(), branch: vi.fn() }
+  const fixture = 'MM both.ts\nA  staged.ts\n D deleted.ts\n?? new.ts\nUU conflict.ts\nR  old.ts -> renamed.ts\n'
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    poller = new CheckoutStatusPoller(git.status, async () => 'main', events)
+  })
+
+  afterEach(() => {
+    poller.unwatchAll()
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
+  })
+
+  it.each(['/repos/p1/', '/repos/other/../p1'])('reuses raw status for normalized checkout %s', async (checkout) => {
+    git.status.mockResolvedValue(fixture)
+    const read = reader()
+    const uncached = await read('ws')
+    git.status.mockClear()
+    git.exec.mockClear()
+    poller.watch(checkout, 'session')
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(await read('ws')).toEqual(uncached)
+    expect(git.status).toHaveBeenCalledExactlyOnceWith('/repos/p1')
+    // Branch is shared, but ahead/behind always remains a fresh workspace read.
+    expect(git.exec.mock.calls).toEqual([
+      [['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], '/repos/p1'],
+    ])
+  })
+
+  it('shares an additional-directory producer and falls back for its absent branch', async () => {
+    git.status.mockResolvedValue(fixture)
+    poller.watchAdditionalDir('/repos/p1', 'session')
+    await vi.advanceTimersByTimeAsync(0)
+    const [row] = await reader()('ws')
+    expect(row.branch).toBe('main')
+    expect(row.untracked).toEqual([{ path: 'new.ts', type: 'added' }])
+    expect(git.status).toHaveBeenCalledTimes(1)
+    expect(git.exec).toHaveBeenCalledWith(['rev-parse', '--abbrev-ref', 'HEAD'], '/repos/p1')
+  })
+
+  it('publishes raw status before notifying consumers of changed files', async () => {
+    const read = reader()
+    let refreshed: ReturnType<typeof read> | undefined
+    events.primary.mockImplementationOnce(() => { refreshed = read('ws') })
+    git.status.mockResolvedValue(fixture)
+    poller.watch('/repos/p1', 'session')
+    await vi.advanceTimersByTimeAsync(0)
+    expect((await refreshed)?.[0].untracked).toEqual([{ path: 'new.ts', type: 'added' }])
+    expect(git.status).toHaveBeenCalledTimes(1)
+  })
+
+  it('replaces the cache on each successful tick and evicts it on the final unwatch', async () => {
+    const read = reader()
+    git.status.mockResolvedValue('?? old.ts\n')
+    poller.watch('/repos/p1', 'primary')
+    poller.watchAdditionalDir('/repos/p1', 'additional')
+    await vi.advanceTimersByTimeAsync(0)
+    expect((await read('ws'))[0].untracked[0].path).toBe('old.ts')
+
+    git.status.mockResolvedValue('A  new.ts\n')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect((await read('ws'))[0].staged[0].path).toBe('new.ts')
+    expect(git.status).toHaveBeenCalledTimes(2)
+    poller.unwatch('/repos/p1', 'primary')
+    await read('ws')
+    expect(git.status).toHaveBeenCalledTimes(2)
+
+    poller.unwatchAdditionalDir('/repos/p1', 'additional')
+    await read('ws')
+    expect(git.status).toHaveBeenCalledTimes(3)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('runs status without starting a timer when no producer exists', async () => {
+    const read = reader()
+    await read('ws')
+    await read('ws')
+    expect(git.status).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('runs status while the producer has no successful snapshot yet', async () => {
+    const pending = deferred<string>()
+    git.status.mockReturnValueOnce(pending.promise).mockResolvedValue('?? current.ts\n')
+    poller.watch('/repos/p1', 'session')
+    expect((await reader()('ws'))[0].untracked[0].path).toBe('current.ts')
+    expect(git.status).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(1)
+    pending.resolve('')
+    await vi.advanceTimersByTimeAsync(0)
+  })
+
+  it('expires a successful result after one interval even while a slow poll is pending', async () => {
+    poller.watch('/repos/p1', 'session')
+    await vi.advanceTimersByTimeAsync(0)
+    const pending = deferred<string>()
+    git.status.mockReturnValueOnce(pending.promise).mockResolvedValue('?? current.ts\n')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect((await reader()('ws'))[0].untracked[0].path).toBe('current.ts')
+    expect(git.status).toHaveBeenCalledTimes(3)
+    pending.resolve('')
+    await vi.advanceTimersByTimeAsync(0)
   })
 })

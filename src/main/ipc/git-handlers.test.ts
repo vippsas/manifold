@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
   const handlers = new Map<string, (...args: unknown[]) => unknown>()
   return {
     handlers,
+    status: vi.fn(),
+    exec: vi.fn(),
+    mutate: vi.fn(),
     handle: vi.fn((channel: string, fn: (...args: unknown[]) => unknown) => {
       handlers.set(channel, fn)
     }),
@@ -14,6 +17,19 @@ vi.mock('electron', () => ({
   ipcMain: {
     handle: mocks.handle,
   },
+}))
+
+vi.mock('../git/git-exec', () => ({ gitExec: mocks.exec }))
+vi.mock('../fs/file-watcher-utils', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../fs/file-watcher-utils')>(),
+  gitStatus: mocks.status,
+  buildChangeFingerprint: async () => 'fixture',
+}))
+vi.mock('../git/managed-worktree', () => ({
+  stageManagedWorktreePaths: mocks.mutate,
+  unstageManagedWorktreePaths: mocks.mutate,
+  discardManagedWorktreePaths: mocks.mutate,
+  commitManagedWorktreeIndex: mocks.mutate,
 }))
 
 describe('registerDiffHandler', () => {
@@ -174,5 +190,69 @@ describe('registerGitHandlers git:staleness', () => {
 
     const handler = mocks.handlers.get('git:staleness')!
     await expect(handler({}, 'nope')).rejects.toThrow('Project not found: nope')
+  })
+})
+
+describe('git mutations invalidate shared workspace status', () => {
+  let poller: import('../fs/checkout-status-poller').CheckoutStatusPoller
+
+  beforeEach(() => {
+    vi.resetModules()
+    vi.resetAllMocks()
+    mocks.handlers.clear()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    poller?.unwatchAll()
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
+  })
+
+  it.each([
+    ['git:workspace-stage', ['ws', 'p1', ['file.ts']], 'M  file.ts\n'],
+    ['git:workspace-unstage', ['ws', 'p1', ['file.ts']], '?? new.ts\n'],
+    ['git:workspace-discard', ['ws', 'p1', ['file.ts']], ''],
+    ['git:workspace-commit', ['ws', 'p1', 'commit', false], ''],
+    ['git:workspace-commit', ['ws', 'p1', 'commit', true], ''],
+    ['git:workspace-checkout', ['ws', 'p1', 'feature', 'switch'], '?? new.ts\n'],
+    ['git:workspace-pull', ['ws', 'p1'], '?? new.ts\n'],
+    ['git:commit', ['session', 'commit'], ''],
+    ['git:resolve-conflict', ['session', 'file.ts', 'resolved'], 'M  file.ts\n'],
+  ])('%s forces a fresh read with the resulting status groups', async (channel, args, next) => {
+    // An in-memory Git adapter makes status and mutation use the same checkout state.
+    let porcelain = ' M file.ts\n'
+    mocks.status.mockImplementation(async () => porcelain)
+    mocks.mutate.mockImplementation(async () => { porcelain = next })
+    mocks.exec.mockImplementation(async (command: string[]) => {
+      if (['checkout', 'pull'].includes(command[0])) porcelain = next
+      return command[0] === 'rev-list' ? '2 3' : 'main'
+    })
+    const { CheckoutStatusPoller } = await import('../fs/checkout-status-poller')
+    const { registerGitHandlers } = await import('./git-handlers')
+    registerGitHandlers({
+      gitOps: { commit: mocks.mutate, resolveConflict: mocks.mutate },
+      sessionManager: { getSession: () => ({ projectId: 'p1', worktreePath: '/wt/../wt/' }) },
+      projectRegistry: { getProject: () => ({ name: 'repo', path: '/repo', kind: 'git' }) },
+      workspaceManager: { get: () => ({ projectIds: ['p1'], worktreePaths: { p1: '/wt' } }) },
+    } as never)
+    poller = new CheckoutStatusPoller(mocks.status, async () => 'main', {
+      primary: () => {}, additional: () => {}, branch: () => {},
+    })
+    poller.watch('/wt/', 'session')
+    await vi.advanceTimersByTimeAsync(0)
+    const status = () => mocks.handlers.get('git:workspace-status')!({}, 'ws')
+    await expect(status()).resolves.toMatchObject([{ unstaged: [{ path: 'file.ts' }] }])
+    expect(mocks.status).toHaveBeenCalledTimes(1)
+
+    await mocks.handlers.get(channel)!({}, ...args)
+    await expect(status()).resolves.toMatchObject([{
+      staged: next.startsWith('M ') ? [{ path: 'file.ts', type: 'modified' }] : [],
+      unstaged: [],
+      untracked: next.startsWith('??') ? [{ path: 'new.ts', type: 'added' }] : [],
+      upstreamAheadBehind: { behind: 2, ahead: 3 },
+    }])
+    expect(mocks.status).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(1)
   })
 })
