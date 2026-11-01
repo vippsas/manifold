@@ -128,8 +128,9 @@ non-interactively.
   a C/C++ toolchain.
 - **Offline gate** (the dispatcher's verify command; needs no network once prepared):
   `npm run typecheck && npm test` — web, node and plugin typechecks, then vitest. There is no
-  separate linter/formatter. Never run two `npm test` at once (the sqlite rebuild clobbers the
-  in-flight run).
+  general npm lint/format command, but CI also runs `shellcheck install-linux.sh`: when you
+  change that script, run it too (or report it as unverified if `shellcheck` is missing). Never
+  run two `npm test` at once (the sqlite rebuild clobbers the in-flight run).
 - Connected checks (CI's `npm run dist:linux` + package verification, CodeQL, live-app driving)
   are downstream; list them as unverified rather than claiming them.
 - Follow the dispatcher's prompt protocol: finish with root `MANIFOLD_SUMMARY.md` (change
