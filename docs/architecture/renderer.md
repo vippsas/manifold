@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-09-10
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -861,13 +861,18 @@ as a failed type assertion and reported a syntax error. The pane id keeps the UR
 so two split panes on the same file must not share one
 (`components/editor/editor-shell/editor-model-path.ts:13`).
 
-**Editor view modes.** `useCodeViewerModes` owns the Editor/Preview/Diff selection for each
-pane. A default file-open request may select Diff when diff data exists, while file-tree,
-search, and preview-link opens select Editor (`components/editor/code-viewer/useCodeViewerModes.ts:92`).
-Once the user selects Editor or changes content, `CodeViewer` suppresses later automatic
-Diff selection for that open request, so the autosave/file-watcher diff refresh can expose
-the Diff toggle without replacing the active editor (`components/editor/code-viewer/CodeViewer.tsx:137`,
-`components/editor/code-viewer/useCodeViewerModes.ts:103`).
+**Editor view modes.** `useCodeViewerModes` stores each file's Preview/Diff choices per pane
+in module-level sets that survive remounts (`components/editor/code-viewer/useCodeViewerModes.ts:13`).
+On first open or a new matching request, `default` (Modified Files) and `sourceControl` select
+Diff; other sources select Editor. The last handled request is retained per pane so tab switches
+and remounts preserve choices without replaying stale requests (`useCodeViewerModes.ts:15`, `:106`).
+The preference is stored even before asynchronous diff data arrives; Diff is active only when
+the current file also has diff data (`useCodeViewerModes.ts:63`, `:121`).
+Selecting Editor or editing content clears only the
+active file's Diff preference, so later diff refreshes cannot replace its editor
+(`useCodeViewerModes.ts:124`, `CodeViewer.tsx:146`). Diff choices and first-open history each
+retain at most 200 paths per pane (`useCodeViewerModes.ts:16`, `:78`, `:114`). Markdown still
+auto-previews on first open, and Preview takes precedence over Diff (`useCodeViewerModes.ts:92`, `:178`).
 
 **Editor file freshness and undo.** Open editor files live in `useCodeView` state as `OpenFile`
 records with a `refreshVersion` counter (`hooks/editor/useCodeView.ts:15`). The file watcher

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FileOpenRequest } from '../file-open-request'
 import { isMarkdownFile } from './code-viewer-utils'
 import {
@@ -11,12 +11,15 @@ import { addBounded } from '../bounded-cache'
 // rebuild dockview layout). The per-pane Sets accumulate file paths and never
 // shed closed tabs, so they're capped to stay bounded across a long session.
 const previewPathsByPane = new Map<string, Set<string>>()
+const diffPathsByPane = new Map<string, Set<string>>()
+const handledOpenRequestsByPane = new Map<string, FileOpenRequest>()
 const MAX_PATHS_PER_PANE = 200
 
 // Tracks files already auto-defaulted to preview (per pane), so the markdown
 // auto-preview only applies on first open and never overrides a later manual
 // switch to editor mode.
 const autoPreviewedPathsByPane = new Map<string, Set<string>>()
+const autoDiffedPathsByPane = new Map<string, Set<string>>()
 
 interface UseCodeViewerModesParams {
   paneId: string
@@ -38,8 +41,8 @@ interface CodeViewerModes {
 
 /**
  * Owns CodeViewer's editor/preview/diff mode state for a pane: which files are
- * shown as preview, whether the diff editor is active, and the registered
- * mode-control affordances. Survives remounts via the module-level pane map.
+ * shown as preview or diff, and the registered mode-control affordances.
+ * Survives remounts via the module-level pane maps.
  */
 export function useCodeViewerModes({
   paneId,
@@ -54,16 +57,27 @@ export function useCodeViewerModes({
   const [previewPaths, setPreviewPaths] = useState<Set<string>>(
     () => previewPathsByPane.get(paneId) ?? new Set(),
   )
-  const [diffMode, setDiffMode] = useState(false)
-  const autoDiffSuppressedRef = useRef(false)
-  const hasDiffRef = useRef(hasDiff)
-  hasDiffRef.current = hasDiff
+  const [diffPaths, setDiffPaths] = useState<Set<string>>(
+    () => diffPathsByPane.get(paneId) ?? new Set(),
+  )
+  const diffMode = activeFilePath !== null && hasDiff && diffPaths.has(activeFilePath)
   const previewActive = isPreviewable && activeFilePath !== null && previewPaths.has(activeFilePath)
 
   const updatePreviewPaths = useCallback((updater: (prev: Set<string>) => Set<string>): void => {
     setPreviewPaths((prev) => {
       const next = updater(prev)
       previewPathsByPane.set(paneId, next)
+      return next
+    })
+  }, [paneId])
+
+  const updateDiffPath = useCallback((filePath: string, enabled: boolean): void => {
+    setDiffPaths((prev) => {
+      if (prev.has(filePath) === enabled) return prev
+      const next = new Set(prev)
+      if (enabled) addBounded(next, filePath, MAX_PATHS_PER_PANE)
+      else next.delete(filePath)
+      diffPathsByPane.set(paneId, next)
       return next
     })
   }, [paneId])
@@ -90,23 +104,26 @@ export function useCodeViewerModes({
   }, [activeFilePath, paneId, updatePreviewPaths])
 
   useEffect(() => {
-    // 'default' (Modified Files) and 'sourceControl' clicks open in diff mode;
-    // every other source (file tree, search, …) opens the plain editor.
+    if (!activeFilePath) return
+    const matchesRequest = lastFileOpenRequest.path === activeFilePath
+    const isNewRequest = matchesRequest && handledOpenRequestsByPane.get(paneId) !== lastFileOpenRequest
+    if (matchesRequest) handledOpenRequestsByPane.set(paneId, lastFileOpenRequest)
+
+    const seen = autoDiffedPathsByPane.get(paneId) ?? new Set<string>()
+    if (seen.has(activeFilePath) && !isNewRequest) return
+    addBounded(seen, activeFilePath, MAX_PATHS_PER_PANE)
+    autoDiffedPathsByPane.set(paneId, seen)
+
+    // Seed on first open or a new matching request, independently of async diff
+    // data. Tab switches and remounts retain the file's choice.
     const wantsDiff =
       lastFileOpenRequest.source === 'default' || lastFileOpenRequest.source === 'sourceControl'
-    const opensInEditor = !wantsDiff && lastFileOpenRequest.path === activeFilePath
-    autoDiffSuppressedRef.current = opensInEditor
-    setDiffMode(opensInEditor ? false : hasDiffRef.current)
-  }, [activeFilePath, lastFileOpenRequest])
-
-  useEffect(() => {
-    if (!autoDiffSuppressedRef.current) setDiffMode(hasDiff)
-  }, [hasDiff])
+    updateDiffPath(activeFilePath, wantsDiff && matchesRequest)
+  }, [activeFilePath, lastFileOpenRequest, paneId, updateDiffPath])
 
   const keepEditorMode = useCallback(() => {
-    autoDiffSuppressedRef.current = true
-    setDiffMode(false)
-  }, [])
+    if (activeFilePath) updateDiffPath(activeFilePath, false)
+  }, [activeFilePath, updateDiffPath])
 
   const handleOpenLinkedFile = useCallback((filePath: string): void => {
     updatePreviewPaths((prev) => {
@@ -115,10 +132,9 @@ export function useCodeViewerModes({
       next.add(filePath)
       return next
     })
-    autoDiffSuppressedRef.current = true
-    setDiffMode(false)
+    updateDiffPath(filePath, false)
     onOpenLinkedFile(filePath)
-  }, [onOpenLinkedFile, updatePreviewPaths])
+  }, [onOpenLinkedFile, updateDiffPath, updatePreviewPaths])
 
   const showPreviewToggle = hasTabs && isPreviewable && !isImage
   const showDiffToggle = hasTabs && hasDiff && !isImage
@@ -144,24 +160,20 @@ export function useCodeViewerModes({
       next.add(activeFilePath)
       return next
     })
-    autoDiffSuppressedRef.current = true
-    setDiffMode(false)
-  }, [activeFilePath, isPreviewable, updatePreviewPaths])
+    keepEditorMode()
+  }, [activeFilePath, isPreviewable, keepEditorMode, updatePreviewPaths])
 
   const showDiffMode = useCallback(() => {
-    if (!hasDiff) return
+    if (!activeFilePath || !hasDiff) return
 
-    if (activeFilePath) {
-      updatePreviewPaths((prev) => {
-        if (!prev.has(activeFilePath)) return prev
-        const next = new Set(prev)
-        next.delete(activeFilePath)
-        return next
-      })
-    }
-    autoDiffSuppressedRef.current = false
-    setDiffMode(true)
-  }, [activeFilePath, hasDiff, updatePreviewPaths])
+    updatePreviewPaths((prev) => {
+      if (!prev.has(activeFilePath)) return prev
+      const next = new Set(prev)
+      next.delete(activeFilePath)
+      return next
+    })
+    updateDiffPath(activeFilePath, true)
+  }, [activeFilePath, hasDiff, updateDiffPath, updatePreviewPaths])
 
   const mode: 'editor' | 'preview' | 'diff' = previewActive ? 'preview' : diffMode ? 'diff' : 'editor'
 
