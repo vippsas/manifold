@@ -1,10 +1,10 @@
 import { ipcMain } from 'electron'
 import { CreatePROptions, AheadBehind, FetchResult } from '../../shared/types'
-import type { GitSyncResult, WorkspaceRepoStatus } from '../../shared/workspace-types'
+import type { GitSyncResult } from '../../shared/workspace-types'
 import { isGitProject } from '../../shared/project-kind'
 import { gitExec } from '../git/git-exec'
 import { gitStatus, parseStatusWithConflicts } from '../fs/file-watcher-utils'
-import { parseWorkspaceStatus } from '../git/porcelain-status'
+import { createWorkspaceStatusReader } from './workspace-status'
 import {
   commitManagedWorktreeIndex,
   discardManagedWorktreePaths,
@@ -148,41 +148,10 @@ export function registerGitHandlers(deps: IpcDependencies): void {
     }
   })
 
-  // Git status of every repo checkout in a workspace, for the Source Control
-  // view: one entry per member repo with its branch and uncommitted changes —
-  // the multi-root shape VS Code's SCM view has. Reads the workspace's own
-  // checkout of each repo (worktree, or the clone on a home workspace); plain
-  // folders are skipped. A repo that fails to answer reports an empty status
-  // rather than failing the whole workspace.
-  ipcMain.handle('git:workspace-status', async (_event, workspaceId: string): Promise<WorkspaceRepoStatus[]> => {
-    const workspace = workspaceManager.get(workspaceId)
-    if (!workspace) return []
-    const statuses = await Promise.all(workspace.projectIds.map(async (projectId) => {
-      const project = projectRegistry.getProject(projectId)
-      if (!project || !isGitProject(project)) return null
-      const checkoutPath = workspace.worktreePaths?.[projectId] ?? project.path
-      const [branch, groups, upstreamAheadBehind] = await Promise.all([
-        gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], checkoutPath).then((out) => out.trim()).catch(() => ''),
-        gitStatus(checkoutPath).then(parseWorkspaceStatus).catch(() => ({ staged: [], unstaged: [], untracked: [] })),
-        gitExec(['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], checkoutPath)
-          .then((out) => {
-            const [behind, ahead] = out.trim().split(/\s+/).map(Number)
-            if (!Number.isFinite(behind) || !Number.isFinite(ahead)) return undefined
-            return { behind, ahead }
-          })
-          .catch(() => undefined),
-      ])
-      return {
-        projectId,
-        projectName: project.name,
-        checkoutPath,
-        branch,
-        ...(upstreamAheadBehind ? { upstreamAheadBehind } : {}),
-        ...groups,
-      }
-    }))
-    return statuses.filter((status): status is WorkspaceRepoStatus => status !== null)
-  })
+  const workspaceStatus = createWorkspaceStatusReader(deps)
+  ipcMain.handle('git:workspace-status', (_event, workspaceId: string, projectIds?: string[]) =>
+    workspaceStatus(workspaceId, projectIds),
+  )
 
   /** The workspace's checkout of a member repo — the target of the Source
    *  Control panel's commit and branch operations. Throws for plain folders,

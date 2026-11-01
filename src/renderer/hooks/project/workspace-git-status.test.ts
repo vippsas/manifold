@@ -110,7 +110,7 @@ describe('useWorkspaceRepoStatuses', () => {
 })
 
 describe('useWorkspaceRepoStatuses polling', () => {
-  it('revalidates on an interval, since no watcher covers workspace checkouts', async () => {
+  it('revalidates on a 3s tick, backing off when status is unchanged', async () => {
     vi.useFakeTimers()
     try {
       mockInvoke.mockResolvedValue([status('repo-a', 'a.ts')])
@@ -121,6 +121,8 @@ describe('useWorkspaceRepoStatuses polling', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
       expect(mockInvoke).toHaveBeenCalledTimes(2)
 
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+      expect(mockInvoke).toHaveBeenCalledTimes(2)
       await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
       expect(mockInvoke).toHaveBeenCalledTimes(3)
     } finally {
@@ -135,18 +137,21 @@ describe('useWorkspaceRepoStatuses polling', () => {
       mockInvoke.mockResolvedValue([status('repo-a', 'a.ts')])
       renderHook(() => useWorkspaceRepoStatuses('ws-a'))
       await act(async () => {})
-      expect(mockInvoke).toHaveBeenCalledTimes(1)
+      expect(mockInvoke).toHaveBeenCalledTimes(0)
 
       await act(async () => { await vi.advanceTimersByTimeAsync(9000) })
-      expect(mockInvoke).toHaveBeenCalledTimes(1)
+      expect(mockInvoke).toHaveBeenCalledTimes(0)
 
-      // Visible again, but the next status never settles: later ticks must not stack.
+      // Visible again, but the next status is slow: later ticks must not stack.
       hidden.mockReturnValue(false)
-      mockInvoke.mockReturnValue(new Promise(() => {}))
+      let finishStatus!: (repos: WorkspaceRepoStatus[]) => void
+      mockInvoke.mockReturnValueOnce(new Promise<WorkspaceRepoStatus[]>((resolve) => { finishStatus = resolve }))
       await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
-      expect(mockInvoke).toHaveBeenCalledTimes(2)
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
       await act(async () => { await vi.advanceTimersByTimeAsync(9000) })
-      expect(mockInvoke).toHaveBeenCalledTimes(2)
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+      await act(async () => { finishStatus([status('repo-a', 'a.ts')]) })
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
     } finally {
       hidden.mockRestore()
       vi.useRealTimers()

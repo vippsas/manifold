@@ -35,10 +35,11 @@ describe('useProjects — mutations', () => {
       })
 
       expect(mockInvoke).toHaveBeenCalledWith('projects:remove', 'p1')
-      // After removing the active project, the hook re-fetches and auto-selects the first remaining project
+      // Project switches re-read registry metadata and select the first remaining project.
       await waitFor(() => {
         expect(result.current.activeProjectId).toBe('p2')
       })
+      expect(mockInvoke.mock.calls.filter(([channel]) => channel === 'projects:list')).toHaveLength(4)
     })
 
     it('keeps active project when removing a different one', async () => {

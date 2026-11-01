@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-11-01
+updated: 2026-11-01T19:28:36Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -94,10 +94,24 @@ otherwise it keeps an already-present agent, selects the primary, or returns an 
 repo so its session metadata stays loaded (`useWorkspaceEntry.ts:38`). Workspace sessions
 follow the workspace's `projectIds` order, preserving the primary and sibling panel identities
 when the active repo changes the session map's insertion order (`session-workspace-map.ts:35`).
-The all-project session cache retains the departing repo while its background refresh is pending
-and only snapshots or overrides the active repo when every row belongs to it. Empty lists
-also require a matching `loadedProjectId`; nonempty lists keep newly spawned agents visible
-before discovery finishes (`hooks/agent-session/useAllProjectSessions.ts:35`, `:96`). Session
+The all-project session cache discovers background repos when registered project IDs change, and
+refreshes an individual background repo on `agent:sessions-changed`; selecting another
+repo does not rediscover every registered project (`hooks/agent-session/useAllProjectSessions.ts:35`,
+`:54`, `:105`). Events for the active repo mark it dirty. A departing dirty repo, or one
+whose initial active-session discovery has not finished, gets one individual background
+discovery, since the active hook discards its pending reply on a switch. A newer active
+snapshot takes precedence over this fallback's reply. The dirty flag clears only after a
+successful refresh passes the snapshot-version guard, so an invalidated or failed reply
+can be retried on the next departure. Discovery failures preserve cached sessions
+(`hooks/agent-session/useAllProjectSessions.ts:14`, `:72`, `:84`, `:93`, `:110`). `useProjects` re-reads
+the registry on repo switches to pick up main-side updates such as cached slash commands,
+preserving the project array identity when sorted content is unchanged. Metadata-only
+changes also leave session discovery alone (`hooks/project/useProjects.ts:34`, `:52`,
+`hooks/agent-session/useAllProjectSessions.ts:35`). The cache retains the departing repo's snapshot,
+and discovery replies started before that snapshot cannot overwrite it. It only snapshots
+or overrides the active repo when every row belongs to it. Empty lists also require a
+matching `loadedProjectId`; nonempty lists keep newly spawned agents visible before discovery
+finishes (`hooks/agent-session/useAllProjectSessions.ts:41`, `:72`, `:130`). Session
 loading sets that id alongside the reply and clears it on reset
 (`hooks/agent-session/useAgentSession.ts:38`, `:162`).
 Project-session loading preserves an explicit valid
@@ -109,8 +123,12 @@ project-change cleanup (`hooks/agent-session/useAgentSession.ts:49`, `:131`). Th
 dockview tab activation against a fake preload boundary. `useAllProjectSessions.test.ts` pins
 an empty departing repo with the incoming reply pending on every render and in the retained
 background cache, a late spawn reply that must not cache a foreign session under the active
-repo, and immediate visibility of a spawned agent while discovery is pending. Native macOS
-rendering still requires a live app check.
+repo, immediate visibility of a spawned agent while discovery is pending, and recovery of
+an interrupted active resync with one departing-repo discovery. It also covers rapid
+reentry invalidating a pending fallback, and retaining cached sessions through a failed
+discovery until a later departure retries it. `useAllProjectSessions.projects.test.ts`
+counts discovery across cross-repo tab clicks and cached-command updates, and verifies
+stable registry identity for unchanged content. Native macOS rendering still requires a live app check.
 
 **Sibling tabs: auto for ungrouped agents, remembered for grouped ones.**
 `useAgentSiblingDockTabs` creates a tab per live ungrouped agent in the active workspace, and
@@ -614,7 +632,28 @@ saved layout before it is restored).
   empty one-folder home workspaces for absorption into the new combined workspace
   (`AppShell.tsx:314`). The footer's "+ New Agent" remains a parallel checkout because its
   direct `createWorkspace` call omits that marker (`App.tsx:347`).
-- The **Source Control** view — `SourceControl` (`components/git/SourceControl.tsx`, mounted by `SourceControlView`, `dock-panels.tsx:98`): a VS Code-style SCM view of the **active workspace**, one collapsible section per member repo checkout — the repo's name, its checked-out branch, a **⟳ / ✓ action row**, and its uncommitted changes under VS Code's three group headers, **Staged Changes**, **Changes**, and **Untracked Changes** (`components/git/ScmChangeGroup.tsx`), each with a count and colored M/A/D rows. Untracked files are sectioned off because discarding one deletes it outright, which the confirm dialog says rather than promising a revert. A file staged and then edited again appears in *both* groups: that is git's own model, which `git:workspace-status` preserves by returning `staged` and `unstaged` separately rather than one merged list. Group headers carry stage-all / unstage-all / discard-all; a row reveals its own +/−/↺ on hover, so a long list stays quiet until you reach for it. **Every action is also on a right-click menu** — repo header, group header, directory row, and file row each build their own from the shared `ContextMenu` (`components/common/ContextMenu.tsx`), which is where the actions with no hover affordance live. The panel toolbar's one control **toggles the changes between a flat list and a tree** (`components/git/scm-file-tree.ts`), VS Code's SCM view modes: the tree gives each directory a row that stages or discards everything beneath it, and compresses a chain of single-child directories onto one row (`src/components/git`) so a deep path costs one line rather than three. The mode is panel-wide, so every repo section switches together. Clicking a row is VS Code's SCM click: it opens the file in the editor **diffed against the right base for the half that was clicked** — a staged row against HEAD, an unstaged row against the index. The open request (`file-open-request.ts`) carries source `'sourceControl'` plus the checkout coordinates *and a `staged` flag*, `EditorPanel` (`dock-panels.tsx`) swaps its diff feed from the session's base-branch diff to `useWorkspaceFileDiff` (→ `git:workspace-file-diff`), and `useCodeViewerModes` opens such requests in diff mode. The data comes from one workspace-scoped IPC call, `git:workspace-status` (`git-handlers.ts`), which reads the workspace's own checkout of each repo (worktree, or the clone on a home workspace). `useWorkspaceRepoStatuses` keeps the last model **per workspace**, so returning to one paints its known rows in the selection render while a fresh status runs in the background; a first visit renders no other workspace's rows (`workspace-git-status.ts:23`, `:47`, `:58`). The active workspace revalidates on `files:changed`, `workspace:list-changed`, every workspace switch, window focus, **and its own 3s poll** (`workspace-git-status.ts:8`, `:71`). The poll is what makes the panel trustworthy: `files:changed` is emitted only for the paths `FileWatcher` polls — session worktrees and `--add-dir` folders (`file-watcher.ts:150`, `:190`) — and a workspace checkout is none of those, so a save in our own editor (or an external edit while the window keeps focus) pushed no event at all and the rows sat stale until some action's own `refresh()` happened to correct them. A tick is skipped while `document.hidden`, and while a status for that workspace is still in flight, so the git processes never stack up. Every section carries VS Code's **message box**, clean checkout or not: a per-repo commit input (⌘⏎, the Commit button, or the header's ✓ → `git:workspace-commit`). It is unconditional so it never moves out from under a half-typed message when the last change is staged or discarded. With something staged it commits exactly the index; with nothing staged it raises a `ConfirmDialog` first, since committing everything is a different act from the one a staging UI implies — confirming sends `stageAll`, which runs the same stage-all managed commit the Commit overlay uses. Discard is likewise confirmed: throwing away uncommitted work is unrecoverable, and one dialog hoisted to the panel serves every row and group. The **branch label is a pill button** — a bordered control rather than a caption, because a label nobody reads as clickable is a feature nobody finds (`components/git/BranchSwitcher.tsx`): clicking it opens a VS Code-style quick-pick — filter input, the repo's branches from the existing `git:list-branches` (which already hides branches held by other worktrees), and a "Create new branch" entry when the typed name matches nothing — checking the workspace checkout out via `git:workspace-checkout`; failures (e.g. dirty-tree conflicts) render inline and leave it open. It is a **centered modal**, not a popover anchored to the label: the panel is a narrow sidebar column that cramped the list and clipped long branch names. It reuses `createDialogStyles` + `useAutoFocus` and the Command Palette's keyboard model (↑/↓ move the active row, Enter selects, Escape closes), names its repo in the header since a workspace has several, and is portaled to `document.body` so an ancestor `transform` can't become the containing block for its fixed overlay. It is reached by selecting Source Control in the activity rail, the `view.sidebar.sourceControl` command (⌘⇧G), or the View menu — all of which swap the one sidebar onto this view.
+- The **Source Control** view — `SourceControl` (`components/git/SourceControl.tsx`, mounted by `SourceControlView`, `dock-panels.tsx:98`): a VS Code-style SCM view of the **active workspace**, one collapsible section per member repo checkout — the repo's name, its checked-out branch, a **⟳ / ✓ action row**, and its uncommitted changes under VS Code's three group headers, **Staged Changes**, **Changes**, and **Untracked Changes** (`components/git/ScmChangeGroup.tsx`), each with a count and colored M/A/D rows. Untracked files are sectioned off because discarding one deletes it outright, which the confirm dialog says rather than promising a revert. A file staged and then edited again appears in *both* groups: that is git's own model, which `git:workspace-status` preserves by returning `staged` and `unstaged` separately rather than one merged list. Group headers carry stage-all / unstage-all / discard-all; a row reveals its own +/−/↺ on hover, so a long list stays quiet until you reach for it. **Every action is also on a right-click menu** — repo header, group header, directory row, and file row each build their own from the shared `ContextMenu` (`components/common/ContextMenu.tsx`), which is where the actions with no hover affordance live. The panel toolbar's one control **toggles the changes between a flat list and a tree** (`components/git/scm-file-tree.ts`), VS Code's SCM view modes: the tree gives each directory a row that stages or discards everything beneath it, and compresses a chain of single-child directories onto one row (`src/components/git`) so a deep path costs one line rather than three. The mode is panel-wide, so every repo section switches together. Clicking a row is VS Code's SCM click: it opens the file in the editor **diffed against the right base for the half that was clicked** — a staged row against HEAD, an unstaged row against the index. The open request (`file-open-request.ts`) carries source `'sourceControl'` plus the checkout coordinates *and a `staged` flag*, `EditorPanel` (`dock-panels.tsx`) swaps its diff feed from the session's base-branch diff to `useWorkspaceFileDiff` (→ `git:workspace-file-diff`), and `useCodeViewerModes` opens such requests in diff mode. The data comes from one workspace-scoped IPC call, `git:workspace-status` (`git-handlers.ts`), which reads the workspace's own checkout of each repo (worktree, or the clone on a home workspace). `useWorkspaceRepoStatuses` keeps the last model **per workspace**, so returning to one
+paints its known rows while a fresh status runs; another workspace's slow response cannot
+replace the selected workspace's rows (`workspace-git-status.ts:28`, `:125`). Every trigger
+shares the same per-workspace single-flight and visibility guards. Events arriving during
+a request union their affected repo IDs into one pending trailing refresh; full refreshes
+supersede partial ones (`workspace-git-status.ts:44`, `:56`, `:83`).
+`files:changed` resolves the emitting session's `worktreePath`, or uses `source` for an
+additional directory, and compares normalized paths with the selected workspace's repo
+and checkout paths. Known outside checkouts are ignored even if their sessions belong
+to a related workspace; shared paths still refresh. Unknown primary session IDs refresh
+conservatively because discovery can lag the watcher event (`workspace-git-events.ts:17`,
+`:28`). Partial status replies merge into the current rows without dropping sibling repos
+(`workspace-git-status.ts:71`). Workspace switches, `workspace:list-changed`, explicit
+refresh, focus and becoming visible request a full refresh (`workspace-git-status.ts:90`,
+`:98`). The activity-bar badge keeps its **3s timer**, including while Source Control is
+closed. Unchanged idle results back off to 6s, 12s, then at most 15s between reconciliation
+attempts; focus, workspace changes and relevant file events reset that cadence. Hidden
+windows start no requests and resume when visible. Timer ticks skip an in-flight read
+instead of queuing another, so slow Git reads can reach the idle backoff
+(`workspace-git-status.ts:47`, `:72`, `:99`, `:114`). This fallback is needed for dormant sessions, which FileWatcher does not
+poll, as well as editor/external edits and branch/upstream changes that emit no file event.
+The shared FileWatcher/checkout status cache is separate work (#1008). Every section carries VS Code's **message box**, clean checkout or not: a per-repo commit input (⌘⏎, the Commit button, or the header's ✓ → `git:workspace-commit`). It is unconditional so it never moves out from under a half-typed message when the last change is staged or discarded. With something staged it commits exactly the index; with nothing staged it raises a `ConfirmDialog` first, since committing everything is a different act from the one a staging UI implies — confirming sends `stageAll`, which runs the same stage-all managed commit the Commit overlay uses. Discard is likewise confirmed: throwing away uncommitted work is unrecoverable, and one dialog hoisted to the panel serves every row and group. The **branch label is a pill button** — a bordered control rather than a caption, because a label nobody reads as clickable is a feature nobody finds (`components/git/BranchSwitcher.tsx`): clicking it opens a VS Code-style quick-pick — filter input, the repo's branches from the existing `git:list-branches` (which already hides branches held by other worktrees), and a "Create new branch" entry when the typed name matches nothing — checking the workspace checkout out via `git:workspace-checkout`; failures (e.g. dirty-tree conflicts) render inline and leave it open. It is a **centered modal**, not a popover anchored to the label: the panel is a narrow sidebar column that cramped the list and clipped long branch names. It reuses `createDialogStyles` + `useAutoFocus` and the Command Palette's keyboard model (↑/↓ move the active row, Enter selects, Escape closes), names its repo in the header since a workspace has several, and is portaled to `document.body` so an ancestor `transform` can't become the containing block for its fixed overlay. It is reached by selecting Source Control in the activity rail, the `view.sidebar.sourceControl` command (⌘⇧G), or the View menu — all of which swap the one sidebar onto this view.
   The picker now keeps the three VS Code top-level actions visible: **Create new branch…**,
   **Create new branch from…**, and **Checkout detached…**, followed by separate **Branches**
   and **Remote branches** sections. Create-from collects a name and then a start ref; detached

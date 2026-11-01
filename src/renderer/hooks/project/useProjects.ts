@@ -37,21 +37,21 @@ export function useProjects(): UseProjectsResult {
     try {
       const result = (await window.electronAPI.invoke('projects:list')) as Project[]
       const sorted = sortProjectsByName(result)
-      setProjects(sorted)
-      if (sorted.length > 0 && !activeProjectId) {
-        setActiveProjectId(sorted[0].id)
-      }
+      // Registry reads on tab switches must not invalidate session discovery
+      // when main has no new project metadata (such as cached slash commands).
+      setProjects((prev) => JSON.stringify(prev) === JSON.stringify(sorted) ? prev : sorted)
+      if (sorted.length > 0) setActiveProjectId((current) => current ?? sorted[0].id)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
     } finally {
       setLoading(false)
     }
-  }, [activeProjectId])
+  }, [])
 
   useEffect(() => {
     void fetchProjects()
-  }, [fetchProjects])
+  }, [activeProjectId, fetchProjects])
 
   // `workspaceId` places the folder in that workspace rather than in a home
   // workspace of its own, in the same main-side step that registers it.

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { WorkspaceRepoStatus } from '../../../shared/workspace-types'
 import { useIpcListener } from '../app/useIpc'
+import { affectedWorkspaceProjects, type WorkspaceFilesChanged, type WorkspaceGitContext } from './workspace-git-events'
 
-/** Matches `FileWatcher`'s worktree cadence (`file-watcher.ts:17`) — the same
- *  "notice it within a couple of seconds" feel, for the checkouts that watcher
- *  does not cover. */
+// Keep the badge's 3s tick; unchanged idle results back off to at most 5 ticks.
 const POLL_INTERVAL_MS = 3000
+const MAX_IDLE_TICKS = 5
 
 export function countWorkspaceChangedFiles(repos: WorkspaceRepoStatus[]): number {
   const paths = new Set<string>()
@@ -20,7 +20,7 @@ export function countWorkspaceChangedFiles(repos: WorkspaceRepoStatus[]): number
 /** Live git status for every checkout in the selected workspace. Kept above
  *  the sidebar so the activity-bar badge remains current while Source Control
  *  is closed. */
-export function useWorkspaceRepoStatuses(workspaceId: string | null): {
+export function useWorkspaceRepoStatuses(workspaceId: string | null, context?: WorkspaceGitContext): {
   repos: WorkspaceRepoStatus[]
   changeCount: number
   refresh: () => void
@@ -29,54 +29,98 @@ export function useWorkspaceRepoStatuses(workspaceId: string | null): {
   const requestIdsRef = useRef<Map<string, number>>(new Map())
   const inFlightRef = useRef<Set<string>>(new Set())
 
-  const refresh = useCallback((): void => {
+  const pendingRef = useRef(new Map<string, Set<string> | null>())
+  const modelsRef = useRef(new Map<string, WorkspaceRepoStatus[]>())
+  const selectedRef = useRef(workspaceId)
+  selectedRef.current = workspaceId
+  const mountedRef = useRef(false)
+  const pollRef = useRef({ interval: 1, remaining: 1, activity: 0 })
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
+  const refreshRepos = useCallback((projectIds?: string[], resetPolling = true): void => {
     if (!workspaceId) return
-    const requestId = (requestIdsRef.current.get(workspaceId) ?? 0) + 1
-    requestIdsRef.current.set(workspaceId, requestId)
-    inFlightRef.current.add(workspaceId)
-    void window.electronAPI.invoke('git:workspace-status', workspaceId)
-      .then((result) => {
-        // Keep each workspace's last model alive while it is out of view, and
-        // drop only an older request for that same workspace. Switching back
-        // can then paint immediately while this refresh runs in the background.
-        if (requestIdsRef.current.get(workspaceId) !== requestId) return
-        setReposByWorkspace((current) => {
-          const next = new Map(current)
-          next.set(workspaceId, result as WorkspaceRepoStatus[])
-          return next
+    const id = workspaceId
+    if (resetPolling) {
+      pollRef.current = { interval: 1, remaining: 1, activity: pollRef.current.activity + 1 }
+    }
+    const selection = projectIds ? new Set(projectIds) : null
+    const pending = pendingRef.current.get(workspaceId)
+    pendingRef.current.set(workspaceId, pending === null || selection === null
+      ? null : new Set([...(pending ?? []), ...selection]))
+    const activity = pollRef.current.activity
+
+    function drain(): void {
+      if (!mountedRef.current || selectedRef.current !== id || document.hidden
+        || inFlightRef.current.has(id) || !pendingRef.current.has(id)) return
+      const selected = pendingRef.current.get(id)
+      if (selected === undefined) return
+      pendingRef.current.delete(id)
+      const requestId = (requestIdsRef.current.get(id) ?? 0) + 1
+      requestIdsRef.current.set(id, requestId)
+      inFlightRef.current.add(id)
+      const args = selected === null ? [] : [[...selected]]
+      void window.electronAPI.invoke('git:workspace-status', workspaceId, ...args)
+        .then((result) => {
+          if (!mountedRef.current || requestIdsRef.current.get(id) !== requestId) return
+          const rows = result as WorkspaceRepoStatus[]
+          const previous = modelsRef.current.get(id) ?? []
+          const repos = selected === null ? rows : [...new Map([...previous, ...rows].map((row) => [row.projectId, row])).values()]
+          if (!resetPolling && selectedRef.current === workspaceId && pollRef.current.activity === activity) {
+            pollRef.current.interval = JSON.stringify(previous) === JSON.stringify(repos)
+              ? Math.min(MAX_IDLE_TICKS, pollRef.current.interval * 2) : 1
+            pollRef.current.remaining = pollRef.current.interval
+          }
+          modelsRef.current.set(id, repos)
+          setReposByWorkspace((current) => new Map(current).set(id, repos))
         })
-      })
-      .catch((err: unknown) => {
-        console.error('[SourceControl] failed to load workspace git status', err)
-      })
-      .finally(() => {
-        if (requestIdsRef.current.get(workspaceId) === requestId) inFlightRef.current.delete(workspaceId)
-      })
+        .catch((err: unknown) => {
+          console.error('[SourceControl] failed to load workspace git status', err)
+        })
+        .finally(() => {
+          inFlightRef.current.delete(id)
+          drain()
+        })
+    }
+    drain()
   }, [workspaceId])
+  const refresh = useCallback((): void => { refreshRepos() }, [refreshRepos])
 
   useEffect(() => { refresh() }, [refresh])
-  useIpcListener('files:changed', () => { refresh() })
+  useIpcListener<WorkspaceFilesChanged>('files:changed', (event) => {
+    const affected = affectedWorkspaceProjects(event, context)
+    if (affected?.length === 0) return
+    refreshRepos(affected)
+  })
   useIpcListener('workspace:list-changed', () => { refresh() })
   useEffect(() => {
     const onFocus = (): void => { refresh() }
+    const onVisibility = (): void => { if (!document.hidden) refresh() }
     window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [refresh])
 
-  // Nothing pushes an event for a workspace checkout: `files:changed` covers
-  // only the paths `FileWatcher` polls — session worktrees and --add-dir
-  // folders — so an edit made in our own editor, or outside the app while it
-  // keeps focus, would sit unnoticed until the next action forced a refresh.
-  // Poll instead, skipping a hidden window and any tick that would stack on a
-  // status still in flight.
+  // Dormant sessions aren't polled by FileWatcher. This bounded reconciliation
+  // also catches editor/external edits and branch/upstream changes with no event,
+  // keeping the badge current even with Source Control closed. Every trigger
+  // shares the visibility and single-flight guards above.
   useEffect(() => {
     if (!workspaceId) return
     const timer = setInterval(() => {
       if (document.hidden || inFlightRef.current.has(workspaceId)) return
-      refresh()
+      if (--pollRef.current.remaining > 0) return
+      pollRef.current.remaining = pollRef.current.interval
+      refreshRepos(undefined, false)
     }, POLL_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [workspaceId, refresh])
+  }, [workspaceId, refreshRepos])
 
   // Index by the requested workspace during render so a selection change can
   // never briefly pair the new workspace header with the previous one's rows.
