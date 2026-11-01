@@ -26,6 +26,7 @@ export function useGitOperations(
   const sessionRef = useRef(sessionId)
   sessionRef.current = sessionId
   const aheadBehindRequest = useRef(0)
+  const previousSelection = useRef({ sessionId, branchName })
 
   const refreshAheadBehind = useCallback(async (): Promise<void> => {
     if (!sessionRef.current) return
@@ -87,6 +88,12 @@ export function useGitOperations(
 
   // Refresh ahead/behind when the session or its checkout branch changes.
   useEffect(() => {
+    const previous = previousSelection.current
+    previousSelection.current = { sessionId, branchName }
+    // Discovery already retries; listing its branch must not retry a second time.
+    if (sessionId === previous.sessionId && previous.branchName === undefined && branchName !== undefined) {
+      return
+    }
     if (sessionId) {
       void refreshAheadBehind()
     } else {

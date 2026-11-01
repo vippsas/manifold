@@ -1,5 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { AgentSession } from '../../../shared/types'
 import { useGitOperations } from './useGitOperations'
 import { SessionReadinessApi, restoredTree } from './session-readiness.test-helpers'
 
@@ -72,6 +73,51 @@ describe('useGitOperations session discovery', () => {
       api.emit('files:tree-changed', { sessionId: 'restored', rootPath: restoredTree.path })
     })
     expect(api.invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['before', 'during', 'after'])(
+    'retries exactly once when the session is listed with a branch %s discovery', async (timing) => {
+      const { result, rerender } = renderHook(
+        ({ sessions }) => {
+          const activeSession = sessions.find((session) => session.id === 'restored')
+          return useGitOperations(activeSession?.id ?? 'restored', activeSession?.branchName)
+        },
+        { initialProps: { sessions: [] as Pick<AgentSession, 'id' | 'branchName'>[] } },
+      )
+      await act(async () => {})
+      expect(result.current.aheadBehind).toEqual({ ahead: 0, behind: 0 })
+      expect(api.invoke).toHaveBeenCalledExactlyOnceWith('git:ahead-behind', 'restored')
+
+      const listSession = (): void => {
+        rerender({ sessions: [{ id: 'restored', branchName: 'feature' }] })
+      }
+      if (timing === 'before') await act(async () => { listSession() })
+      await act(async () => {
+        api.discover('restored')
+        if (timing === 'during') listSession()
+      })
+      if (timing === 'after') await act(async () => { listSession() })
+      expect(result.current.aheadBehind).toEqual({ ahead: 2, behind: 1 })
+      expect(api.invoke).toHaveBeenCalledTimes(2)
+      expect(api.invoke).toHaveBeenLastCalledWith('git:ahead-behind', 'restored')
+    },
+  )
+
+  it('refreshes when switching to a session whose branch is already known', async () => {
+    api.discover('other')
+    const { result, rerender } = renderHook(
+      ({ sessionId, branchName }) => useGitOperations(sessionId, branchName),
+      { initialProps: { sessionId: 'restored', branchName: undefined as string | undefined } },
+    )
+    await act(async () => {})
+    expect(result.current.aheadBehind).toEqual({ ahead: 0, behind: 0 })
+
+    await act(async () => {
+      rerender({ sessionId: 'other', branchName: 'feature' })
+    })
+    expect(result.current.aheadBehind).toEqual({ ahead: 2, behind: 1 })
+    expect(api.invoke).toHaveBeenCalledTimes(2)
+    expect(api.invoke).toHaveBeenLastCalledWith('git:ahead-behind', 'other')
   })
 
   it('keeps the discovered counts when an earlier empty read arrives late', async () => {
