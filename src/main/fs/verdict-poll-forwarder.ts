@@ -12,6 +12,11 @@ export type HeadShaFn = (cwd: string) => Promise<string>
 export type BranchFn = (cwd: string) => Promise<string>
 export type PrLookupFn = (cwd: string, branch: string) => Promise<string | null>
 
+interface SessionObservation {
+  head?: string
+  pending?: Promise<void>
+}
+
 async function defaultHeadSha(cwd: string): Promise<string> {
   const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd, timeout: EXEC_TIMEOUT_MS })
   return stdout.trim()
@@ -67,7 +72,7 @@ export async function lookupWorktreePrUrl(cwd: string): Promise<string | null> {
  */
 export class VerdictPollForwarder {
   private recorder: VerdictRecorder | null = null
-  private readonly lastHeadSha: Map<string, string> = new Map()
+  private readonly observations = new Map<string, Map<string, SessionObservation>>()
   private readonly headShaFn: HeadShaFn
   private readonly branchFn: BranchFn
   private readonly prLookupFn: PrLookupFn
@@ -87,40 +92,71 @@ export class VerdictPollForwarder {
    * a small leak and stops a recreated path from reusing a stale sha (which would
    * fire a spurious onAgentCommit) (#537).
    */
-  evict(worktreePath: string): void {
-    this.lastHeadSha.delete(worktreePath)
+  evict(worktreePath: string, sessionId?: string): void {
+    if (sessionId === undefined) this.observations.delete(worktreePath)
+    else this.observations.get(worktreePath)?.delete(sessionId)
   }
 
-  async notifyGitChange(worktreePath: string, sessionId: string): Promise<void> {
-    if (!this.recorder) return
-    let shouldPollPr = false
-    try {
-      const head = await this.headShaFn(worktreePath)
-      const previous = this.lastHeadSha.get(worktreePath)
-      if (head && previous && head !== previous) {
-        this.recorder.onAgentCommit(sessionId)
-        shouldPollPr = true
-      } else if (head && !previous) {
-        // First observation for this worktree — check once for a pre-existing PR
-        // (e.g. session resumed after restart, PR already exists).
-        shouldPollPr = true
-      }
-      if (head) this.lastHeadSha.set(worktreePath, head)
-    } catch {
-      // Worktree may be gone or git may have failed — skip.
-    }
-    this.recorder.onFilesChanged(sessionId)
+  clear(): void { this.observations.clear() }
 
-    if (shouldPollPr && !this.recorder.getDetectedPrUrl(sessionId)) {
+  async notifyGitChange(
+    worktreePath: string, sessionId: string, isSubscribed: () => boolean = () => true,
+    filesChanged = true,
+  ): Promise<void> {
+    const recorder = this.recorder
+    if (!recorder || !isSubscribed()) return
+    let sessions = this.observations.get(worktreePath)
+    if (!sessions) {
+      sessions = new Map()
+      this.observations.set(worktreePath, sessions)
+    }
+    let observation = sessions.get(sessionId)
+    if (!observation) {
+      observation = {}
+      sessions.set(sessionId, observation)
+    }
+    const current = observation
+    const active = (): boolean => isSubscribed()
+      && this.observations.get(worktreePath)?.get(sessionId) === current
+    const notify = async (): Promise<void> => {
+      if (!active()) return
+      let shouldPollPr = false
       try {
-        const branch = await this.branchFn(worktreePath)
-        if (branch && branch !== 'HEAD') {
-          const url = await this.prLookupFn(worktreePath, branch)
-          if (url) this.recorder.onPrCreated(sessionId, url)
+        const head = await this.headShaFn(worktreePath)
+        if (!active()) return
+        const previous = current.head
+        if (head && previous && head !== previous) {
+          recorder.onAgentCommit(sessionId)
+          shouldPollPr = true
+        } else if (head && !previous) {
+          // First observation for this subscription — check once for a pre-existing PR
+          // (e.g. session resumed after restart, PR already exists).
+          shouldPollPr = true
         }
+        if (head) current.head = head
       } catch {
-        // gh missing, auth, or no PR — silent. Will retry on next HEAD change.
+        // Worktree may be gone or git may have failed — skip.
+      }
+      if (!active()) return
+      if (filesChanged) recorder.onFilesChanged(sessionId)
+
+      if (shouldPollPr && !recorder.getDetectedPrUrl(sessionId)) {
+        try {
+          const branch = await this.branchFn(worktreePath)
+          if (!active()) return
+          if (branch && branch !== 'HEAD') {
+            const url = await this.prLookupFn(worktreePath, branch)
+            if (url && active()) recorder.onPrCreated(sessionId, url)
+          }
+        } catch {
+          // gh missing, auth, or no PR — silent. Will retry on next HEAD change.
+        }
       }
     }
+    // Cached joins and changed ticks may overlap; preserve this session's HEAD
+    // observation order without delaying renderer updates or other subscribers.
+    const pending = (observation.pending ?? Promise.resolve()).then(notify)
+    observation.pending = pending.catch(() => {})
+    await pending
   }
 }

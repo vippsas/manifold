@@ -8,14 +8,15 @@ const GIT_TIMEOUT_MS = 10000
 
 function runGit(args: string[], cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    // stderr is 'ignore' (not 'pipe') so a git that floods >64KB of warnings to
-    // stderr can't block on a full pipe and wedge the poll forever (#536).
+    // Drain stderr continuously to avoid a full pipe blocking git (#536), but
+    // retain a bounded prefix so callers can recognize non-repository errors.
     const child = spawn('git', args, {
       cwd,
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
 
     const chunks: Buffer[] = []
+    let stderr = ''
     let settled = false
     const timer = setTimeout(() => {
       if (settled) return
@@ -25,6 +26,9 @@ function runGit(args: string[], cwd: string): Promise<string> {
     }, GIT_TIMEOUT_MS)
 
     child.stdout!.on('data', (data: Buffer) => chunks.push(data))
+    child.stderr!.on('data', (data: Buffer) => {
+      stderr = (stderr + data.toString('utf8')).slice(0, 8192)
+    })
     child.on('error', (err) => {
       if (settled) return
       settled = true
@@ -35,7 +39,7 @@ function runGit(args: string[], cwd: string): Promise<string> {
       if (settled) return
       settled = true
       clearTimeout(timer)
-      if (code !== 0) reject(new Error(`git ${args[0]} failed (code ${code})`))
+      if (code !== 0) reject(new Error(`git ${args[0]} failed (code ${code}): ${stderr}`))
       else resolve(Buffer.concat(chunks).toString('utf8'))
     })
   })

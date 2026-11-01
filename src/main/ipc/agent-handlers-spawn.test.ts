@@ -26,7 +26,7 @@ vi.mock('../../shared/norwegian-cities', () => ({
   pickRandomNorwegianCityName: mocks.pickRandomNorwegianCityName,
 }))
 
-describe('registerAgentHandlers — spawn and branch suggestion', () => {
+describe('registerAgentHandlers — spawn', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -93,7 +93,7 @@ describe('registerAgentHandlers — spawn and branch suggestion', () => {
       noWorktree: true,
     })
 
-    expect(deps.fileWatcher.unwatch).toHaveBeenCalledWith('/repo')
+    expect(deps.fileWatcher.unwatch).not.toHaveBeenCalled()
     expect(deps.sessionManager.killSession).toHaveBeenCalledWith('old-session')
     expect(createSession).toHaveBeenCalledWith({
       projectId: 'proj-1',
@@ -282,7 +282,7 @@ describe('registerAgentHandlers — spawn and branch suggestion', () => {
       noWorktree: false,
     })
 
-    expect(deps.fileWatcher.unwatch).toHaveBeenCalledWith('/repo')
+    expect(deps.fileWatcher.unwatch).not.toHaveBeenCalled()
     expect(deps.sessionManager.killSession).toHaveBeenCalledWith('dormant-simple')
     expect(createSession).toHaveBeenCalledWith({
       projectId: 'proj-1',
@@ -294,56 +294,4 @@ describe('registerAgentHandlers — spawn and branch suggestion', () => {
     expect(result).toMatchObject({ id: 'interactive-session' })
   })
 
-  it('uses a Norwegian city when suggesting a branch without a task description', async () => {
-    const { registerAgentHandlers } = await import('./agent-handlers')
-    const deps = {
-      projectRegistry: {
-        getProject: vi.fn(() => ({ path: '/repo' })),
-      },
-      sessionManager: {
-        listSessions: vi.fn(() => []),
-      },
-      fileWatcher: {
-        unwatch: vi.fn(),
-        watch: vi.fn(),
-      },
-      viewStateStore: { delete: vi.fn() },
-    }
-
-    registerAgentHandlers(deps as never)
-    const handler = mocks.handlers.get('branch:suggest')
-    if (!handler) throw new Error('branch:suggest handler was not registered')
-
-    const result = await handler({}, 'proj-1')
-
-    expect(mocks.pickRandomNorwegianCityName).toHaveBeenCalledTimes(1)
-    expect(mocks.generateBranchName).toHaveBeenCalledWith('/repo', 'Oslo')
-    expect(result).toBe('repo/oslo')
-  })
-
-  it('uses the provided task description when suggesting a branch', async () => {
-    const { registerAgentHandlers } = await import('./agent-handlers')
-    const deps = {
-      projectRegistry: {
-        getProject: vi.fn(() => ({ path: '/repo' })),
-      },
-      sessionManager: {
-        listSessions: vi.fn(() => []),
-      },
-      fileWatcher: {
-        unwatch: vi.fn(),
-        watch: vi.fn(),
-      },
-      viewStateStore: { delete: vi.fn() },
-    }
-
-    registerAgentHandlers(deps as never)
-    const handler = mocks.handlers.get('branch:suggest')
-    if (!handler) throw new Error('branch:suggest handler was not registered')
-
-    await handler({}, 'proj-1', 'Ship launch checklist')
-
-    expect(mocks.pickRandomNorwegianCityName).not.toHaveBeenCalled()
-    expect(mocks.generateBranchName).toHaveBeenCalledWith('/repo', 'Ship launch checklist')
-  })
 })
