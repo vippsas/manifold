@@ -1,7 +1,7 @@
 ---
 description: How the native Viola harness plans a goal, runs each task as its own pipeline (chat-mode worker, gates, cross-harness review), and reports progress through a live run board.
 covers: [src/main/viola, src/main/agent/runtimes.ts, src/main/agent/orchestrated-args.ts, src/main/agent/status-detector.ts, src/shared/viola.ts, src/renderer/components/viola]
-updated: 2026-09-02
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -35,13 +35,13 @@ it refuses to plan for such a project and says to re-add it as a git project
 (`src/main/viola/engine.ts:73`). Selecting Viola
 creates a normal session with `runtimeId: 'viola'` and chat mode. `SessionCreator` recognizes
 the orchestrator kind, creates no PTY, and leaves the session waiting for its first goal
-(`src/main/session/session-creator.ts:37`, `:126`).
+(`src/main/session/session-creator.ts:39`, `:129`).
 
 `SessionManager` routes input, interruption, and disposal for that runtime to the native harness
-instead of `SessionIoController` (`src/main/session/session-manager.ts:253`). Older worktree
+instead of `SessionIoController` (`src/main/session/session-manager.ts:116`, `:108`, `:130`). Older worktree
 metadata that used the temporary `conductor` profile flag or runtime id is read only as a
 migration hint and becomes `runtimeId: 'viola'` during discovery
-(`src/main/session/session-discovery.ts:105`). The run store likewise reads the temporary
+(`src/main/session/session-discovery.ts:109`). The run store likewise reads the temporary
 `conductor-runs.json` filename until a Viola snapshot is written (`src/main/viola/store.ts:15`).
 
 ## Conversation and plan gate
@@ -278,7 +278,7 @@ workspace would belong to none, and `useAgentSiblingDockTabs` prunes any panel w
 does not know. Workers also share the run's `groupId` (`src/main/viola/task-pipeline.ts:174`),
 which keeps them out of the auto-tab set — a four-task run would otherwise open eight tabs — so
 the board is what opens one, on demand. Opening one is *recorded*
-(`src/renderer/hooks/agent-session/opened-agent-tabs.ts:15`), because there is a single
+(`src/renderer/hooks/agent-session/opened-agent-tabs.ts:18`), because there is a single
 window-wide dock layout: switching repositories reloads it and strips sibling panels whose session
 is not in the new workspace. An ungrouped agent's tab is recreated by the auto-tab pass on return,
 but a grouped one has nothing to recreate it, so a worker tab the user had opened simply
@@ -297,8 +297,8 @@ The final summary still lists each task's route, PR or error, and quotes explore
 
 Manifold cannot intercept a worker's tool calls, so the guard rides on the worker's own CLI.
 `spawnAgent` marks every Viola worker with `orchestratedBy` (`src/main/plugins/agent-spawn-service.ts:92`),
-persisted in worktree meta and restored on discovery (`src/main/session/session-creator.ts:245`,
-`src/main/session/session-discovery.ts:132`). Chat-mode Claude turns for such sessions add
+persisted in worktree meta and restored on discovery (`src/main/session/session-creator.ts:256`,
+`src/main/session/session-discovery.ts:131`). Chat-mode Claude turns for such sessions add
 `--settings` with a `permissions.deny` list covering force-push, remote-ref hard resets,
 recursive deletes of root or home, and `gh pr merge` (`src/main/agent/simple-runtime.ts:14`,
 `:51`, `src/main/app/dev-server-manager.ts:185`). Claude enforces deny rules in every permission

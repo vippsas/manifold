@@ -1,7 +1,7 @@
 ---
 description: How the Electron main process boots — shell PATH, dev profile, module wiring, app lifecycle, window creation, menus, auto-updater, mode switching, and the live-preview dev server.
 covers: [src/main/app]
-updated: 2026-09-08
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -111,7 +111,7 @@ kills any in-flight process, rebuilds the prompt from chat history, spawns the r
 `guarded` for sessions with `orchestratedBy`, so a Viola worker's Claude turn carries the deny
 list, `:185`), and re-wires output streaming. `probeSlashCommands()` (`:226`) spawns a throwaway Claude run only
 to capture the `system/init` event's command list, then kills it. This class is owned by
-`SessionManager`, not the app module (`session-manager.ts:62`); it lives here because it is
+`SessionManager`, not the app module (`session-manager-context.ts:69`); it lives here because it is
 part of the app/preview surface.
 
 **Mode switching.** `ModeSwitcher` (`mode-switcher.ts:26`) handles `app:switch-mode`
@@ -149,7 +149,7 @@ return a fallback without caching so the next call retries the live API (`getRel
 
 ## Interactions
 
-- **Session** (`src/main/session`): `index.ts` constructs `SessionManager` and passes it nearly everywhere. `SessionManager` in turn instantiates `DevServerManager` from this module (`session-manager.ts:62`) and exposes `startDevServerSession()` that `ModeSwitcher` calls (`mode-switcher.ts:124`).
+- **Session** (`src/main/session`): `index.ts` constructs `SessionManager` and passes it nearly everywhere. `SessionManager` in turn instantiates `DevServerManager` from this module (`session-manager-context.ts:69`) and exposes `startDevServerSession()` that `ModeSwitcher` calls (`mode-switcher.ts:124`).
 - **IPC** (`src/main/ipc`): `ipc-handlers.ts` is the registration hub; `IpcDependencies` (`../ipc/types`) is the shared dependency contract that `index.ts` populates as `ipcDeps`.
 - **Renderer / preload**: the menu (`app-menu.ts`), updater (`broadcastStatus`), and dev server (`preview:url-detected`, `agent:slash-commands`) all communicate by `webContents.send`. The window factory loads the preload from `../preload/index.js`.
 - **Stores / managers**: `index.ts` is the single construction site for `SettingsStore`, `ProjectRegistry`, `WorktreeManager`, `PtyPool`, file/tree watchers, workspace, memory, verdict, and plugin managers.

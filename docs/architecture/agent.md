@@ -1,7 +1,7 @@
 ---
 description: The AI runtimes layer and PTY pool — the runtime registry, command building (interactive vs print-mode), theme/ANSI sync, and the process boundary the session subsystem spawns into.
 covers: [src/main/agent]
-updated: 2026-09-02
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -47,7 +47,7 @@ at least two of Claude, Codex, Copilot, and Gemini are installed, preserving cro
 
 1. *Interactive* (the persistent TUI) — there is no builder here; `SessionCreator` starts from
    `runtime.args` and appends the helper flags below, then spawns directly
-   (`session-creator.ts:110`).
+   (`session-creator.ts:189`).
 2. *Print mode / chat* — `buildSimpleRuntimeCommand(runtimeId, prompt, additionalDirs, options?)`
    (`simple-runtime.ts:40`). With `options.guarded` (a Viola worker, see [viola](viola.md)) the
    Claude shape also gets `--settings` carrying the catastrophic-command `permissions.deny` list
@@ -75,9 +75,9 @@ builder here:
   and ignores the terminal palette **except** for its `light-ansi`/`dark-ansi` themes, which render
   through the 16-color palette. This returns `['--settings', JSON.stringify({ theme })]`, a
   high-precedence merge layer that preserves the user's other settings. Applied only for interactive
-  Claude (`session-creator.ts:130`).
+  Claude (`session-creator.ts:171`).
 - Ollama models: when `needsModel`, the session layer pushes `--model <ollamaModel>`
-  (`session-creator.ts:118`, mirrored on resume at `session-resume.ts:48`); `listOllamaModels()`
+  (`session-creator.ts:149`, mirrored on resume at `session-resume.ts:65`); `listOllamaModels()`
   (`ollama-models.ts:3`) feeds the model picker.
 
 **PtyPool.** `spawn(file, args, { cwd, env, cols, rows })` (`pty-pool.ts:20`) mints a UUID id,
@@ -115,7 +115,7 @@ rebuilt on every chunk (#511). Anything with no match is `'running'`.
 
 ## Interactions
 
-- **Session** (`src/main/session`): `SessionCreator` resolves the runtime, assembles interactive args (base + working-set + theme, or `buildSimpleRuntimeCommand` for chat), and calls `PtyPool.spawn` (`session-creator.ts:110`); `session-resume.ts` re-spawns and re-adds `--model` for Ollama; the stream wirer subscribes via `PtyPool.onData`/`onExit` and uses `detectStatus`; shell suggestions use `PtyPool.pushOutput`.
+- **Session** (`src/main/session`): `SessionCreator` resolves the runtime, assembles interactive args (base + working-set + theme, or `buildSimpleRuntimeCommand` for chat), and calls `PtyPool.spawn` (`session-creator.ts:189`); `session-resume.ts` re-spawns and re-adds `--model` for Ollama; the stream wirer subscribes via `PtyPool.onData`/`onExit` and uses `detectStatus`; shell suggestions use `PtyPool.pushOutput`.
 - **App** (`src/main/app`): `index.ts:57` owns the single `PtyPool`; `dev-server-manager.ts` builds chat follow-up commands with `buildSimpleRuntimeCommand` (`:190`, `:231`) and reads `extractSlashCommands` to probe a runtime's `/` menu.
 - **Git** (`src/main/git/git-operations.ts:127`): `aiGenerate` uses `buildAiRuntimeCommand` + the parse helpers for commit-message/PR text, passing `runtime.aiModelArgs`.
 - **IPC** (`src/main/ipc`): `settings-handlers.ts` exposes `listRuntimesWithStatus`/`listOllamaModels`; `git-handlers.ts`/`project-handlers.ts` resolve runtimes via `getRuntimeById`.
@@ -126,5 +126,5 @@ rebuilt on every chunk (#511). Anything with no match is `'running'`.
 - **The registry is static and the source of truth.** No custom/user runtimes today; `getRuntimeById` returns `undefined` for unknown ids and callers must guard (e.g. `simple-runtime.ts:14` throws). Adding an agent means a new `BUILT_IN_RUNTIMES` entry plus, usually, a `RUNTIME_PATTERNS` block and a `buildWorkingSetArgs` case.
 - **Output mode is bound to the binary+flags, not chosen freely.** Claude must run with `--output-format stream-json` to yield `claude-stream-json`; Codex `--json` yields `codex-jsonl`; anything else is `plain-text`. Parsers key off these strings — changing the flag without the mode (or vice versa) silently drops all parsed text.
 - **PTY env mutations are deliberate, not incidental.** Removing the `CLAUDECODE` delete reintroduces nested-session refusals; removing the `NO_COLOR`/`COLORTERM`/`FORCE_COLOR` handling collapses themed agents to a single foreground color on some hosts (#395). Both are documented inline in `pty-pool.ts`.
-- **Theme args are interactive-Claude-only.** `claudeAnsiThemeArgs` is appended only when `commandBinary === 'claude'` and the session is interactive (`session-creator.ts:130`) — print-mode output isn't a themed TUI and other CLIs reject `--settings`.
+- **Theme args are interactive-Claude-only.** `claudeAnsiThemeArgs` is appended only when `commandBinary === 'claude'` and the session is interactive (`session-creator.ts:171`) — print-mode output isn't a themed TUI and other CLIs reject `--settings`.
 - **PtyPool listeners are fan-out and never auto-removed.** Multiple `onData`/`onExit` callbacks coexist for one PTY and only clear when the process exits; there is no `off()`. `pushOutput` reaches listeners but bypasses the child process entirely.

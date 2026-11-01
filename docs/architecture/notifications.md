@@ -1,7 +1,7 @@
 ---
 description: Native macOS desktop notifications for agent lifecycle transitions — policy, notifier, IPC wiring, and settings.
 covers: [src/main/notifications]
-updated: 2026-06-27
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -85,11 +85,12 @@ The notification's `click` handler calls `revealSession(projectId, sessionId)`.
 
 ### Status source / hook (`SessionManager`)
 
-`SessionManager.sendToRenderer()` fans every `agent:status` message to all registered
-listeners (`session-manager.ts:171`). After the verdict recorder hook, it calls
-`this.notificationService?.onStatus(payload.sessionId, payload.status)`
-(`session-manager.ts:177`). The notifier is injected via
-`setNotificationService(agentNotifier)` (`session-manager.ts:167`).
+`SessionManager.sendToRenderer()` delegates to `sendSessionManagerRendererEvent`
+(`session-manager.ts:68`), which forwards `agent:status` to the status listener
+(`session-manager-renderer.ts:19`). After the verdict recorder hook, it calls
+`deps.notificationService?.onStatus(payload.sessionId, payload.status)`
+(`session-manager-renderer.ts:21`). The notifier is injected via
+`setNotificationService(agentNotifier)` (`session-manager.ts:64`).
 
 ### App wiring (`src/main/app/index.ts`)
 
@@ -120,10 +121,10 @@ Two channels are allowlisted in `src/preload/index.ts`:
 In `src/renderer/hooks/app/useAppEffects.ts`:
 
 - A `useEffect` on `activeSessionId` sends the session id to main via
-  `window.electronAPI.send('notifications:active-session', ...)` (`useAppEffects.ts:83`).
+  `window.electronAPI.send('notifications:active-session', ...)` (`useAppEffects.ts:69`).
 - A `useEffect` listens for `'notification:open-session'` and calls `setActiveSession`,
   `setActiveProject`, and `dockLayout.openSiblingPanel(sessionId)` to surface the session
-  (`useAppEffects.ts:87`).
+  (`useAppEffects.ts:73`).
 
 ### Settings
 

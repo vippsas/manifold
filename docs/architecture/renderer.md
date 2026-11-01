@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-11-01T21:18:28Z
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -85,7 +85,7 @@ the main process, so no plugin view or activity-rail entry is involved.
 window. Its session setter records synchronously, and its workspace setter advances the
 workspace context synchronously, so selecting a sibling and entering another workspace
 in one React batch cannot record the incoming agent against the departing workspace
-(`useWorkspaceEntry.ts:26`, `:31`). Shared-repo agents are remembered under the selected
+(`useWorkspaceEntry.ts:31`, `:26`). Shared-repo agents are remembered under the selected
 workspace, rather than whichever workspace first holds that repo. An effect also captures
 automatic session selections once workspace membership is known (`useWorkspaceEntry.ts:44`).
 `resolveWorkspaceEntry` validates the remembered id against the target workspace's sessions;
@@ -123,7 +123,7 @@ or overrides the active repo when every row belongs to it. Empty lists also requ
 matching `loadedProjectId`; nonempty lists keep newly spawned agents visible before discovery
 finishes (`hooks/agent-session/useAllProjectSessions.ts:45`, `:76`, `:177`). Session
 loading sets that id alongside the reply and clears it on reset
-(`hooks/agent-session/useAgentSession.ts:38`, `:162`). Background
+(`hooks/agent-session/useAgentSession.ts:39`, `:163`). Background
 rows also consume `agent:status` by session id, and `agent:exit` sets `status: 'done'`
 and `pid: null`, without invoking discovery. Unknown ids and unchanged values retain
 the cached arrays and row identities. The listeners skip the active repo only when
@@ -135,7 +135,7 @@ replaces older event state through write ordering
 (`hooks/agent-session/useAllProjectSessions.ts:33`, `:98`, `:128`, `:136`, `:152`, `:159`).
 Project-session loading preserves an explicit valid
 selection ahead of repo memory, whose capture now uses a settled selection instead of a
-project-change cleanup (`hooks/agent-session/useAgentSession.ts:49`, `:131`). The existing
+project-change cleanup (`hooks/agent-session/useAgentSession.ts:50`, `:132`). The existing
 `rememberedActiveSessionRef` and dock-restore protection remain in place (#773).
 `useWorkspaceEntry.test.ts` pins the same-batch race and shared-repo memory;
 `useWorkspaceEntry.navigation.test.tsx` drives real cards, favorites, command dispatch and
@@ -162,7 +162,7 @@ agent exits, still requires a live app check.
 **Sibling tabs: auto for ungrouped agents, remembered for grouped ones.**
 `useAgentSiblingDockTabs` creates a tab per live ungrouped agent in the active workspace, and
 deliberately not for grouped ones (a Viola run's workers), which are opened on demand by their
-owner UI. The dock layout is one window-wide object (`hooks/dock-layout/useDockLayout.ts:69`);
+owner UI. The dock layout is one window-wide object (`hooks/dock-layout/useDockLayout.ts:70`);
 workspace switches reconcile its agent tabs, removing panels outside the current workspace
 (`hooks/agent-session/useAgentSiblingDockTabs.ts:128`). Returning must recreate an on-demand
 grouped panel. `opened-agent-tabs.ts` records that the user opened one, the mirror image of
@@ -221,7 +221,7 @@ off `projectIds.length` then `isWorktreeWorkspace`, whose marker is `worktreePat
 by workspace: one carrying a `workspaceId` goes there and nowhere else, while one without
 (the shape the New-Repo, draft-promote and deep-link spawns produce) is placed by repo —
 but only into **home** workspaces (`session-workspace-map.ts:30`). A worktree workspace owns
-a checkout of its own and every agent cut for it names it (`session-creator.ts:224`), so an
+a checkout of its own and every agent cut for it names it (`session-creator.ts:322`), so an
 unnamed agent is by definition working in the clone, never in that checkout. Placing it by
 repo alone put it in *both*: a second workspace over the same folders (the footer's "+ New
 Agent") adopted the clone's agent and became its `primarySession` (`App.tsx:107`), which
@@ -376,7 +376,7 @@ showing collapses the sidebar, so one icon both reveals and hides and the sideba
 left on a view nobody asked for (`ActivityBar.tsx:130`). The Source Control button carries
 an accent badge while the active workspace is dirty, counting distinct changed files
 across its repo checkouts; a path present in both Git's staged and unstaged halves counts
-once (`workspace-git-status.ts:5`, `ActivityBar.tsx:156`, `:170`). The app owns that live status
+once (`workspace-git-status.ts:10`, `ActivityBar.tsx:156`, `:170`). The app owns that live status
 feed above the sidebar, so the count continues refreshing while Source Control is closed
 and the view reuses the same result when opened (`App.tsx:65`, `dock-panels.tsx:100`). The **lower group toggles the
 main area's panels** — Agent, Editor, Shell (`PANEL_RAIL_ITEMS`, `ActivityBar.tsx:91`) —
@@ -418,7 +418,7 @@ refreshing both workspace status and the session comparison. A pull or push fail
 `GitSyncFailureDialog` with Git's reason;
 its sole substantive action, **Show Command Output**, opens the captured commands and output in
 an in-memory `Git Sync Output.txt` editor tab (`StatusBar.tsx:55`, `:88`; `AppShell.tsx:168`;
-`GitSyncFailureDialog.tsx:34`; `git-handlers.ts:267`).
+`GitSyncFailureDialog.tsx:34`; `git-workspace-handlers.ts:117`).
 The remaining items keep the agent/file status and optional commit/PR/conflict actions
 (`StatusBar.tsx:99`, `:114`).
 
@@ -527,7 +527,7 @@ state in accent without a fill (`styles/theme.css:601`). **A pane's file tabs fo
 VS Code's editor tabs** (`multieditortabscontrol.css`): each carries the Seti file-type icon the
 tree uses for the same file, the name in the UI font — not the editor's monospace, which sized
 the strip like code — and, only when two open files share a basename, the disambiguating folder
-as a muted description beside it (`CodeViewerTabs.tsx:218`, `CodeViewer.styles.ts:62`;
+as a muted description beside it (`CodeViewerTabs.tsx:247`, `CodeViewer.styles.ts:69`;
 `file-tree/FileTypeIcon.tsx:10`). The strip and its tabs carry the dock text tabs' treatment, so
 the file tabs and the agent tabs one panel over read as one row of tabs: the same flat
 `--bg-chrome` strip closed by a hairline (`CodeViewer.styles.ts:24`), tabs filling its 30px
@@ -540,7 +540,7 @@ there is no edge for a seam to separate. A tab's `×` is reserved space but show
 tab — one per tab, always on, was a row of noise beside the names (`styles/theme.css:693`).
 Geometry follows VS Code too — 10px before the icon, the close action in a slot of its own, and
 "shrink" sizing (content width, 80px floor) so short names do not make a ragged strip
-(`CodeViewer.styles.ts:62`, `:112`). Two numbers deliberately differ, because this pane is a
+(`CodeViewer.styles.ts:69`, `:107`). Two numbers deliberately differ, because this pane is a
 ~330px sidebar and its strip **wraps** where VS Code scrolls one row: tabs are 30px like the
 dock's own header strips rather than VS Code's 35px, which would stack to 70px as soon as a
 third file opened, and a tab is capped at 220px so one long name cannot push every other tab
@@ -635,7 +635,7 @@ where the user dragged it — opening a file must not relocate a pane
 (`ensureEditorPanelInWorkspace`, `hooks/dock-layout/dock-layout-editor.ts:10`, called from
 `ensureEditorPanel`, `hooks/dock-layout/dock-layout-panels.ts:31`). The viewer shows its own
 empty state (`No file selected` / `Select a file to view its contents`) until a file is
-chosen (`code-viewer/CodeViewerTabs.tsx:257`, `editor-shell/EditorContent.tsx:43`;
+chosen (`code-viewer/CodeViewerTabs.tsx:281`, `editor-shell/EditorContent.tsx:43`;
 `CodeViewer.fixture.tsx` captures it).
 All add/remove/focus/split/resize logic lives in the `hooks/dock-layout/` subsystem behind
 `useDockLayout`, whose return value is the dock control surface consumed by `App`
@@ -682,14 +682,15 @@ windows start no requests and resume when visible. Timer ticks skip an in-flight
 instead of queuing another, so slow Git reads can reach the idle backoff
 (`workspace-git-status.ts:47`, `:72`, `:99`, `:114`). This fallback is needed for dormant sessions, which FileWatcher does not
 poll, as well as editor/external edits and branch/upstream changes that emit no file event.
-The shared FileWatcher/checkout status cache is separate work (#1008). Every section carries VS Code's **message box**, clean checkout or not: a per-repo commit input (⌘⏎, the Commit button, or the header's ✓ → `git:workspace-commit`). It is unconditional so it never moves out from under a half-typed message when the last change is staged or discarded. With something staged it commits exactly the index; with nothing staged it raises a `ConfirmDialog` first, since committing everything is a different act from the one a staging UI implies — confirming sends `stageAll`, which runs the same stage-all managed commit the Commit overlay uses. Discard is likewise confirmed: throwing away uncommitted work is unrecoverable, and one dialog hoisted to the panel serves every row and group. The **branch label is a pill button** — a bordered control rather than a caption, because a label nobody reads as clickable is a feature nobody finds (`components/git/BranchSwitcher.tsx`): clicking it opens a VS Code-style quick-pick — filter input, the repo's branches from the existing `git:list-branches` (which already hides branches held by other worktrees), and a "Create new branch" entry when the typed name matches nothing — checking the workspace checkout out via `git:workspace-checkout`; failures (e.g. dirty-tree conflicts) render inline and leave it open. It is a **centered modal**, not a popover anchored to the label: the panel is a narrow sidebar column that cramped the list and clipped long branch names. It reuses `createDialogStyles` + `useAutoFocus` and the Command Palette's keyboard model (↑/↓ move the active row, Enter selects, Escape closes), names its repo in the header since a workspace has several, and is portaled to `document.body` so an ancestor `transform` can't become the containing block for its fixed overlay. It is reached by selecting Source Control in the activity rail, the `view.sidebar.sourceControl` command (⌘⇧G), or the View menu — all of which swap the one sidebar onto this view.
+The main-process status reader shares fresh FileWatcher porcelain and branch data through the [checkout status cache](fs.md). Every section carries VS Code's **message box**, clean checkout or not: a per-repo commit input (⌘⏎, the Commit button, or the header's ✓ → `git:workspace-commit`). It is unconditional so it never moves out from under a half-typed message when the last change is staged or discarded. With something staged it commits exactly the index; with nothing staged it raises a `ConfirmDialog` first, since committing everything is a different act from the one a staging UI implies — confirming sends `stageAll`, which runs the same stage-all managed commit the Commit overlay uses. Discard is likewise confirmed: throwing away uncommitted work is unrecoverable, and one dialog hoisted to the panel serves every row and group. The **branch label is a pill button** — a bordered control rather than a caption, because a label nobody reads as clickable is a feature nobody finds (`components/git/BranchSwitcher.tsx`): clicking it opens a VS Code-style quick-pick — filter input, the repo's branches from the existing `git:list-branches` (which already hides branches held by other worktrees), and a "Create new branch" entry when the typed name matches nothing — checking the workspace checkout out via `git:workspace-checkout`; failures (e.g. dirty-tree conflicts) render inline and leave it open. It is a **centered modal**, not a popover anchored to the label: the panel is a narrow sidebar column that cramped the list and clipped long branch names. It reuses `createDialogStyles` + `useAutoFocus` and the Command Palette's keyboard model (↑/↓ move the active row, Enter selects, Escape closes), names its repo in the header since a workspace has several, and is portaled to `document.body` so an ancestor `transform` can't become the containing block for its fixed overlay. It is reached by selecting Source Control in the activity rail, the `view.sidebar.sourceControl` command (⌘⇧G), or the View menu — all of which swap the one sidebar onto this view.
   The picker now keeps the three VS Code top-level actions visible: **Create new branch…**,
   **Create new branch from…**, and **Checkout detached…**, followed by separate **Branches**
   and **Remote branches** sections. Create-from collects a name and then a start ref; detached
   checkout selects a ref without creating a local branch. The status-bar trigger uses this same
   component with flat chrome. `git:workspace-status` also returns optional upstream
   `ahead`/`behind` counts for that trigger; absence means no configured upstream resolved
-  (`BranchSwitcher.tsx:143`, `:162`; `git-handlers.ts:153`, `:163`).
+  (`BranchSwitcher.tsx:143`, `:162`; `workspace-status.ts:32`, `:42`). Checkout is handled by
+  `git-workspace-handlers.ts:91`.
 - The **Search** view — `SearchView` inline in the sidebar (`SearchSidebarView`, `dock-panels.tsx:104`), the same body the search modal wraps in overlay chrome.
 - `agent` → **Agent** — `AgentPanel` (`components/editor/editor-shell/dock-agent-panel.tsx:86`): renders a draft chat, an `OnboardingView` (no agent yet), an `AgentChatView` (non-interactive chat-mode), or an xterm `TerminalPane` (interactive runtime) depending on session state. **The group's tab bar is where agents live and are managed.** One tab per agent **of the active workspace**, not of the selected folder (`App.tsx` groups them by `workspaceId` and hands `useAgentSiblingDockTabs` that list) — a workspace's agents share its checkout, so hiding one behind a folder click would hide agents that work in the very same place; a **+** in the tab bar (`AgentHeaderActions.tsx:54`, mounted through `LeftHeaderActions` beside the shell's own +, `AppShell.tsx:54`) opens `NewAgentModal` on the active workspace via `onNewAgentFromHeader(workspace.id)` — falling back to whichever workspace holds the active repo when none is focused. It is deliberately *not* a runtime dropdown: the dialog owns the provider and Terminal/Chat choice, so the tab bar offers one affordance and one dialog wherever a new agent is started. At the **far right** of the strip (the right header slot, so it lands top-right of the view like the shell's ×) `AgentCloseHeaderActions` renders a `×` that **hides the active *sibling* agent tab** (`onCloseSiblingPanel`) — the agent stays alive, so selecting it again from the sidebar reopens its tab; it is disabled while the structural primary `agent` tab is active, which cannot be hidden. Both the + and the × fill their `.dv-react-part` wrapper and centre their 24px pill in it (`AgentHeaderActions.tsx:14`), because dockview's wrapper is block-level and would otherwise leave the control 6px high in the 30px strip. **A Claude tab also carries a cost coin.** `AgentTabUsage` (`components/AgentTabUsage.tsx:76`) sits between the label and the `…`, visible at rest like the tab's other controls, and its tooltip answers what the session has cost. It reads `agent:session-usage` **on hover** rather than on a timer, so an idle tab costs nothing and the figure is current whenever it is on screen; re-hovering refetches but keeps the last number on screen so it does not strobe. The headline is an estimate derived from published API rates — Claude records tokens, not prices — which the second line marks (`est. at API rates`), and an unrecognised model reads `Cost unavailable` rather than a guess. **A per-model table carries the breakdown** (`Breakdown`, `AgentTabUsage.tsx:48`): one row per model with input, output, cache read, cache write and its own cost, dearest first, closed by a **Total** row (`Totals`, `AgentTabUsage.tsx:81`) when more than one model ran. The total is not decoration: cells are rounded to fit the width, so adding the visible numbers does not reconcile — 22,823 and 16,738 read as `22.8k` and `16.7k`, summing to 39.5k against a true 39.6k — and the row does that addition from the exact figures. A single-model session skips it, since the one row already is the total. This is what makes a large total legible — a one-word prompt still bills tens of thousands of tokens, because cache traffic is the system prompt, CLAUDE.md, tool definitions and prior turns, and it dwarfs anything typed. The summary line therefore reports **two** figures, because conflating them is what made the total look wrong: `billed` is cumulative across every request (each turn re-reads the cached prefix and pays again), while `context` is the live window — `contextTokens`, the newest request's own input + cache read + write — which matches the status line's `Ctx` exactly. A real session read `103.9k billed · 42.5k context`. A `/model` switch widens the gap further: caches are model-scoped, so the new model re-writes the whole prefix instead of reading it, which the table makes visible as a row with large `Cache w` and zero `Cache r`. The coin is Claude-only (`DockTab.tsx:107`): no other runtime's transcript carries the per-model token split cost needs. **Both tab controls sit at rest, not behind a hover.** `.dock-tab__action` used to be `opacity: 0` until `.dock-tab:hover`/`:focus-within` (`styles/theme.css:555`), which kept the strip quiet but hid the affordances from anyone not already reaching for them — the coin inherited that and was invisible until you hovered the very tab whose cost you were trying to find. **Per-agent settings, lock and delete live in one overflow menu on each tab, not as separate glyphs** (`DockTab.tsx:87`, `:108`). The tab carries a single `…`; its worded menu opens `AgentSettingsModal`, toggles the agent's **deletion lock** through `onToggleLocked` → `agent:set-locked`, or routes to the delete-confirm dialog through `onRequestDeleteAgent`. Delete remains visible but disabled while the agent is locked, and the lock action becomes **Unlock agent** (`DockTab.tsx:88`, `:97`; `ContextMenu.tsx:73`). `requestDeleteAgent` (`hooks/app/useAppOverlays.ts:79`) is the single chokepoint every delete entry point funnels through and returns early for a locked session, so the lock also holds for the Delete Agent command and the New Agent view's reusable-sessions card; the main process refuses too. Deleting the agent is distinct from the header ×, which only hides its tab. Hiding a sibling is tracked in a module-level dismissed set (`hooks/agent-session/dismissed-agent-tabs.ts`) so the auto-tab reconciler (`useAgentSiblingDockTabs`) — which re-runs on every dock change — doesn't immediately recreate the hidden tab; reopening (select, or `openSiblingPanel`) clears the mark. **The form asks only what the workspace doesn't already answer.** Starting an agent is
   workspace-scoped end to end: `onLaunchWorkspaceAgent(workspaceId, { runtimeId, displayName,
@@ -709,7 +710,7 @@ The shared FileWatcher/checkout status cache is separate work (#1008). Every sec
   broke it the same way — the agent still counted but had let go of the name. `nextAgentName`
   scans every sibling's `displayName`, whatever its runtime, since names are what collide.
   *And name the first agent too*: a blank name is left undefined downstream
-  (`session-creator.ts:190`) and an unnamed session falls back to its **branch** label
+  (`session-creator.ts:216`) and an unnamed session falls back to its **branch** label
   (`DockTab.tsx:93`) — which every agent in a workspace shares, so the first Claude agent and
   the first Codex agent used to show identical tabs. Note the label comes from `runtimeLabel`
   (`Claude`), not the runtime's own `name` (`Claude Code`), matching the rest of the UI and
@@ -857,8 +858,8 @@ the order it was already in, because their timestamps don't move and the sort is
 
 Several folders showing at once is possible because **the main process authorizes file paths
 against the workspace roots** — every registered repo plus every session's worktree — not
-against the selected session, and reads and creates need no session at all (`main/ipc/file-handlers.ts:27`,
-`:47`, `:54`). A file in any open folder therefore opens, saves and renames like any other; the
+against the selected session, and reads and creates need no session at all (`main/ipc/file-handlers.ts:28`,
+`:48`, `:55`). A file in any open folder therefore opens, saves and renames like any other; the
 renderer no longer pre-filters reads by the active session's roots. Only the folder the
 *selected* agent works in is a live, watched tree with change badges (`useFileWatcher`); every
 other folder is fetched on demand through `files:tree` / `files:tree-by-project` and cached per
@@ -867,7 +868,7 @@ root, so reopening one paints in the same frame instead of flashing empty
 though — an agent in another workspace, or the user in a terminal, moves those files too — so a
 fetched folder reloads itself when an event **names its own root** (`rootPath` on
 `files:tree-changed`, `source` on the add-dir `files:changed`) and on window focus, the only
-signal left for a folder no agent is working in (`useWorkspaceTree.ts:133`, `:139`, `:143`;
+signal left for a folder no agent is working in (`useWorkspaceTree.ts:133`, `:138`, `:142`;
 [fs](fs.md)). Reloading keeps the folder's expanded paths, so a refresh never collapses what the
 user opened (`useWorkspaceTree.ts:78`).
 
@@ -875,7 +876,7 @@ A restored session may initially receive `null` from `files:tree`: `useFileWatch
 keeps an empty tree without an error (`hooks/editor/useFileWatcher.ts:37`), and
 `useWorkspaceTree` leaves its cache and expanded paths intact (`hooks/editor/useWorkspaceTree.ts:73`).
 Discovery pushes `files:tree-changed` for the adopted id, so the selected tree retries
-(`useFileWatcher.ts:96`), an uncached session folder can retry by id before its root is known
+(`useFileWatcher.ts:95`), an uncached session folder can retry by id before its root is known
 (`useWorkspaceTree.ts:133`), and ahead/behind refreshes (`hooks/editor/useGitOperations.ts:39`).
 Request counters keep a late pre-discovery reply from overwriting a newer successful
 refresh (`useFileWatcher.ts:39`, `useGitOperations.ts:29`). Ahead/behind ignores ordinary
@@ -936,7 +937,7 @@ the view. The modal mounts its `useSearch` instance only while open, so a closed
 no `search:context` IPC and every open starts from an empty query. **Web preview** is
 likewise not a standalone panel:
 HTML files render in an `<iframe>` inside the editor's `CodeViewer`
-(`components/editor/code-viewer/CodeViewer.tsx:218`, resolved by `viewer/useResolvedHtmlPreview.ts`),
+(`components/editor/code-viewer/CodeViewer.tsx:236`, resolved by `viewer/useResolvedHtmlPreview.ts`),
 alongside the markdown/image/PDF previews in `components/editor/viewer/`.
 
 **Modules & the contribution registry.** Internal (built-in-component) modules are
@@ -975,28 +976,20 @@ as a failed type assertion and reported a syntax error. The pane id keeps the UR
 so two split panes on the same file must not share one
 (`components/editor/editor-shell/editor-model-path.ts:13`).
 
-**Editor view modes.** `useCodeViewerModes` stores each file's Preview/Diff choices per pane
-in module-level sets that survive remounts (`components/editor/code-viewer/useCodeViewerModes.ts:13`).
-On first open or a new matching request, `default` (Modified Files) and `sourceControl` select
-Diff; other sources select Editor. The last handled request is retained per pane so tab switches
-and remounts preserve choices without replaying stale requests (`useCodeViewerModes.ts:15`, `:106`).
-The preference is stored even before asynchronous diff data arrives; Diff is active only when
-the current file also has diff data (`useCodeViewerModes.ts:63`, `:121`).
-Selecting Editor or editing content clears only the
-active file's Diff preference, so later diff refreshes cannot replace its editor
-(`useCodeViewerModes.ts:124`, `CodeViewer.tsx:146`). Diff choices and first-open history each
-retain at most 200 paths per pane (`useCodeViewerModes.ts:16`, `:78`, `:114`). Markdown still
-auto-previews on first open, and Preview takes precedence over Diff (`useCodeViewerModes.ts:92`, `:178`).
+**Editor view modes.** Each pane remembers per-file Editor/Diff/Preview choices across tab
+switches and remounts. Explicit opens target the pane that handled them, and moved tabs carry
+their choices to the destination. See [Editor view modes](editor-view-modes.md) for request
+matching, first-open defaults, delayed diff data and the bounded preference stores.
 
 **Editor file freshness and undo.** Open editor files live in `useCodeView` state as `OpenFile`
-records with a `refreshVersion` counter (`hooks/editor/useCodeView.ts:15`). The file watcher
+records with a `refreshVersion` counter (`hooks/editor/useCodeView.ts:16`). The file watcher
 hook listens to both `files:changed` and `files:tree-changed`; for the active session it
 refreshes the tree and calls the app-level file-refresh callback
-(`hooks/editor/useFileWatcher.ts:79`, `:93`). That callback reaches
+(`hooks/editor/useFileWatcher.ts:81`, `:95`). That callback reaches
 `useCodeViewFileOps.refreshOpenFiles()`, which rereads every file still open in an editor pane
 and increments `refreshVersion` when disk content changes
 (`hooks/editor/useCodeViewFileOps.ts:279`, `:295`). The read-only Diff editor uses that counter
-as a remount key (`components/editor/code-viewer/CodeViewer.tsx:243`),
+as a remount key (`components/editor/code-viewer/CodeViewer.tsx:253`),
 but the editable `EditorContent` is keyed only by file path and receives refreshed text as a
 controlled Monaco value. Refreshes therefore update the current model without discarding
 Monaco's standard multi-step Undo/Redo history; switching files still creates a separate
@@ -1007,7 +1000,7 @@ file also revalidates that one file before continuing to reuse the existing tab
 dot, keep edits in memory, are excluded from file refresh and session view-state persistence,
 and never invoke `files:write` (`hooks/editor/useCodeViewFileOps.ts:170`,
 `hooks/agent-session/useSessionStatePersistence.ts:31`,
-`components/editor/code-viewer/CodeViewerTabs.tsx:250`). Git sync failure output uses this path.
+`components/editor/code-viewer/CodeViewerTabs.tsx:251`). Git sync failure output uses this path.
 
 **Shared chat.** `src/renderer-shared/chat/` holds the chat surface — `ChatPane` plus the
 `useChat` / `useAgentStatus` / `useSlashCommands` hooks (`chat/index.ts`). Inside the

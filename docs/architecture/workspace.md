@@ -1,7 +1,7 @@
 ---
 description: How Manifold groups repositories into a Workspace — a place to work that owns one checkout of every repo it spans, so agents join a workspace instead of cutting worktrees of their own.
 covers: [src/main/workspace]
-updated: 2026-09-08
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -118,15 +118,15 @@ It calls `sessionManager.createSession()` with `projectId = projects[0].id`, `ad
 (`session-creator.ts`); the prompt is empty, because nothing here asks for a task. Viola uses
 the same path with `runtimeId: 'viola'` and `nonInteractive: true`: it joins the workspace and
 its working set like any other agent, while the native harness chooses CLI workers internally
-(`workspace-manager.ts:236`, `session-creator.ts:37`). The remaining option is the fork between the two kinds: a worktree workspace
+(`workspace-manager.ts:236`, `session-creator.ts:39`). The remaining option is the fork between the two kinds: a worktree workspace
 passes `existingWorktreePath = primary`, while a home workspace passes
 `noWorktree: true, stayOnBranch: true` so the agent works in the clone on whatever branch the
-user has checked out there (`:243`). The PTY is spawned with cwd = the primary path; only the
+user has checked out there (`workspace-manager.ts:243`). The PTY is spawned with cwd = the primary path; only the
 *additional* dirs need flags, which `buildWorkingSetArgs()` emits per runtime — `--add-dir
 <dirs…>` (variadic) for Claude, repeated `--add-dir <dir>` for Codex / Copilot, and
 `--include-directories a,b,c` for Gemini (`src/main/agent/working-set-args.ts:6`). Print-mode
 spawns get the same flags through `buildSimpleRuntimeCommand`, which places them before
-`-p <prompt>` (`src/main/session/session-creator.ts:139`).
+`-p <prompt>` (`src/main/session/session-creator.ts:142`).
 
 **Tear down.** Removing the *workspace* is what removes its checkouts: `remove()` calls
 `removeWorkspaceWorktrees()` before dropping the record (`workspace-manager.ts:87`, `:192`;
@@ -159,12 +159,12 @@ pass promotes nothing.
 
 ## Interactions
 
-- **Session** (`src/main/session`): `spawnAgent` calls `SessionManager.createSession()`; the resulting session carries `workspaceId`, `additionalDirs`, and `workspaceWorktreePaths` (`src/shared/types.ts:27`). `SessionCreator` persists those to worktree meta (`session-creator.ts:184`) so a discovered session re-surfaces the whole set. Teardown runs the other way now: `SessionKiller` removes **no** worktrees, because the workspace owns them (`session-killer.ts:28`).
+- **Session** (`src/main/session`): `spawnAgent` calls `SessionManager.createSession()`; the resulting session carries `workspaceId`, `additionalDirs`, and `workspaceWorktreePaths` (`src/shared/types.ts:27`). `SessionCreator` persists those to worktree meta (`session-creator.ts:253`) so a discovered session re-surfaces the whole set. Teardown runs the other way now: `SessionKiller` removes **no** worktrees, because the workspace owns them (`session-killer.ts:28`).
 - **Git / worktrees** (`src/main/git`): the injected `WorktreeManager` provides `createWorktree` / `createWorktreeFromBranch` / `removeWorktree` / `deleteBranch` / `branchExists` behind the `WorktreeSetManager` port.
 - **Agent runtime** (`src/main/agent`): `buildWorkingSetArgs()` translates `additionalDirs` into the per-runtime multi-directory launch flags.
 - **Store / projects** (`src/main/store`): `ProjectRegistry.getProject()` resolves each member's path/baseBranch/kind; `isGitProject` (`src/shared/project-kind.ts`) decides worktree vs. passthrough.
 - **App wiring** (`src/main/app/index.ts:69`): constructs `WorkspaceStore` at `~/.manifold/workspaces.json` and `WorkspaceManager`, wiring `emitListChanged` to send `workspace:list-changed` to the renderer, then runs `pruneMissingProjects()`. `promoteAgentWorktreesToWorkspaces()` runs from the `beforeFirstWindow` hook (`app/app-lifecycle.ts`), because the sidebar's first paint must already show the promoted workspaces.
-- **IPC** (`src/main/ipc/workspace-handlers.ts`): `workspace:list` / `:create` / `:remove` / `:add-project` / `:remove-project` / `:spawn-agent` map one-to-one onto the manager. Project removal cascades in from outside this folder: `projects:remove` (`src/main/ipc/project-handlers.ts:194`) and `agent:delete-app` (`src/main/ipc/agent-handlers.ts:255`) both call `removeProjectFromAllWorkspaces()`.
+- **IPC** (`src/main/ipc/workspace-handlers.ts`): `workspace:list` / `:create` / `:remove` / `:add-project` / `:remove-project` / `:spawn-agent` map one-to-one onto the manager. Project removal cascades in from outside this folder: `projects:remove` (`src/main/ipc/project-handlers.ts:194`) and `agent:delete-app` (`src/main/ipc/agent-handlers.ts:199`) both call `removeProjectFromAllWorkspaces()`.
 
 ## Invariants & gotchas
 
@@ -178,5 +178,5 @@ pass promotes nothing.
 - **Working-set creation is all-or-nothing.** A failure partway through rolls back the worktrees already created before rethrowing (`workspace-worktrees.ts:65`). Since that runs inside `create()`, a failed create leaves no record either.
 - **Promotion runs before the first window and only forward.** `promoteAgentWorktreesToWorkspaces` is idempotent and never un-promotes; a worktree already claimed by a workspace is skipped (`workspace-promotion.ts:33`).
 - **Non-git folders are edited in place, never deleted.** They pass through as their own path on build and are explicitly skipped on removal where `projectPath === worktreePath` (`workspace-worktrees.ts:83`).
-- **Extra-dir flags reach both modes, by different routes.** Interactive spawns append them to the base args (`session-creator.ts:147`); print-mode/chat spawns get them inside the command `buildSimpleRuntimeCommand` assembles, because the flags must precede `-p <prompt>` (`session-creator.ts:139`, `simple-runtime.ts:27`). A chat follow-up rebuilds the same command from the session's stored `additionalDirs` (`app/dev-server-manager.ts:190`), so the second turn spans the same repos as the first.
+- **Extra-dir flags reach both modes, by different routes.** Interactive spawns append them to the base args (`session-creator.ts:164`); print-mode/chat spawns get them inside the command `buildSimpleRuntimeCommand` assembles, because the flags must precede `-p <prompt>` (`session-creator.ts:142`, `simple-runtime.ts:27`). A chat follow-up rebuilds the same command from the session's stored `additionalDirs` (`app/dev-server-manager.ts:190`), so the second turn spans the same repos as the first.
 - **`runtimeId` may be absent on old records.** Workspaces persisted before per-workspace runtimes carry no `runtimeId`; callers fall back to the global default (`src/shared/workspace-types.ts`).

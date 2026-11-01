@@ -1,7 +1,7 @@
 ---
 description: How Manifold persists app and user state on disk — settings/config, the project registry, per-session view/chat/verdict state — and which JSON file owns which slice.
 covers: [src/main/store]
-updated: 2026-08-27
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -85,7 +85,7 @@ path could otherwise slip in and create a duplicate entry.
 `updateProject()` mutates in place via `Object.assign`, re-sorts, and writes; this is how
 `slashCommands` is cached: when Claude's `system/init` reports slash-command/skill names,
 `SessionManager` and the dev-server manager call `updateProject(id, { slashCommands })`
-(`session-manager.ts:239`, `dev-server-manager.ts:254`) so the chat `/` autocomplete is
+(`session-manager-context.ts:170`, `dev-server-manager.ts:254`) so the chat `/` autocomplete is
 warm before the next session's first message (`shared/types.ts:55`).
 
 **Verdict store.** `VerdictStore` holds a flat `VerdictRecord[]` in `verdicts.json`,
@@ -138,7 +138,7 @@ of it, so it is dropped and the default rebuilt once (`dock-layout-store.ts:12`,
 - `ViewStateStore` / `SearchViewStore` / `ShellTabStore` — `get`/`set`(/`delete`), keyed per session/project/checkout path. Own `view-state.json`, `search-view-state.json`, `shell-tabs.json`.
 - `DockLayoutStore` — `dock-layout-store.ts:24`. `get()` / `set(layout)`, no key and no `delete`: one layout for the window. Owns `dock-layout.json`.
 - `ActiveWorkspaceStore` — `active-workspace-store.ts:13`. `get()` / `set(workspaceId)` for a single `string | null`, written as `{ workspaceId }` (`active-workspace-store.ts:39`). Owns `active-workspace.json`; the renderer reaches it through `workspace:get-active`/`workspace:set-active` and validates the id against the live workspace list before restoring it (`src/renderer/hooks/project/usePersistedActiveWorkspace.ts:27`), so a workspace deleted while the app was closed falls back to `null`.
-- `DismissedAgentsStore` — `dismissed-agents-store.ts:17`. `add`, `has`, `delete`, `deleteProject`. Owns `dismissed-agents.json`. Written by `agent:kill` for `noWorktree` deletes (`agent-handlers.ts:107`), read by `SessionDiscovery` (`session-discovery.ts:140`, `:222`), cleared per branch on session create (`session-lifecycle.ts:84`) and per project on removal (`project-handlers.ts:195`, `agent-handlers.ts:169`).
+- `DismissedAgentsStore` — `dismissed-agents-store.ts:17`. `add`, `has`, `delete`, `deleteProject`. Owns `dismissed-agents.json`. Written by `agent:kill` for `noWorktree` deletes (`agent-handlers.ts:159`), read by `SessionDiscovery` (`session-discovery.ts:150`, `:236`), cleared per branch on session create (`session-lifecycle.ts:51`) and per project on removal (`project-handlers.ts:195`, `agent-handlers.ts:202`).
 - `summarizeMiddle(middle, settings, fetchImpl?)` — `prompt-summarizer.ts:17`. OpenAI/Azure chat completion with a 10 s timeout; falls back to `[middle omitted — N chars]` on any error or `provider: 'none'`.
 
 ## Interactions
@@ -158,5 +158,5 @@ of it, so it is dropped and the default rebuilt once (`dock-layout-store.ts:12`,
 - **`storagePath` blank means `~/.manifold`.** `DEFAULT_SETTINGS.storagePath` is `''`; it is resolved to the home `.manifold` dir at load (`settings-store.ts:23`, `defaults.ts:4`). Downstream code reads `settings.storagePath` directly and assumes it is non-empty.
 - **Chat writes are debounced and timer-`unref`'d.** Pending chat writes are lost on a hard crash; only the `before-quit` `flushSync()` guarantees durability. The unref'd timer means the flush never keeps the app alive on its own (`chat-store.ts:138`).
 - **`getSettings()` returns a copy, not a live reference.** Callers that cache it (e.g. `WorktreeManager` taking `storagePath` once at startup, `app/index.ts:55`) will not see later `storagePath` changes without re-reading.
-- **Verdict eviction is per project, on insert only.** Updates to an existing `sessionId` never evict; only appends do, and only that project's records are pruned (`verdict-store.ts:46`). A whole project's records are dropped only via `deleteByProject`, wired into project removal (`project-handlers.ts:183`, `agent-handlers.ts:250`).
-- **Session-scoped state is evicted on session/project removal.** `view-state` entries are deleted wherever a session is killed (`agent-handlers.ts:135`, `:164`, `:178`, `:189`; `settings-handlers.ts`'s `view-state:delete`), so the file can't grow without bound. `dock-layout.json` needs no such eviction — it holds one layout, not one per session. Agent dismissals are likewise lifted on recreate (`session-lifecycle.ts:84`) and purged on project removal (`project-handlers.ts:195`).
+- **Verdict eviction is per project, on insert only.** Updates to an existing `sessionId` never evict; only appends do, and only that project's records are pruned (`verdict-store.ts:46`). A whole project's records are dropped only via `deleteByProject`, wired into project removal (`project-handlers.ts:183`, `agent-handlers.ts:196`).
+- **Session-scoped state is evicted on session/project removal.** `view-state` entries are deleted on configuration replacement, explicit agent deletion and app deletion (`agent-handlers.ts:132`, `:166`, `:176`; `settings-handlers.ts`'s `view-state:delete`), so the file can't grow without bound. `dock-layout.json` needs no such eviction — it holds one layout, not one per session. Agent dismissals are likewise lifted on recreate (`session-lifecycle.ts:51`) and purged on project removal (`project-handlers.ts:195`).

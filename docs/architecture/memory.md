@@ -1,7 +1,7 @@
 ---
 description: Per-project session memory — the SQLite store, interaction capture, AI/regex compression, and the (currently disabled) resume-time context injector.
 covers: [src/main/memory]
-updated: 2026-06-10
+updated: 2026-11-01
 owner: see .github/CODEOWNERS
 ---
 
@@ -46,7 +46,7 @@ virtual table kept in sync by `AFTER INSERT`/`AFTER DELETE` triggers
 back by the parser helpers.
 
 **Capture (write path).** When a session is created or resumed, `SessionManager` calls
-`MemoryCapture.startCapturing()` (`session-manager.ts:202`, `:244`), which `upsertSession()`s
+`MemoryCapture.startCapturing()` (`session-lifecycle.ts:65`, `:110`), which `upsertSession()`s
 the row and subscribes to `chatAdapter.onMessage` (`memory-capture.ts:111`). Each agent/user
 message is stripped of any injected memory-context markers, run through `ToolDetector` (agent
 messages only), then `storeInteraction()` `sanitizeMemoryText()`s it, drops it if `isNoise()`,
@@ -63,7 +63,7 @@ the **regex fallback** (no AI cost) and inserts one observation, returning the n
 timestamp (`memory-compressor.ts:43`).
 
 **Full compression (teardown).** On developer-mode teardown, `SessionTeardown` calls
-`MemoryCompressor.compressSession()` (`session-teardown.ts:100`). It loads all interactions
+`MemoryCompressor.compressSession()` (`session-teardown.ts:101`). It loads all interactions
 and, if there are ≥3, resolves the cheapest installed runtime in priority order
 `['claude','gemini','codex']` (`memory-compressor.ts:18`), builds the XML prompt with any
 accumulated `ToolUseEvent`s, and runs it via `runAiPrompt` (60 s timeout). The response is
@@ -82,7 +82,7 @@ id tiebreak keeps rows that share a timestamp at the page boundary from being sk
 returns counts via a single aggregate query (`memory-store.ts:175`).
 
 **Injection.** `MemoryInjector.injectContext()` is called on create and resume
-(`session-creator.ts:195`, `session-resume.ts:45`) but returns immediately —
+(`session-creator.ts:266`, `session-resume.ts:57`) but returns immediately —
 *"Memory injection disabled — feature not ready yet"* (`memory-injector.ts:45`). The
 `buildContextMarkdown()` builder (token-budgeted Recent Sessions / Key Observations / Key
 Learnings sections wrapped in HTML markers) and `cleanupContextFile()` exist and are tested,
@@ -108,11 +108,11 @@ reused in place); on quit
 
 ## Interactions
 
-- **Session** (`src/main/session`): the only writer of memory. `SessionManager` owns the instances and calls `startCapturing`/`stopCapturing` (`session-manager.ts:202`, `session-killer.ts:95`); `SessionIoController` forwards keystrokes via `recordInput` (`session-io-controller.ts:52`); `SessionTeardown` triggers `compressSession` (`session-teardown.ts:100`); `SessionCreator`/`resumeAgentSession` call the (disabled) `injectContext`.
+- **Session** (`src/main/session`): the only writer of memory. `SessionManager` owns the instances and calls `startCapturing`/`stopCapturing` (`session-lifecycle.ts:65`, `session-killer.ts:63`); `SessionIoController` forwards keystrokes via `recordInput` (`session-io-controller.ts:52`); `SessionTeardown` triggers `compressSession` (`session-teardown.ts:101`); `SessionCreator`/`resumeAgentSession` call the (disabled) `injectContext`.
 - **Chat adapter** (`src/main/agent/chat-adapter`): `chatAdapter.onMessage(sessionId, …)` is the capture subscription source. `ToolUseEvent`s are scraped from this same agent text.
 - **Agent runtimes** (`src/main/agent`): `listRuntimesWithStatus()` picks the compression runtime; `runAiPrompt()` executes it in `-p` (print) mode; the regex fallback runs when none is installed.
 - **Settings store** (`src/main/store/settings-store`): supplies `MemorySettings` (`rawRetentionDays`, injection budget/method, etc.); `memory:settings` reads/writes them.
-- **IPC** (`src/main/ipc/memory-handlers.ts`): `memory:search`, `memory:get`, `memory:timeline`, `memory:stats`, `memory:delete`, `memory:clear`, `memory:settings`. `agent:delete-project` (`agent-handlers.ts:242`) also calls `deleteProject`.
+- **IPC** (`src/main/ipc/memory-handlers.ts`): `memory:search`, `memory:get`, `memory:timeline`, `memory:stats`, `memory:delete`, `memory:clear`, `memory:settings`. `agent:delete-app` (`agent-handlers.ts:193`) also calls `deleteProject`.
 - **App lifecycle** (`src/main/app`): construction (`index.ts:95`), startup prune (`app-lifecycle.ts:67`), shutdown close (`app-lifecycle.ts:95`).
 
 ## Invariants & gotchas
