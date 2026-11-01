@@ -29,7 +29,7 @@ import { useSidebarHandleCycle } from './hooks/dock-layout/useSidebarHandleCycle
 import { useAgentSiblingDockTabs } from './hooks/agent-session/useAgentSiblingDockTabs'
 import { useAppEffects } from './hooks/app/useAppEffects'
 import { groupSessionsByWorkspace } from './hooks/app/session-workspace-map'
-import { resolveWorkspaceEntry } from './hooks/app/workspace-entry'
+import { useWorkspaceEntry } from './hooks/app/useWorkspaceEntry'
 import { useCommands } from './hooks/app/useCommands'
 import { themeFamilyOf } from '../shared/themes/registry'
 import { cycleAgent } from './commands/agent-cycle'
@@ -42,7 +42,7 @@ import { usePersistedActiveWorkspace } from './hooks/project/usePersistedActiveW
 import { useWorkspaceRepoStatuses } from './hooks/project/workspace-git-status'
 import { DEFAULT_SIDEBAR_VIEW, type SidebarViewId } from './components/sidebar/sidebar-views'
 import { useFavorites } from './hooks/project/useFavorites'
-import type { AgentSession, AgentSettingsUpdate, ResolvedFavorite } from '../shared/types'
+import type { AgentSession, AgentSettingsUpdate } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
 import { pickUnusedNorwegianCityName } from '../shared/norwegian-cities'
 import { clampUiScale } from '../shared/defaults'
@@ -59,11 +59,10 @@ export function App(): React.JSX.Element {
   }, [settings.uiScale])
 
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
-  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
-  const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
+  const { sessions, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession: selectSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
   const { sessionsByProject, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions)
   const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
-  const { activeWorkspaceId, setActiveWorkspaceId } = usePersistedActiveWorkspace(workspaces)
+  const { activeWorkspaceId, setActiveWorkspaceId: selectWorkspace } = usePersistedActiveWorkspace(workspaces)
   const workspaceGitStatus = useWorkspaceRepoStatuses(activeWorkspaceId)
   const [sidebarView, setSidebarView] = useState<SidebarViewId>(DEFAULT_SIDEBAR_VIEW)
   const [newAgentTarget, setNewAgentTarget] = useState<NewAgentTarget | null>(null)
@@ -76,6 +75,11 @@ export function App(): React.JSX.Element {
     () => groupSessionsByWorkspace(sessionsByProject ?? {}, workspaces),
     [sessionsByProject, workspaces],
   )
+  const { setActiveSession, setActiveWorkspaceId, enterWorkspace, activateFavorite, jumpToFavorite } = useWorkspaceEntry({
+    workspaces, sessionsByWorkspace, activeWorkspaceId, activeSessionId, activeProjectId,
+    favorites, selectWorkspace, selectSession, setActiveProject,
+  })
+  const { drafts, activeDraft, effectiveSessionId, createDraft, discardDraft, promoteDraft } = useDraftChatCoordinator(activeSessionId, setActiveSession, spawnAgent)
   const workspaceIdBySession = useMemo(() => {
     const map: Record<string, string> = {}
     for (const [workspaceId, sessions] of Object.entries(sessionsByWorkspace)) {
@@ -164,36 +168,6 @@ export function App(): React.JSX.Element {
 
   const overlays = useAppOverlays(gitOps.commit, refreshDiff, deleteAgent, removeSession, updateSettings, setActiveSession, setActiveProject, activeProjectId)
 
-  // Entering a workspace, from wherever it is asked for: the sidebar row, a
-  // Favorites row, or ⌘1–9. All three used to be written out separately, and the
-  // Favorites ones only moved the active workspace and folder — the previous
-  // workspace's agent stayed on screen, so clicking a favorite looked like
-  // nothing had happened. `resolveWorkspaceEntry` is now the single answer to
-  // "what else moves"; this only applies it.
-  const enterWorkspace = useCallback((id: string): void => {
-    setActiveWorkspaceId(id)
-    const entry = resolveWorkspaceEntry(id, {
-      workspaces, sessionsByWorkspace, activeSessionId, activeProjectId,
-    })
-    if (entry.kind === 'keep') return
-    if (entry.kind === 'agent') {
-      overlays.handleSelectSession(entry.session.id, entry.session.projectId)
-      return
-    }
-    if (entry.projectId) setActiveProject(entry.projectId)
-    setActiveSession(null)
-  }, [
-    workspaces, sessionsByWorkspace, activeSessionId, activeProjectId,
-    overlays, setActiveWorkspaceId, setActiveProject, setActiveSession,
-  ])
-  const activateFavorite = useCallback(
-    (fav: ResolvedFavorite): void => enterWorkspace(fav.id),
-    [enterWorkspace],
-  )
-  const jumpToFavorite = useCallback((index: number): void => {
-    const fav = favorites[index]
-    if (fav) activateFavorite(fav)
-  }, [favorites, activateFavorite])
   const { themeId, themeClass, xtermTheme, setPreviewThemeId } = useTheme(settings.theme)
   const toggleTheme = useCallback(() => {
     const nextId = themeId.endsWith('-light')

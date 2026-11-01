@@ -41,8 +41,10 @@ function applyProjectSessions(
     // and promoting it here showed (and auto-resumed) that agent in the wrong
     // place. The flag lifts as soon as anything selects a session again.
     if (clearedRef.current) return null
-    const preferred = preferredSessionId ?? prev
-    if (preferred && result.some((session) => session.id === preferred)) return preferred
+    // A workspace entry can select its remembered sibling in the same batch
+    // as changing projects. Keep that explicit selection ahead of repo memory.
+    if (prev && result.some((session) => session.id === prev)) return prev
+    if (preferredSessionId && result.some((session) => session.id === preferredSessionId)) return preferredSessionId
     return result.length > 0 ? result[0].id : null
   })
 }
@@ -78,7 +80,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   }, [])
 
   const { refreshSessions, rememberedActiveSessionRef } = useFetchSessionsOnProjectChange(
-    projectId, activeSessionId, setSessions, setActiveSessionId, clearedRef,
+    projectId, activeSessionId, sessions, setSessions, setActiveSessionId, clearedRef,
   )
   useStatusListener(setSessions)
   useExitListener(setSessions)
@@ -108,6 +110,7 @@ interface FetchSessionsResult {
 function useFetchSessionsOnProjectChange(
   projectId: string | null,
   activeSessionId: string | null,
+  sessions: AgentSession[],
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>,
   clearedRef: React.MutableRefObject<boolean>,
@@ -119,8 +122,14 @@ function useFetchSessionsOnProjectChange(
   // The session restored from per-project memory on the latest project switch,
   // exposed so the dock can protect it from layout-restore overwrites (#773).
   const rememberedActiveSessionRef = useRef<string | null>(null)
-  const activeSessionIdRef = useRef(activeSessionId)
-  activeSessionIdRef.current = activeSessionId
+  useEffect(() => {
+    // Capture a settled selection with its own project. Cleanup runs after
+    // render has already advanced to the incoming workspace's selection.
+    if (projectId && activeSessionId
+      && sessions.some((s) => s.id === activeSessionId && s.projectId === projectId)) {
+      lastSessionByProjectRef.current.set(projectId, activeSessionId)
+    }
+  }, [projectId, activeSessionId, sessions])
 
   const syncSessions = useCallback(
     async (preferredSessionId?: string | null): Promise<AgentSession[] | null> => {
@@ -151,13 +160,6 @@ function useFetchSessionsOnProjectChange(
     const remembered = lastSessionByProjectRef.current.get(projectId) ?? null
     rememberedActiveSessionRef.current = remembered
     void syncSessions(remembered)
-
-    return () => {
-      // On leaving this project, record whichever agent is active so we can
-      // restore it on return. Runs before the next project's effect reads it.
-      const active = activeSessionIdRef.current
-      if (active) lastSessionByProjectRef.current.set(projectId, active)
-    }
   }, [projectId, setSessions, setActiveSessionId, syncSessions])
 
   useIpcListener<AgentSessionsChangedEvent>(
