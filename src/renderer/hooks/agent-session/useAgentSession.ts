@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { AgentSession, AgentStatus, SpawnAgentOptions } from '../../../shared/types'
 import { useIpcListener } from '../app/useIpc'
 import { useSpawnAgent, useKillAgent, useDeleteAgent, useResumeAgent } from './useAgentSession-actions'
+import { useAutoResume } from './useAutoResume'
 
 interface AgentStatusEvent {
   sessionId: string
@@ -245,38 +246,5 @@ function useActivityStateListener(): Set<string> {
   )
 
   return outputtingIds
-}
-
-function useAutoResume(
-  activeSessionId: string | null,
-  sessions: AgentSession[],
-  setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>
-): void {
-  const sessionsRef = useRef(sessions)
-  sessionsRef.current = sessions
-
-  useEffect(() => {
-    if (!activeSessionId) return
-    const session = sessionsRef.current.find((s) => s.id === activeSessionId)
-    if (!session || session.pid !== null || session.status !== 'done') return
-    if (!session.runtimeId) return
-    // Chat-mode sessions spawn a fresh print-mode process per message; they
-    // intentionally have no persistent PTY between messages. Auto-resuming
-    // would launch an interactive runtime and stream its TUI output into chat.
-    if (session.nonInteractive) return
-
-    void (async () => {
-      try {
-        const resumed = (await window.electronAPI.invoke(
-          'agent:resume',
-          activeSessionId,
-          session.runtimeId
-        )) as AgentSession
-        setSessions((prev) => prev.map((s) => (s.id === resumed.id ? resumed : s)))
-      } catch {
-        // Resume failed — session stays dormant
-      }
-    })()
-  }, [activeSessionId, setSessions])
 }
 
