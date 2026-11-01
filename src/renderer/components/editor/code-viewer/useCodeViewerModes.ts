@@ -105,7 +105,7 @@ export function useCodeViewerModes({
 
   useEffect(() => {
     if (!activeFilePath) return
-    const matchesRequest = lastFileOpenRequest.path === activeFilePath
+    const matchesRequest = lastFileOpenRequest.paneId === paneId && lastFileOpenRequest.path === activeFilePath
     const isNewRequest = matchesRequest && handledOpenRequestsByPane.get(paneId) !== lastFileOpenRequest
     if (matchesRequest) handledOpenRequestsByPane.set(paneId, lastFileOpenRequest)
 
@@ -114,8 +114,8 @@ export function useCodeViewerModes({
     addBounded(seen, activeFilePath, MAX_PATHS_PER_PANE)
     autoDiffedPathsByPane.set(paneId, seen)
 
-    // Seed on first open or a new matching request, independently of async diff
-    // data. Tab switches and remounts retain the file's choice.
+    // Seed on first open or a new request targeted at this pane, independently
+    // of async diff data. Tab switches and remounts retain the file's choice.
     const wantsDiff =
       lastFileOpenRequest.source === 'default' || lastFileOpenRequest.source === 'sourceControl'
     updateDiffPath(activeFilePath, wantsDiff && matchesRequest)

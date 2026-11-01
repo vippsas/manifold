@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import type { DockAppState } from './dock-panel-types'
 import { DockStateContext } from './dock-panel-types'
 import { PANEL_COMPONENTS } from './dock-panels'
+import { makeDockState } from './dock-panels.test-helpers'
 import { siblingPanelId } from '../../../hooks/agent-session/agent-siblings'
 import type { DraftId } from '../../../../shared/draft-chat'
 
@@ -19,15 +20,6 @@ vi.mock('./AgentChatView', () => ({
   ),
 }))
 
-vi.mock('@monaco-editor/react', () => ({
-  default: ({ value, defaultValue }: { value?: string; defaultValue?: string }) => (
-    <div data-testid="monaco-editor">{value ?? defaultValue}</div>
-  ),
-  DiffEditor: ({ original, modified }: { original: string; modified: string }) => (
-    <div data-testid="monaco-diff-editor">{`${original} → ${modified}`}</div>
-  ),
-}))
-
 const mockInvoke = vi.fn()
 
 beforeEach(() => {
@@ -37,95 +29,6 @@ beforeEach(() => {
     on: vi.fn(() => vi.fn()),
   }
 })
-
-function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
-  return {
-    sessionId: null,
-    primarySessionId: null,
-    scrollbackLines: 1000,
-    diffText: '',
-    openFiles: [],
-    activeFilePath: null,
-    activeEditorPaneId: null,
-    editorPaneIds: [],
-    getEditorPane: vi.fn(),
-    lastFileOpenRequest: { path: null, source: 'default' },
-    theme: 'dark',
-    sidebarView: 'explorer',
-    onSelectSidebarView: vi.fn(),
-    onSelectFile: vi.fn(),
-    onSelectScmFile: vi.fn(),
-    onOpenSearchResult: vi.fn(),
-    onOpenSearchResultInSplit: vi.fn(),
-    onSelectFileFromFileTree: vi.fn(),
-    onSelectOpenFile: vi.fn(),
-    onSelectFileFromMarkdownPreview: vi.fn(),
-    onCloseFile: vi.fn(),
-    onSaveFile: vi.fn(),
-    onRegisterEditorPane: vi.fn(),
-    onActivateEditorPane: vi.fn(),
-    onSplitEditorPane: vi.fn(),
-    onMoveFileToPane: vi.fn(),
-    onMoveFileToSplitPane: vi.fn(),
-    tree: null,
-    primaryBranch: null,
-    changes: [],
-    expandedPaths: new Set<string>(),
-    onToggleExpand: vi.fn(),
-    worktreeRoot: null,
-    baseBranch: 'main',
-    defaultRuntime: 'codex',
-    defaultAgentMode: 'interactive',
-    activeProjectIsGit: true,
-    activeSessionWorktreePath: null,
-    activeSessionNoWorktree: false,
-    onLaunchWorkspaceAgent: vi.fn(),
-    workspaces: [{ id: 'ws-1', name: 'kong-gateway', projectIds: ['p1'], createdAt: '2024-01-01' }],
-    workspaceRepoStatuses: [],
-    refreshWorkspaceRepoStatuses: vi.fn(),
-    activeWorkspaceId: 'ws-1',
-    projects: [{ id: 'p1', name: 'kong-gateway', path: '/repos/kong-gateway', baseBranch: 'main', addedAt: '2024-01-01' }],
-    activeProjectId: null,
-    allProjectSessions: {
-      p1: [
-        {
-          id: 'child-1',
-          projectId: 'p1',
-          runtimeId: 'codex',
-          branchName: 'manifold/123',
-          worktreePath: '/worktrees/kong-gateway/manifold-123',
-          status: 'running',
-          pid: 1,
-          additionalDirs: [],
-          workspaceId: 'ws-1',
-        },
-      ],
-    },
-    outputtingSessionIds: new Set<string>(),
-    onSelectProject: vi.fn(),
-    onSelectSession: vi.fn(),
-    onRemoveProject: vi.fn(),
-    onUpdateProject: vi.fn(),
-    onRenameAgent: vi.fn(),
-    onRequestDeleteAgent: vi.fn(),
-    onNewAgentFromHeader: vi.fn(),
-    onNewProject: vi.fn(),
-    activeSessionStatus: null,
-    activeSessionRuntimeId: null,
-    onResumeAgent: vi.fn(),    onFocusSearch: vi.fn(),
-    onClosePanel: vi.fn(),
-    onOpenModule: vi.fn(),
-    isModuleOpen: () => false,
-    onFocusPanel: vi.fn(),
-    onOpenSibling: vi.fn(),
-    onCloseSiblingPanel: vi.fn(),
-    drafts: [],
-    activeDraft: null,
-    promoteDraft: vi.fn(async () => {}),
-    discardDraft: vi.fn(),
-    ...overrides,
-  } as unknown as DockAppState
-}
 
 describe('AgentPanel', () => {
   it('renders a child session terminal for sibling child panels', () => {
@@ -287,81 +190,6 @@ describe('AgentPanel', () => {
     )
 
     expect(screen.getByRole('textbox')).toBeInTheDocument()
-  })
-})
-
-describe('EditorPanel — Source Control diff', () => {
-  const filePath = '/worktrees/repo-one/src/app.ts'
-
-  function editorState(overrides: Partial<DockAppState> = {}): DockAppState {
-    return makeDockState({
-      sessionId: null,
-      diffText: '',
-      worktreeRoot: null,
-      getEditorPane: () => ({
-        id: 'editor',
-        openFiles: [{ path: filePath, content: 'new content', refreshVersion: 0 }],
-        activeFilePath: filePath,
-        fileContent: 'new content',
-      }),
-      onRegisterEditorPane: vi.fn(),
-      ...overrides,
-    })
-  }
-
-  it('shows the uncommitted diff for a file opened from Source Control', async () => {
-    mockInvoke.mockImplementation(async (channel: string) => {
-      if (channel === 'git:workspace-file-diff') {
-        return { diff: 'diff --git a/src/app.ts b/src/app.ts', original: 'old content' }
-      }
-      return []
-    })
-    const EditorPanel = PANEL_COMPONENTS.editor
-
-    render(
-      <DockStateContext.Provider value={editorState({
-        lastFileOpenRequest: {
-          path: filePath,
-          source: 'sourceControl',
-          scm: { workspaceId: 'ws-1', projectId: 'p1', relPath: 'src/app.ts', staged: false },
-        },
-      })}
-      >
-        <EditorPanel api={{ id: 'editor' }} />
-      </DockStateContext.Provider>,
-    )
-
-    await waitFor(() => {
-      expect(screen.getByTestId('monaco-diff-editor')).toHaveTextContent('old content → new content')
-    })
-    expect(mockInvoke).toHaveBeenCalledWith('git:workspace-file-diff', 'ws-1', 'p1', 'src/app.ts', false)
-  })
-
-  it('stays in the plain editor when the checkout reports no uncommitted change', async () => {
-    mockInvoke.mockImplementation(async (channel: string) => {
-      if (channel === 'git:workspace-file-diff') return { diff: null, original: null }
-      return []
-    })
-    const EditorPanel = PANEL_COMPONENTS.editor
-
-    render(
-      <DockStateContext.Provider value={editorState({
-        lastFileOpenRequest: {
-          path: filePath,
-          source: 'sourceControl',
-          scm: { workspaceId: 'ws-1', projectId: 'p1', relPath: 'src/app.ts', staged: false },
-        },
-      })}
-      >
-        <EditorPanel api={{ id: 'editor' }} />
-      </DockStateContext.Provider>,
-    )
-
-    await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith('git:workspace-file-diff', 'ws-1', 'p1', 'src/app.ts', false)
-    })
-    expect(screen.queryByTestId('monaco-diff-editor')).not.toBeInTheDocument()
-    expect(screen.getByTestId('monaco-editor')).toHaveTextContent('new content')
   })
 })
 

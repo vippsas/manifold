@@ -8,7 +8,7 @@ function propsFor(paneId: string, path: string) {
   return {
     paneId,
     activeFilePath: path,
-    lastFileOpenRequest: { path, source: 'sourceControl' as const },
+    lastFileOpenRequest: { paneId, path, source: 'sourceControl' as const },
     isPreviewable: false,
     isImage: false,
     hasDiff: true,
@@ -59,7 +59,7 @@ describe('useCodeViewerModes diff cache', () => {
 
   it('bounds stored diff choices to 200 paths per pane', () => {
     const props = propsFor('pane-cache-diff-limit', '/0.tf')
-    const editorRequest: FileOpenRequest = { path: '/0.tf', source: 'fileTree' }
+    const editorRequest: FileOpenRequest = { paneId: props.paneId, path: '/0.tf', source: 'fileTree' }
     const file = (index: number) => ({ ...props, activeFilePath: `/${index}.tf`, lastFileOpenRequest: editorRequest })
     const { result, rerender } = renderHook((p) => useCodeViewerModes(p), { initialProps: file(0) })
     for (let index = 1; index < 200; index++) rerender(file(index))

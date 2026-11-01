@@ -8,7 +8,7 @@ function baseProps(paneId: string, activeFilePath: string, isPreviewable: boolea
   return {
     paneId,
     activeFilePath,
-    lastFileOpenRequest: { path: null, source: 'default' as const },
+    lastFileOpenRequest: { paneId, path: null, source: 'default' as const },
     isPreviewable,
     isImage: false,
     hasDiff: false,
@@ -20,7 +20,7 @@ function baseProps(paneId: string, activeFilePath: string, isPreviewable: boolea
 function changedFile(paneId: string, path: string, source: FileOpenSource = 'fileTree') {
   return {
     ...baseProps(paneId, path, false),
-    lastFileOpenRequest: { path, source },
+    lastFileOpenRequest: { paneId, path, source },
     hasDiff: true,
   }
 }
@@ -56,6 +56,7 @@ describe('useCodeViewerModes persistence', () => {
     const props = {
       ...baseProps('pane-c', '/code.ts', false),
       lastFileOpenRequest: {
+        paneId: 'pane-c',
         path: '/code.ts',
         source: 'default' as const,
       },
@@ -74,6 +75,7 @@ describe('useCodeViewerModes persistence', () => {
     const props = {
       ...baseProps('pane-d', '/code.ts', false),
       lastFileOpenRequest: {
+        paneId: 'pane-d',
         path: '/code.ts',
         source: 'sourceControl' as const,
       },
@@ -93,6 +95,7 @@ describe('useCodeViewerModes persistence', () => {
     const props = {
       ...baseProps('pane-e', '/code.ts', false),
       lastFileOpenRequest: {
+        paneId: 'pane-e',
         path: '/code.ts',
         source: 'fileTree' as const,
       },
@@ -113,7 +116,7 @@ describe('useCodeViewerModes persistence', () => {
       const { result, rerender } = renderHook((p) => useCodeViewerModes(p), { initialProps: props })
       expect(result.current.diffMode).toBe(true)
 
-      const request = { path: props.activeFilePath, source, line: 42 }
+      const request = { paneId: props.paneId, path: props.activeFilePath, source, line: 42 }
       rerender({ ...props, lastFileOpenRequest: request })
       expect(result.current.diffMode).toBe(false)
     },
@@ -128,7 +131,7 @@ describe('useCodeViewerModes persistence', () => {
       expect(result.current.diffMode).toBe(false)
 
       // The request can arrive before the selected file changes, while its diff is loading.
-      const request = { path: props.activeFilePath, source }
+      const request = { paneId: props.paneId, path: props.activeFilePath, source }
       rerender({
         ...props,
         activeFilePath: '/other.ts',
@@ -175,6 +178,28 @@ describe('useCodeViewerModes persistence', () => {
     rerender(b)
     expect(result.current.diffMode).toBe(false)
   })
+
+  it.each(['/a.tf', '/c.tf'])(
+    'ignores another pane\'s Source Control request while on %s and on later tab clicks',
+    (otherPath) => {
+      const p1 = changedFile(`pane-target-${otherPath}`, '/a.tf')
+      const p2 = changedFile(`pane-other-${otherPath}`, '/a.tf')
+      const first = renderHook((p) => useCodeViewerModes(p), { initialProps: p1 })
+      const second = renderHook((p) => useCodeViewerModes(p), { initialProps: p2 })
+      act(() => { getEditorPaneModeControls(p2.paneId)!.showEditor() })
+      second.rerender({ ...p2, activeFilePath: otherPath })
+
+      const request = { paneId: p1.paneId, path: '/a.tf', source: 'sourceControl' as const }
+      first.rerender({ ...p1, lastFileOpenRequest: request })
+      second.rerender({ ...p2, activeFilePath: otherPath, lastFileOpenRequest: request })
+      expect(first.result.current.diffMode).toBe(true)
+      expect(second.result.current.diffMode).toBe(false)
+
+      // A tab click changes only the path, retaining the request targeted at p1.
+      second.rerender({ ...p2, lastFileOpenRequest: request })
+      expect(second.result.current.diffMode).toBe(false)
+    },
+  )
 
   it.each(['showEditor', 'keepEditorMode'] as const)(
     '%s suppresses delayed diffs only for the active file across tab switches',
