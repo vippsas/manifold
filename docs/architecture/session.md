@@ -1,7 +1,7 @@
 ---
 description: How Manifold agent sessions are created, run, stopped, resumed, and rediscovered from on-disk worktrees — as tenants of a workspace's checkout, which they never create or remove.
 covers: [src/main/session]
-updated: 2026-11-01T20:55:35Z
+updated: 2026-11-01T21:07:34Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -147,11 +147,12 @@ skip the base checkout for `noWorktree` sessions to avoid exposing build artifac
 (`session-teardown.ts:53`); they no longer run `git worktree remove` either.
 
 **Resume.** `SessionManager.resumeSession()` delegates runtime activation to the lifecycle,
-then calls the same `watchCheckout()` used on creation only when the tracked session has a PTY
-(`session-manager.ts:145`, `:146`, `:91`). A dormant same-id replacement stays unpolled
-even when a second resume joins the cancelled in-flight promise. Interactive resumes register
-the worktree and every persisted additional directory. Chat sessions without a PTY register
-their checkout watches on a nonempty message through `sendInput()` (`session-manager.ts:116`).
+then calls the same `watchCheckout()` used on creation when the tracked session has a PTY or is
+in chat mode (`session-manager.ts:145`, `:146`, `:147`, `:91`). A dormant interactive same-id
+replacement stays unpolled even when a second resume joins the cancelled in-flight promise.
+Interactive and chat resumes register the worktree and every persisted additional directory.
+Chat resumes spawn no PTY; a nonempty message also registers checkout watches through
+`sendInput()` (`session-manager.ts:116`).
 The in-memory `checkoutWatched` flag records activation and registers additional directories
 only once. Later messages and repeated resumes re-register the same primary subscription,
 which is a strict no-op: no extra poll, cached replay, conflict or verdict notification.
