@@ -32,5 +32,12 @@ export function groupSessionsByWorkspace(
       }
     }
   }
+  // The active repo is appended after background repos in sessionsByProject.
+  // Keep the primary agent and tab order independent of that insertion order.
+  for (const workspace of workspaces) {
+    map[workspace.id]?.sort((a, b) =>
+      workspace.projectIds.indexOf(a.projectId) - workspace.projectIds.indexOf(b.projectId),
+    )
+  }
   return map
 }

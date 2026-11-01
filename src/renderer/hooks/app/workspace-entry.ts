@@ -17,6 +17,7 @@ export interface WorkspaceEntryContext {
   sessionsByWorkspace: Record<string, AgentSession[]>
   activeSessionId: string | null
   activeProjectId: string | null
+  rememberedSessionId?: string | null
 }
 
 /**
@@ -34,6 +35,8 @@ export function resolveWorkspaceEntry(
   ctx: WorkspaceEntryContext,
 ): WorkspaceEntry {
   const sessions = ctx.sessionsByWorkspace[workspaceId] ?? []
+  const remembered = sessions.find((s) => s.id === ctx.rememberedSessionId)
+  if (remembered && remembered.id !== ctx.activeSessionId) return { kind: 'agent', session: remembered }
   if (ctx.activeSessionId && sessions.some((s) => s.id === ctx.activeSessionId)) return { kind: 'keep' }
 
   const target = sessions[0]

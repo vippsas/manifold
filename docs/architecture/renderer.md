@@ -79,11 +79,45 @@ state and the live run board (`components/editor/editor-shell/dock-agent-panel.t
 `components/editor/editor-shell/AgentChatView.tsx:59`). Planning and worker orchestration stay in
 the main process, so no plugin view or activity-rail entry is involved.
 
+**Workspace entry restores the last selected agent.** Sidebar cards, Favorites rows and
+⌘1–9 share `useWorkspaceEntry.enterWorkspace` (`hooks/app/useWorkspaceEntry.ts:51`,
+`:66`). The hook remembers agent ids per selected workspace for the lifetime of the
+window. Its session setter records synchronously, and its workspace setter advances the
+workspace context synchronously, so selecting a sibling and entering another workspace
+in one React batch cannot record the incoming agent against the departing workspace
+(`useWorkspaceEntry.ts:26`, `:31`). Shared-repo agents are remembered under the selected
+workspace, rather than whichever workspace first holds that repo. An effect also captures
+automatic session selections once workspace membership is known (`useWorkspaceEntry.ts:44`).
+`resolveWorkspaceEntry` validates the remembered id against the target workspace's sessions;
+otherwise it keeps an already-present agent, selects the primary, or returns an empty entry
+(`workspace-entry.ts:37`). Dock-tab selection and workspace entry also select the agent's
+repo so its session metadata stays loaded (`useWorkspaceEntry.ts:38`). Workspace sessions
+follow the workspace's `projectIds` order, preserving the primary and sibling panel identities
+when the active repo changes the session map's insertion order (`session-workspace-map.ts:35`).
+The all-project session cache retains the departing repo while its background refresh is pending
+and only snapshots or overrides the active repo when every row belongs to it. Empty lists
+also require a matching `loadedProjectId`; nonempty lists keep newly spawned agents visible
+before discovery finishes (`hooks/agent-session/useAllProjectSessions.ts:35`, `:96`). Session
+loading sets that id alongside the reply and clears it on reset
+(`hooks/agent-session/useAgentSession.ts:38`, `:162`).
+Project-session loading preserves an explicit valid
+selection ahead of repo memory, whose capture now uses a settled selection instead of a
+project-change cleanup (`hooks/agent-session/useAgentSession.ts:49`, `:131`). The existing
+`rememberedActiveSessionRef` and dock-restore protection remain in place (#773).
+`useWorkspaceEntry.test.ts` pins the same-batch race and shared-repo memory;
+`useWorkspaceEntry.navigation.test.tsx` drives real cards, favorites, command dispatch and
+dockview tab activation against a fake preload boundary. `useAllProjectSessions.test.ts` pins
+an empty departing repo with the incoming reply pending on every render and in the retained
+background cache, a late spawn reply that must not cache a foreign session under the active
+repo, and immediate visibility of a spawned agent while discovery is pending. Native macOS
+rendering still requires a live app check.
+
 **Sibling tabs: auto for ungrouped agents, remembered for grouped ones.**
 `useAgentSiblingDockTabs` creates a tab per live ungrouped agent in the active workspace, and
 deliberately not for grouped ones (a Viola run's workers), which are opened on demand by their
-owner UI. Because the dock layout is one window-wide object that is reloaded and filtered on a
-repo switch, an on-demand tab would not survive returning to the workspace — nothing recreates a
+owner UI. The dock layout is one window-wide object (`hooks/dock-layout/useDockLayout.ts:69`);
+workspace switches reconcile its agent tabs, removing panels outside the current workspace
+(`hooks/agent-session/useAgentSiblingDockTabs.ts:128`). Returning must recreate an on-demand
 grouped panel. `opened-agent-tabs.ts` records that the user opened one, the mirror image of
 `dismissed-agent-tabs.ts` recording that they closed one — except that it is not pruned against
 the active workspace's sessions, which would discard every other workspace's record on a repo

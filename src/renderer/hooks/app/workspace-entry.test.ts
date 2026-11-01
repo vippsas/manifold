@@ -38,6 +38,37 @@ describe('resolveWorkspaceEntry', () => {
     expect(entry).toEqual({ kind: 'agent', session: mine })
   })
 
+  it('restores the remembered sibling, including one in another folder', () => {
+    const sibling = session('s2', 'pb')
+    expect(resolveWorkspaceEntry('wm', ctx({
+      sessionsByWorkspace: { wm: [session('s1', 'pa'), sibling] },
+      activeSessionId: 's9',
+      rememberedSessionId: sibling.id,
+    }))).toEqual({ kind: 'agent', session: sibling })
+  })
+
+  it('restores workspace memory ahead of a different active agent shared by both workspaces', () => {
+    const sibling = session('s2', 'pa')
+    expect(resolveWorkspaceEntry('wm', ctx({
+      sessionsByWorkspace: { wm: [session('s1', 'pa'), sibling] },
+      activeSessionId: 's1',
+      rememberedSessionId: sibling.id,
+    }))).toEqual({ kind: 'agent', session: sibling })
+  })
+
+  it.each(['deleted', 'foreign'])('falls back to the primary for a %s remembered agent', (id) => {
+    const primary = session('s1', 'pa')
+    expect(resolveWorkspaceEntry('wm', ctx({
+      sessionsByWorkspace: { wm: [primary], wo: [session('foreign', 'pa')] },
+      rememberedSessionId: id,
+    }))).toEqual({ kind: 'agent', session: primary })
+  })
+
+  it('returns an empty entry when the remembered agent is gone and none remain', () => {
+    expect(resolveWorkspaceEntry('wm', ctx({ rememberedSessionId: 'deleted' })))
+      .toEqual({ kind: 'empty', projectId: 'pa' })
+  })
+
   it('selects the first folder and clears the agent when the workspace holds none', () => {
     const entry = resolveWorkspaceEntry('wm', ctx({
       sessionsByWorkspace: { wo: [session('s9', 'px')] },
