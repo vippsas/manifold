@@ -113,6 +113,31 @@ Run **`npm run doctor`** to check a worktree's health — it reports whether dep
 installed, the Electron binary is present, which ABI `better-sqlite3` is currently built for,
 and whether `out/` is stale. It exits non-zero when the tree is not runnable.
 
+## 8. Manifold server runs (issue → PR)
+
+This repo is worked by a Manifold dispatcher (`manifold` label queue, `manifold/issue-*`
+branches). During such a run, edit only the prepared checkout. The dispatcher owns branches,
+commits, pushes, PR publication and GitHub labels. Do not start another issue processor (e.g.
+`gh-process-issues`) or publication workflow, and do not use administrative credentials. Work
+non-interactively.
+
+- **Architecture entry points:** [`docs/README.md`](docs/README.md) (doc map) and
+  [`docs/architecture/`](docs/architecture/) — `app.md`, `ipc.md`, `renderer.md`, `plugins.md`.
+- **Prepare:** `npm ci` (lockfile-pinned; downloads the Electron binary). `npm test`'s
+  `pretest` rebuilds `better-sqlite3` for the host Node when its ABI does not match, which needs
+  a C/C++ toolchain.
+- **Offline gate** (the dispatcher's verify command; needs no network once prepared):
+  `npm run typecheck && npm test` — web, node and plugin typechecks, then vitest. There is no
+  general npm lint/format command, but CI also runs `shellcheck install-linux.sh`: when you
+  change that script, run it too (or report it as unverified if `shellcheck` is missing). Never
+  run two `npm test` at once (the sqlite rebuild clobbers the in-flight run).
+- Connected checks (CI's `npm run dist:linux` + package verification, CodeQL, live-app driving)
+  are downstream; list them as unverified rather than claiming them.
+- Follow the dispatcher's prompt protocol: finish with root `MANIFOLD_SUMMARY.md` (change
+  description + a **Verification** section with commands/results and live-system gaps; not
+  committed). Only if human input is indispensable *and* you made no useful changes, write
+  root `MANIFOLD_QUESTION.md` and stop.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
