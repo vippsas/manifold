@@ -11,11 +11,11 @@ interface AgentSessionsChangedEvent {
   projectId: string
 }
 
-async function fetchProjectSessions(projectId: string): Promise<AgentSession[]> {
+async function fetchProjectSessions(projectId: string): Promise<AgentSession[] | null> {
   try {
     return (await window.electronAPI.invoke('agent:sessions', projectId)) as AgentSession[]
   } catch {
-    return []
+    return null
   }
 }
 
@@ -30,6 +30,9 @@ export function useAllProjectSessions(
   activeProjectRef.current = activeProjectId
   const previousActiveProjectRef = useRef(activeProjectId)
   const snapshotVersions = useRef(new Map<string, number>())
+  const dirtyProjects = useRef(new Set<string>())
+  // Metadata-only registry updates must not trigger worktree discovery.
+  const projectIdsKey = JSON.stringify(projects.map(({ id }) => id).sort())
 
   // Keep a snapshot before this repo becomes a background repo. Its next IPC
   // refresh may finish after the incoming repo loads; its tabs must survive.
@@ -50,22 +53,23 @@ export function useAllProjectSessions(
 
   useEffect(() => {
     let cancelled = false
+    const projectIds = JSON.parse(projectIdsKey) as string[]
     const activeId = activeProjectRef.current
     const versions = new Map(snapshotVersions.current)
 
     const fetchAll = async (): Promise<void> => {
       const entries = await Promise.all(
-        projects
-          .filter((project) => project.id !== activeId)
-          .map(async (project) => [project.id, await fetchProjectSessions(project.id)] as const)
+        projectIds
+          .filter((id) => id !== activeId)
+          .map(async (id) => [id, await fetchProjectSessions(id)] as const)
       )
       if (cancelled) return
       setBackgroundSessions((prev) => {
-        const next = Object.fromEntries(projects.map(({ id }) => [id, prev[id] ?? []]))
+        const next = Object.fromEntries(projectIds.map((id) => [id, prev[id] ?? []]))
         for (const [id, sessions] of entries) {
           // Discovery started before a tab switch must not replace the newer
           // snapshot saved while that repo was active.
-          if (snapshotVersions.current.get(id) === versions.get(id)) next[id] = sessions
+          if (sessions !== null && snapshotVersions.current.get(id) === versions.get(id)) next[id] = sessions
         }
         return next
       })
@@ -75,21 +79,24 @@ export function useAllProjectSessions(
     return () => {
       cancelled = true
     }
-  }, [projects])
+  }, [projectIdsKey])
 
   const refreshBackgroundProject = useCallback(async (projectId: string): Promise<void> => {
     const version = snapshotVersions.current.get(projectId)
     const sessions = await fetchProjectSessions(projectId)
-    if (snapshotVersions.current.get(projectId) !== version) return
+    if (sessions === null || snapshotVersions.current.get(projectId) !== version) return
+    // Reentry can invalidate a pending reply; keep it dirty until one applies.
+    dirtyProjects.current.delete(projectId)
     setBackgroundSessions((prev) => ({ ...prev, [projectId]: sessions }))
   }, [])
 
   useEffect(() => {
     const previous = previousActiveProjectRef.current
     previousActiveProjectRef.current = activeProjectId
-    // The active hook discards its pending discovery when switching repos. If
-    // it never produced a snapshot, discover that departing repo here instead.
-    if (previous && previous !== activeProjectId && !snapshotVersions.current.has(previous)
+    // A switch discards the active hook's pending discovery. Recover initial
+    // loads and event-driven resyncs with one discovery of the departing repo.
+    if (previous && previous !== activeProjectId
+      && (dirtyProjects.current.has(previous) || !snapshotVersions.current.has(previous))
       && projects.some((project) => project.id === previous)) {
       void refreshBackgroundProject(previous)
     }
@@ -99,8 +106,11 @@ export function useAllProjectSessions(
     'agent:sessions-changed',
     useCallback(
       (event: AgentSessionsChangedEvent) => {
-        if (event.projectId === activeProjectId) return
         if (!projects.some((project) => project.id === event.projectId)) return
+        if (event.projectId === activeProjectId) {
+          dirtyProjects.current.add(event.projectId)
+          return
+        }
         void refreshBackgroundProject(event.projectId)
       },
       [activeProjectId, projects, refreshBackgroundProject]

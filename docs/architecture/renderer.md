@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-11-01T19:01:46Z
+updated: 2026-11-01T19:28:36Z
 owner: see .github/CODEOWNERS
 ---
 
@@ -94,19 +94,24 @@ otherwise it keeps an already-present agent, selects the primary, or returns an 
 repo so its session metadata stays loaded (`useWorkspaceEntry.ts:38`). Workspace sessions
 follow the workspace's `projectIds` order, preserving the primary and sibling panel identities
 when the active repo changes the session map's insertion order (`session-workspace-map.ts:35`).
-The all-project session cache discovers background repos on project-list changes, and
+The all-project session cache discovers background repos when registered project IDs change, and
 refreshes an individual background repo on `agent:sessions-changed`; selecting another
-repo does not rediscover every registered project (`hooks/agent-session/useAllProjectSessions.ts:51`,
-`:80`, `:98`). A departing repo whose initial active-session discovery has not finished
-gets an individual background discovery, since the active hook discards that old reply
-on a switch; a newer active snapshot also takes precedence over this fallback's reply
-(`hooks/agent-session/useAllProjectSessions.ts:80`, `:87`). `useProjects` likewise loads
-the registry independently of the active repo
-(`hooks/project/useProjects.ts:34`, `:48`). The cache retains the departing repo's snapshot,
+repo does not rediscover every registered project (`hooks/agent-session/useAllProjectSessions.ts:35`,
+`:54`, `:105`). Events for the active repo mark it dirty. A departing dirty repo, or one
+whose initial active-session discovery has not finished, gets one individual background
+discovery, since the active hook discards its pending reply on a switch. A newer active
+snapshot takes precedence over this fallback's reply. The dirty flag clears only after a
+successful refresh passes the snapshot-version guard, so an invalidated or failed reply
+can be retried on the next departure. Discovery failures preserve cached sessions
+(`hooks/agent-session/useAllProjectSessions.ts:14`, `:72`, `:84`, `:93`, `:110`). `useProjects` re-reads
+the registry on repo switches to pick up main-side updates such as cached slash commands,
+preserving the project array identity when sorted content is unchanged. Metadata-only
+changes also leave session discovery alone (`hooks/project/useProjects.ts:34`, `:52`,
+`hooks/agent-session/useAllProjectSessions.ts:35`). The cache retains the departing repo's snapshot,
 and discovery replies started before that snapshot cannot overwrite it. It only snapshots
 or overrides the active repo when every row belongs to it. Empty lists also require a
 matching `loadedProjectId`; nonempty lists keep newly spawned agents visible before discovery
-finishes (`hooks/agent-session/useAllProjectSessions.ts:38`, `:68`, `:120`). Session
+finishes (`hooks/agent-session/useAllProjectSessions.ts:41`, `:72`, `:130`). Session
 loading sets that id alongside the reply and clears it on reset
 (`hooks/agent-session/useAgentSession.ts:38`, `:162`).
 Project-session loading preserves an explicit valid
@@ -118,8 +123,12 @@ project-change cleanup (`hooks/agent-session/useAgentSession.ts:49`, `:131`). Th
 dockview tab activation against a fake preload boundary. `useAllProjectSessions.test.ts` pins
 an empty departing repo with the incoming reply pending on every render and in the retained
 background cache, a late spawn reply that must not cache a foreign session under the active
-repo, and immediate visibility of a spawned agent while discovery is pending. Native macOS
-rendering still requires a live app check.
+repo, immediate visibility of a spawned agent while discovery is pending, and recovery of
+an interrupted active resync with one departing-repo discovery. It also covers rapid
+reentry invalidating a pending fallback, and retaining cached sessions through a failed
+discovery until a later departure retries it. `useAllProjectSessions.projects.test.ts`
+counts discovery across cross-repo tab clicks and cached-command updates, and verifies
+stable registry identity for unchanged content. Native macOS rendering still requires a live app check.
 
 **Sibling tabs: auto for ungrouped agents, remembered for grouped ones.**
 `useAgentSiblingDockTabs` creates a tab per live ungrouped agent in the active workspace, and

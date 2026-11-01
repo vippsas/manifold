@@ -37,7 +37,9 @@ export function useProjects(): UseProjectsResult {
     try {
       const result = (await window.electronAPI.invoke('projects:list')) as Project[]
       const sorted = sortProjectsByName(result)
-      setProjects(sorted)
+      // Registry reads on tab switches must not invalidate session discovery
+      // when main has no new project metadata (such as cached slash commands).
+      setProjects((prev) => JSON.stringify(prev) === JSON.stringify(sorted) ? prev : sorted)
       if (sorted.length > 0) setActiveProjectId((current) => current ?? sorted[0].id)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
@@ -49,13 +51,7 @@ export function useProjects(): UseProjectsResult {
 
   useEffect(() => {
     void fetchProjects()
-  }, [fetchProjects])
-
-  // Removing the active repo still selects a remaining one, without making
-  // ordinary tab selection reload the project registry.
-  useEffect(() => {
-    if (!activeProjectId && projects.length > 0) setActiveProjectId(projects[0].id)
-  }, [activeProjectId, projects])
+  }, [activeProjectId, fetchProjects])
 
   // `workspaceId` places the folder in that workspace rather than in a home
   // workspace of its own, in the same main-side step that registers it.
