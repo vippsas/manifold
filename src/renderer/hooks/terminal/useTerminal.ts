@@ -37,10 +37,16 @@ interface UseTerminalResult {
   focusTerminal: () => void
 }
 
-// How long after a resize to keep re-pinning the scroll position. Covers the
-// round trip (fit -> agent:resize -> PTY SIGWINCH -> agent repaint -> output)
-// while staying short enough that it never lingers into normal scrolling.
-const RESIZE_SCROLL_GUARD_MS = 400
+// Wait for the repaint to go quiet, including xterm's queued parsing, but bound
+// the guard so continuous agent output cannot keep it alive indefinitely.
+const RESIZE_SCROLL_QUIET_MS = 400
+const RESIZE_SCROLL_MAX_MS = 5000
+
+interface ResizeScrollAnchor {
+  offsetFromBottom: number
+  expiresAt: number
+  maxExpiresAt: number
+}
 
 function getShellEditShortcut(event: KeyboardEvent): string | null {
   if (event.type !== 'keydown') return null
@@ -166,20 +172,28 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     // agent only repaints asynchronously once its PTY receives the SIGWINCH —
     // and a runtime that redraws aggressively on resize (Codex) emits output
     // that snaps the viewport back to the top, undoing the synchronous restore.
-    // A runtime that stays quiet on resize (Claude) never trips this. Pin the
-    // user's distance-from-bottom for a short window after each resize and
-    // re-assert it as that repaint lands, so the reading position survives the
-    // async redraw too (issue #792).
-    let scrollAnchor: { offsetFromBottom: number; expiresAt: number } | null = null
-    const reapplyScrollAnchor = (): void => {
-      if (!scrollAnchor) return
-      if (Date.now() >= scrollAnchor.expiresAt) {
+    // Keep offset 0 as an explicit bottom pin, too. Codex purges scrollback
+    // before replaying it, so restore only after xterm parses each write.
+    let scrollAnchor: ResizeScrollAnchor | null = null
+    let pendingWrites = 0
+    const getScrollAnchor = (): ResizeScrollAnchor | null => {
+      if (scrollAnchor && (Date.now() >= scrollAnchor.maxExpiresAt
+        || (pendingWrites === 0 && Date.now() >= scrollAnchor.expiresAt))) {
         scrollAnchor = null
-        return
       }
+      return scrollAnchor
+    }
+    const reapplyScrollAnchor = (): void => {
+      const anchor = getScrollAnchor()
+      if (!anchor) return
       const buffer = terminal.buffer.active
-      const target = Math.max(0, buffer.baseY - scrollAnchor.offsetFromBottom)
+      const target = Math.max(0, buffer.baseY - anchor.offsetFromBottom)
       if (buffer.viewportY !== target) terminal.scrollToLine(target)
+    }
+    const cancelScrollAnchor = (): void => { scrollAnchor = null }
+    const userInputEvents = ['wheel', 'pointerdown', 'touchstart', 'paste', 'input'] as const
+    for (const type of userInputEvents) {
+      container.addEventListener(type, cancelScrollAnchor, { capture: true, passive: true })
     }
 
     // Load the user's font as a web font on initial terminal creation so PUA
@@ -201,8 +215,17 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     const handleOutput = (...args: unknown[]): void => {
       const event = args[0] as AgentOutputEvent
       if (event.sessionId === sessionId && !disposed && ready) {
-        terminal.write(event.data)
-        reapplyScrollAnchor()
+        // Drop an idle guard before enqueueing, so unrelated later output
+        // cannot revive it. A pending parse keeps an existing guard alive.
+        getScrollAnchor()
+        pendingWrites += 1
+        terminal.write(event.data, () => {
+          const anchor = disposed ? null : getScrollAnchor()
+          pendingWrites -= 1
+          if (!anchor) return
+          anchor.expiresAt = Date.now() + RESIZE_SCROLL_QUIET_MS
+          reapplyScrollAnchor()
+        })
       }
     }
 
@@ -241,6 +264,7 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
     // Translate common macOS shell editing shortcuts to readline-friendly input.
     // Translate Shift+Enter to newline (for multiline input in Claude Code)
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      if (event.type === 'keydown') cancelScrollAnchor()
       const editShortcut = getShellEditShortcut(event)
       if (editShortcut) {
         if (sessionId) {
@@ -257,16 +281,16 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       return true
     })
 
-    // Forward user keystrokes to PTY, filtering out terminal response sequences
-    // (OSC color queries, cursor position reports, focus events) that xterm.js
-    // auto-generates during replay/reset/focus and would appear as garbled input.
+    // Forward user input and live terminal replies to the PTY. Filter OSC color
+    // responses and focus events; cursor-position replies must still reach a TUI
+    // waiting for them (historical queries are stripped on replay instead).
     const onDataDisposable = terminal.onData((data: string) => {
       if (sessionId) {
         const filtered = filterTerminalResponses(data)
         if (filtered) {
-          // Real keystrokes mean the user has taken over — stop re-pinning the
-          // post-resize scroll position so we don't fight their own scrolling.
-          scrollAnchor = null
+          // User interaction cancels the guard at the DOM/key boundary above.
+          // onData also carries terminal replies (e.g. Codex's resize CPR),
+          // which must reach the PTY without cancelling scroll preservation.
           if (includesInterruptSignal(filtered)) {
             if (interruptResetTimer) clearTimeout(interruptResetTimer)
             interruptResetTimer = setTimeout(() => {
@@ -295,10 +319,17 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       if (disposed) return
       requestAnimationFrame(() => {
         if (disposed) return
+        const anchor = getScrollAnchor()
         const offsetFromBottom = fitAndResize(fitAddon, terminal, sessionId, lastSentSize)
-        scrollAnchor = offsetFromBottom > 0
-          ? { offsetFromBottom, expiresAt: Date.now() + RESIZE_SCROLL_GUARD_MS }
-          : null
+        if (offsetFromBottom === null) return
+        const now = Date.now()
+        scrollAnchor = {
+          // Another resize may arrive while the repaint has purged history.
+          offsetFromBottom: anchor?.offsetFromBottom ?? offsetFromBottom,
+          expiresAt: now + RESIZE_SCROLL_QUIET_MS,
+          maxExpiresAt: now + RESIZE_SCROLL_MAX_MS,
+        }
+        reapplyScrollAnchor()
       })
     })
     resizeObserver.observe(container)
@@ -310,6 +341,9 @@ export function useTerminal({ sessionId, scrollbackLines, terminalFontFamily, xt
       if (interruptResetTimer) clearTimeout(interruptResetTimer)
       unsubscribe?.()
       onDataDisposable.dispose()
+      for (const type of userInputEvents) {
+        container.removeEventListener(type, cancelScrollAnchor, true)
+      }
       resizeObserver.disconnect()
       terminal.dispose()
     }
@@ -352,15 +386,15 @@ function fitPreservingScroll(fitAddon: FitAddon | null, terminal: Terminal): num
 /**
  * Re-fit on a container resize and return the viewport's pre-fit distance from
  * the bottom so the caller can re-assert it against the agent's asynchronous
- * resize repaint (issue #792). Returns 0 (no scroll guard needed) for a
- * bottom-pinned viewport or when the fit throws mid-transition.
+ * resize repaint (issues #792 / #862). Offset 0 means keep pinned to the bottom;
+ * null means no PTY resize was sent, or the fit threw mid-transition.
  */
 function fitAndResize(
   fitAddon: FitAddon | null,
   terminal: Terminal,
   sessionId: string | null,
   lastSentSize: { current: { cols: number; rows: number } | null }
-): number {
+): number | null {
   try {
     const offsetFromBottom = fitPreservingScroll(fitAddon, terminal)
     // Only tell the PTY about a size it hasn't been told. Re-attaching a dock
@@ -372,10 +406,11 @@ function fitAndResize(
       && (lastSentSize.current?.cols !== terminal.cols || lastSentSize.current?.rows !== terminal.rows)) {
       lastSentSize.current = { cols: terminal.cols, rows: terminal.rows }
       void window.electronAPI.invoke('agent:resize', sessionId, terminal.cols, terminal.rows)
+      return offsetFromBottom
     }
-    return offsetFromBottom
+    return null
   } catch {
     // Ignore fit errors during layout transitions
-    return 0
+    return null
   }
 }
