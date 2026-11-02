@@ -8,6 +8,7 @@ import { AgentSettingsModal } from './components/modals/AgentSettingsModal'
 import { PanelGlyph, type GlyphId } from './components/ActivityBar'
 import { ContextMenu, type MenuItem } from './components/common/ContextMenu'
 import { AgentTabUsage } from './components/AgentTabUsage'
+import { AgentTabNameInput, agentNameOnlyUpdate } from './AgentTabNameInput'
 import { useContextMenu } from './hooks/useContextMenu'
 
 function EllipsisIcon(): React.JSX.Element {
@@ -41,6 +42,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
   // that currently mask this).
   const [title, setTitle] = React.useState(api.title ?? '')
   const [settingsOpen, setSettingsOpen] = React.useState(false)
+  const [renaming, setRenaming] = React.useState(false)
   const menu = useContextMenu()
   React.useEffect(() => {
     setTitle(api.title ?? '')
@@ -85,6 +87,7 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
       ? (session.displayName?.trim() || formatBranchLabel(session.branchName, projectPath))
       : ''
     const menuItems: MenuItem[] = session && state ? [
+      { label: 'Rename', action: () => setRenaming(true) },
       { label: 'Agent settings…', action: () => setSettingsOpen(true) },
       {
         label: session.locked ? 'Unlock agent' : 'Lock agent',
@@ -99,7 +102,20 @@ export function DockTab({ api }: IDockviewPanelHeaderProps): React.JSX.Element {
     ] : []
     return (
       <div className="dock-tab" onDoubleClick={() => state?.onToggleMaximize(api.id)}>
-        <span className="dock-tab__label truncate">{title}</span>
+        {renaming && session && state ? (
+          <AgentTabNameInput
+            initial={title}
+            onCommit={(name) => {
+              // Name only, so the agent is not restarted. A failed save leaves
+              // the old name on the tab; say why rather than swallow it.
+              Promise.resolve(state.onRenameAgent(session.id, agentNameOnlyUpdate(session, name)))
+                .catch((err: unknown) => console.error('[DockTab] rename failed:', err))
+            }}
+            onDone={() => setRenaming(false)}
+          />
+        ) : (
+          <span className="dock-tab__label truncate">{title}</span>
+        )}
         {session && state && (
           <>
             {/* Claude is the only runtime whose transcript records per-model token

@@ -60,6 +60,51 @@ export function nextAgentName(
   return `${base} ${n}`
 }
 
+/**
+ * `options` with an agent name filled in when it carries none (or only blanks).
+ *
+ * The one place a spawn path gets its default name, so an agent started from
+ * anywhere — the New Agent form, opening a project, creating one, promoting a
+ * draft chat — is named the same way. A name already given is never replaced.
+ */
+export function withDefaultAgentName<T extends { runtimeId: string; displayName?: string }>(
+  options: T,
+  siblings: readonly Pick<AgentSession, 'displayName'>[],
+): T & { displayName: string } {
+  if (options.displayName?.trim()) return options as T & { displayName: string }
+  return { ...options, displayName: nextAgentName(options.runtimeId, siblings) }
+}
+
+/**
+ * The tab title for each agent of one workspace, by session id.
+ *
+ * An agent that has a name shows it, untouched. One that has none (a session
+ * restored from older state, or spawned by a path that did not name it) shows
+ * its runtime label — and where several would show the same one, takes the first
+ * free `Codex 2`, `Codex 3`… in list order, so two tabs in a workspace never read
+ * alike just because neither was ever named. Nothing is written back: the title
+ * is derived, and the agent's stored name stays blank until the user sets one.
+ */
+export function agentTabTitles(
+  sessions: readonly Pick<AgentSession, 'id' | 'runtimeId' | 'displayName'>[],
+): Map<string, string> {
+  const titles = new Map<string, string>()
+  const taken: { displayName: string }[] = []
+  for (const session of sessions) {
+    const name = session.displayName?.trim()
+    if (!name) continue
+    titles.set(session.id, name)
+    taken.push({ displayName: name })
+  }
+  for (const session of sessions) {
+    if (titles.has(session.id)) continue
+    const title = nextAgentName(session.runtimeId, taken)
+    titles.set(session.id, title)
+    taken.push({ displayName: title })
+  }
+  return titles
+}
+
 export interface WorkspaceRowLabel {
   /** Dimmed leading segment; null when it would only repeat the name. */
   repo: string | null

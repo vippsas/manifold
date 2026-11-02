@@ -1,89 +1,12 @@
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { IDockviewPanelHeaderProps } from 'dockview'
 import { DockTab } from './DockTab'
 import { DockStateContext } from './components/editor/editor-shell/dock-panel-types'
 import type { DockAppState } from './components/editor/editor-shell/dock-panel-types'
+import { makeDockState, makeHeaderProps } from './DockTab.test-helpers'
 import { siblingPanelId } from './hooks/agent-session/agent-siblings'
 import type { AgentSession } from '../shared/types'
-
-function makeHeaderProps(id: string, title: string): IDockviewPanelHeaderProps {
-  return {
-    api: {
-      id,
-      title,
-      onDidTitleChange: () => ({ dispose: () => {} }),
-    } as unknown as IDockviewPanelHeaderProps['api'],
-  } as IDockviewPanelHeaderProps
-}
-
-function makeDockState(overrides: Partial<DockAppState> = {}): DockAppState {
-  return {
-    sessionId: null,
-    primarySessionId: null,
-    scrollbackLines: 1000,
-    diffText: '',
-    openFiles: [],
-    activeFilePath: null,
-    activeEditorPaneId: null,
-    editorPaneIds: [],
-    getEditorPane: (() => { throw new Error('not implemented') }) as DockAppState['getEditorPane'],
-    lastFileOpenRequest: { path: null, source: 'default' },
-    theme: 'dark',
-    onSelectFile: () => {},
-    onSelectScmFile: () => {},
-    onOpenSearchResult: () => {},
-    onOpenSearchResultInSplit: () => {},
-    onSelectFileFromFileTree: () => {},
-    onSelectOpenFile: () => {},
-    onSelectFileFromMarkdownPreview: () => {},
-    onCloseFile: () => {},
-    onSaveFile: () => {},
-    onRegisterEditorPane: () => {},
-    onActivateEditorPane: () => {},
-    onSplitEditorPane: () => {},
-    onMoveFileToPane: () => {},
-    onMoveFileToSplitPane: () => {},
-    tree: null,
-    primaryBranch: null,
-    changes: [],
-    expandedPaths: new Set<string>(),
-    onToggleExpand: () => {},
-    worktreeRoot: null,
-    baseBranch: 'main',
-    activeProjectIsGit: true,
-    defaultRuntime: 'codex',
-    defaultAgentMode: 'interactive',
-    activeSessionWorktreePath: null,
-    activeSessionNoWorktree: false,
-    onLaunchAgent: async () => null,
-    projects: [],
-    activeProjectId: null,
-    allProjectSessions: {},
-    outputtingSessionIds: new Set<string>(),
-    onSelectProject: () => {},
-    onSelectSession: () => {},
-    onRemoveProject: () => {},
-    onUpdateProject: () => {},
-    onRenameAgent: () => {},
-    onToggleLocked: () => {},
-    onRequestDeleteAgent: () => {},
-    onNewAgentFromHeader: () => {},
-    onNewProject: () => {},
-    activeSessionStatus: null,
-    activeSessionRuntimeId: null,
-    onResumeAgent: async () => {},
-    onFocusSearch: () => {},
-    onClosePanel: () => {},
-    onOpenModule: () => {},
-    isModuleOpen: () => false,
-    onFocusPanel: () => {},
-    onOpenSibling: () => {},
-    onCloseSiblingPanel: () => {},
-    ...overrides,
-  } as unknown as DockAppState
-}
 
 describe('DockTab', () => {
   it('keeps shell-specific actions out of the Shell dock tab', () => {

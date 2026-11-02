@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Project } from '../../../shared/types'
 import type { Workspace } from '../../../shared/workspace-types'
-import { nextAgentName, workspaceRowLabel, rowStatus, isLive } from './agent-labels'
+import { nextAgentName, workspaceRowLabel, rowStatus, isLive, withDefaultAgentName, agentTabTitles } from './agent-labels'
 
 function project(name: string, id = name): Project {
   return { id, name, path: `/repos/${name}`, baseBranch: 'main', addedAt: '2026-08-07T00:00:00.000Z' }
@@ -136,5 +136,54 @@ describe('rowStatus', () => {
     expect(isLive(s('done', 'error'))).toBe(false)
     expect(isLive(s('done', 'waiting'))).toBe(true)
     expect(isLive(s('running'))).toBe(true)
+  })
+})
+
+describe('withDefaultAgentName', () => {
+  it('names an unnamed spawn after its runtime, numbering past the siblings already using it', () => {
+    expect(withDefaultAgentName({ runtimeId: 'codex' }, []).displayName).toBe('Codex')
+    expect(withDefaultAgentName({ runtimeId: 'codex' }, [{ displayName: 'Codex' }]).displayName).toBe('Codex 2')
+  })
+
+  it('treats a blank name as no name', () => {
+    expect(withDefaultAgentName({ runtimeId: 'claude', displayName: '   ' }, []).displayName).toBe('Claude')
+  })
+
+  it('returns a name the caller chose untouched, and does not mutate its input', () => {
+    const chosen = { runtimeId: 'codex', displayName: 'Fix login' }
+    expect(withDefaultAgentName(chosen, [{ displayName: 'Codex' }])).toBe(chosen)
+
+    const bare = { runtimeId: 'codex' }
+    withDefaultAgentName(bare, [])
+    expect(bare).toEqual({ runtimeId: 'codex' })
+  })
+})
+
+describe('agentTabTitles', () => {
+  const agent = (id: string, runtimeId: string, displayName?: string) => ({ id, runtimeId, displayName })
+
+  it('keeps every given name exactly as it is', () => {
+    const titles = agentTabTitles([agent('a', 'codex', 'Fix login'), agent('b', 'codex', 'Codex')])
+
+    expect(titles.get('a')).toBe('Fix login')
+    expect(titles.get('b')).toBe('Codex')
+  })
+
+  it('never shows two unnamed agents of one runtime under the same label', () => {
+    const titles = agentTabTitles([agent('a', 'codex'), agent('b', 'codex'), agent('c', 'codex')])
+
+    expect([...titles.values()]).toEqual(['Codex', 'Codex 2', 'Codex 3'])
+  })
+
+  it('steps around names that are in use, wherever they sit in the list', () => {
+    const titles = agentTabTitles([agent('a', 'codex'), agent('b', 'codex', 'Codex'), agent('c', 'claude')])
+
+    expect(titles.get('b')).toBe('Codex')
+    expect(titles.get('a')).toBe('Codex 2')
+    expect(titles.get('c')).toBe('Claude')
+  })
+
+  it('labels a viola agent Viola, not the raw runtime id', () => {
+    expect(agentTabTitles([agent('a', 'viola')]).get('a')).toBe('Viola')
   })
 })

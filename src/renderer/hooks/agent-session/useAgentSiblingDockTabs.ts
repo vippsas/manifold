@@ -5,6 +5,7 @@ import { isSiblingPanelId, parseSiblingSessionId, siblingPanelId } from './agent
 import { clearAgentTabDismissed, isAgentTabDismissed, pruneDismissedAgentTabs } from './dismissed-agent-tabs'
 import { isAgentTabOpened } from './opened-agent-tabs'
 import { findTopLeftWorkspaceReferencePanel } from '../dock-layout/dock-layout-helpers'
+import { agentTabTitles } from '../../components/sidebar/agent-labels'
 
 interface Options {
   apiRef: React.MutableRefObject<DockviewApi | null>
@@ -32,29 +33,10 @@ interface Options {
   onSelectSession: (sessionId: string) => void
 }
 
-function tabTitle(session: AgentSession): string {
-  const displayName = session.displayName?.trim()
-  if (displayName) return displayName
-  const runtime = RUNTIME_LABELS[session.runtimeId] ?? session.runtimeId
-  return runtime
-}
-
-// Primary and sibling tabs share one naming rule (display name, then runtime
-// label) so the first tab doesn't read "Agent" next to siblings named "Codex".
-function primaryTabTitle(session: AgentSession | null | undefined): string {
-  return session ? tabTitle(session) : 'Agent'
-}
-
 function setPanelTitle(panel: unknown, title: string): void {
   const target = panel as { title?: string; api?: { title?: string; setTitle?: (title: string) => void } }
   if (target.title === title || target.api?.title === title) return
   target.api?.setTitle?.(title)
-}
-
-const RUNTIME_LABELS: Record<string, string> = {
-  claude: 'Claude',
-  codex: 'Codex',
-  gemini: 'Gemini',
 }
 
 export function useAgentSiblingDockTabs({
@@ -100,11 +82,12 @@ export function useAgentSiblingDockTabs({
       clearAgentTabDismissed(activeSessionId)
     }
 
+    // Primary and sibling tabs share one naming rule (display name, then runtime
+    // label, numbered when several would read alike) so the first tab doesn't
+    // read "Agent" next to siblings named "Codex" and no two tabs are identical.
+    const titles = agentTabTitles(sessions)
     const primaryPanel = api.getPanel('agent')
-    const primarySession = primarySessionId
-      ? sessions.find((s) => s.id === primarySessionId)
-      : null
-    if (primaryPanel) setPanelTitle(primaryPanel, primaryTabTitle(primarySession))
+    if (primaryPanel) setPanelTitle(primaryPanel, (primarySessionId && titles.get(primarySessionId)) || 'Agent')
 
     const siblingsInWorkspace = sessions.filter((s) => s.id !== primarySessionId)
     // Auto-tabbed: ungrouped siblings only. Grouped siblings (e.g. playlist
@@ -135,7 +118,7 @@ export function useAgentSiblingDockTabs({
 
     for (const session of siblingsInWorkspace) {
       const panel = api.getPanel(siblingPanelId(session.id))
-      if (panel) setPanelTitle(panel, tabTitle(session))
+      if (panel) setPanelTitle(panel, titles.get(session.id) ?? '')
     }
 
     for (const session of desiredSessions) {
@@ -145,7 +128,7 @@ export function useAgentSiblingDockTabs({
       api.addPanel({
         id: panelId,
         component: 'agent',
-        title: tabTitle(session),
+        title: titles.get(session.id) ?? '',
         position: { referencePanel: referencePanelId, direction: 'within' },
         inactive: session.id !== activeSessionId,
       })

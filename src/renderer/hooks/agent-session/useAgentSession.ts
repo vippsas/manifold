@@ -95,7 +95,9 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   useAutoResume(activeSessionId, sessions, setSessions)
   const outputtingSessionIds = useActivityStateListener()
 
-  const spawnAgent = useSpawnAgent(projectId, refreshSessions, setSessions, selectSessionId)
+  const sessionsRef = useRef(sessions)
+  sessionsRef.current = sessions
+  const spawnAgent = useSpawnAgent(projectId, sessionsRef, refreshSessions, setSessions, selectSessionId)
   const killAgent = useKillAgent()
   const deleteAgent = useDeleteAgent(setSessions, setActiveSessionId)
   const resumeAgent = useResumeAgent(setSessions)
