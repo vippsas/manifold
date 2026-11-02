@@ -5,12 +5,13 @@ interface Args {
   sessionsByProject: Record<string, AgentSession[]>
   backgroundDiscoverySettled: boolean
   activeProjectId: string | null
+  settledProjectId: string | null
   projects: Project[]
   setActiveProject: (id: string) => void
 }
 
 export function useAutoSelectActiveProject(args: Args): void {
-  const { sessionsByProject, backgroundDiscoverySettled, activeProjectId, projects, setActiveProject } = args
+  const { sessionsByProject, backgroundDiscoverySettled, activeProjectId, settledProjectId, projects, setActiveProject } = args
   const didAutoSelectRef = useRef(false)
 
   useEffect(() => {
@@ -21,11 +22,12 @@ export function useAutoSelectActiveProject(args: Args): void {
       didAutoSelectRef.current = true
       return
     }
+    if (activeProjectId && settledProjectId !== activeProjectId) return
     if (!backgroundDiscoverySettled) return
     const projectWithAgents = projects.find((p) => (sessionsByProject[p.id] ?? []).length > 0)
     if (projectWithAgents) {
       didAutoSelectRef.current = true
       setActiveProject(projectWithAgents.id)
     }
-  }, [sessionsByProject, backgroundDiscoverySettled, activeProjectId, projects, setActiveProject])
+  }, [sessionsByProject, backgroundDiscoverySettled, activeProjectId, settledProjectId, projects, setActiveProject])
 }

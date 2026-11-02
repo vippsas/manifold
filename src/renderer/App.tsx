@@ -59,7 +59,7 @@ export function App(): React.JSX.Element {
   }, [settings.uiScale])
 
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
-  const { sessions, loadedProjectId, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession: selectSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
+  const { sessions, loadedProjectId, settledProjectId, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession: selectSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
   const { sessionsByProject, backgroundDiscoverySettled, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions, loadedProjectId)
   const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const { activeWorkspaceId, setActiveWorkspaceId: selectWorkspace } = usePersistedActiveWorkspace(workspaces)
@@ -90,7 +90,7 @@ export function App(): React.JSX.Element {
     return map
   }, [sessionsByWorkspace])
 
-  useAutoSelectActiveProject({ sessionsByProject, backgroundDiscoverySettled, activeProjectId, projects, setActiveProject })
+  useAutoSelectActiveProject({ sessionsByProject, backgroundDiscoverySettled, activeProjectId, settledProjectId, projects, setActiveProject })
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(effectiveSessionId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
