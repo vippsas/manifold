@@ -512,6 +512,7 @@ export function App(): React.JSX.Element {
         workingSetNotices={workingSetNotices}
         appEffects={appEffects}
         showCommitAndPrButtons={settings.showCommitAndPrButtons && activeProjectIsGit}
+        showBottomShellButton={settings.showBottomShellButton}
         handleSelectFile={handleSelectFile}
         handleOpenGitCommandOutput={handleOpenGitCommandOutput}
         setPreviewThemeId={setPreviewThemeId}

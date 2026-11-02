@@ -213,6 +213,8 @@ export interface ManifoldSettings {
   uiMode: 'developer' | 'simple'
   autoGenerateMessages: boolean
   showCommitAndPrButtons: boolean
+  /** Adds a "Shell" toggle to the bottom status bar (the rail icon always works). */
+  showBottomShellButton: boolean
   sidebarResizeReversed: boolean
   /** Ordered favorites, in the user's own order. Index 0 maps to ⌘1. Written as
    *  workspace ids; older builds wrote `{kind, id}` refs, which are migrated on

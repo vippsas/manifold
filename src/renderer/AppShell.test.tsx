@@ -30,7 +30,11 @@ vi.mock('./components/TitleBar', async () => {
 
 vi.mock('./components/git/StatusBar', async () => {
   const React = await import('react')
-  return { StatusBar: () => React.createElement('div', { 'data-testid': 'statusbar' }) }
+  return {
+    StatusBar: (p: { onToggleShell?: () => void; shellOpen?: boolean }) =>
+      React.createElement('div', { 'data-testid': 'statusbar', 'data-shell-open': String(p.shellOpen) },
+        p.onToggleShell && React.createElement('button', { onClick: p.onToggleShell }, 'status-shell')),
+  }
 })
 
 vi.mock('./components/sidebar/DeleteAgentDialog', async () => {
@@ -126,6 +130,7 @@ function makeProps(overrides: Partial<AppShellProps> = {}): AppShellProps {
     workingSetNotices: { notices: [], report: vi.fn(), dismiss: vi.fn() },
     appEffects: { showOnboarding: false, setShowOnboarding: vi.fn(), creatingProject: false, cloningProject: false },
     showCommitAndPrButtons: false,
+    showBottomShellButton: false,
     handleSelectFile: vi.fn(),
     handleOpenGitCommandOutput: vi.fn(),
     setPreviewThemeId: vi.fn(),
@@ -258,5 +263,27 @@ describe('AppShell', () => {
 
     expect(screen.getByTestId('dockview')).toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'New agent in Checkout' })).toBeInTheDocument()
+  })
+
+  describe('bottom Shell button', () => {
+    it('is absent from the status bar while the setting is off', () => {
+      render(<AppShell {...makeProps({ newWorkspaceVisible: false, showBottomShellButton: false })} />)
+
+      expect(screen.queryByRole('button', { name: 'status-shell' })).not.toBeInTheDocument()
+    })
+
+    it('toggles the same shell panel as the rail icon and mirrors its visibility', () => {
+      const togglePanel = vi.fn()
+      render(<AppShell {...makeProps({
+        newWorkspaceVisible: false,
+        showBottomShellButton: true,
+        dockLayout: { isPanelVisible: (id: string) => id === 'shell', togglePanel, focusPanel: vi.fn() },
+      })} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'status-shell' }))
+
+      expect(togglePanel).toHaveBeenCalledWith('shell')
+      expect(screen.getByTestId('statusbar')).toHaveAttribute('data-shell-open', 'true')
+    })
   })
 })

@@ -439,21 +439,24 @@ doing nothing (`commands/command-handlers.ts:68`, `App.tsx:457`). One button is 
 the bottom of the rail below a flex spacer: **Settings** (gear), which opens the settings
 modal via `onOpenSettings` (`ActivityBar.tsx:185`). The rail is the only home for panel
 toggles, the sidebar views, and the settings entry — the status bar
-(`components/git/StatusBar.tsx`) renders none of them. Its left edge is the active workspace
+(`components/git/StatusBar.tsx`) renders none of them, with one opt-in exception: the
+`showBottomShellButton` setting (default off, Settings → General) adds a **Shell** button at its
+far left that runs the rail's own `togglePanel('shell')` and mirrors the panel's visibility as
+`aria-pressed` (`StatusBar.tsx:79`, `AppShell.tsx:249`). Past it, its left edge is the active workspace
 repo's branch control even when no agent is open: `AppShell` resolves the active repo from
 `workspaceRepoStatuses`, and `BranchSwitcher` opens the same centered picker used by Source
-Control (`AppShell.tsx:157`, `StatusBar.tsx:72`). Beside it, one sync button combines VS Code's
+Control (`AppShell.tsx:157`, `StatusBar.tsx:91`). Beside it, one sync button combines VS Code's
 filled Codicon-style sync glyph with compact `2↓ 3↑` counts for the checkout against its
-configured upstream (`WorkspaceRepoStatus.upstreamAheadBehind`; `StatusBar.tsx:91`, `:175`), not the session's separate
+configured upstream (`WorkspaceRepoStatus.upstreamAheadBehind`; `StatusBar.tsx:112`, `:194`), not the session's separate
 base-branch comparison. Clicking it invokes `git:workspace-pull`, replacing the sync glyph with
 the sidebar's shared ring spinner through a fast-forward-only pull followed by a push, then
 refreshing both workspace status and the session comparison. A pull or push failure opens
 `GitSyncFailureDialog` with Git's reason;
 its sole substantive action, **Show Command Output**, opens the captured commands and output in
-an in-memory `Git Sync Output.txt` editor tab (`StatusBar.tsx:55`, `:88`; `AppShell.tsx:168`;
+an in-memory `Git Sync Output.txt` editor tab (`StatusBar.tsx:62`, `:107`; `AppShell.tsx:168`;
 `GitSyncFailureDialog.tsx:34`; `git-workspace-handlers.ts:117`).
 The remaining items keep the agent/file status and optional commit/PR/conflict actions
-(`StatusBar.tsx:99`, `:114`).
+(`StatusBar.tsx:118`, `:133`).
 
 **Panel layout (dockview).** The workspace is a single `DockviewReact` instance
 (`AppShell.tsx:155`), themed via the `DOCK_THEME` option (`AppShell.tsx:42`): a 6px

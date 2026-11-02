@@ -38,6 +38,7 @@ export const DEFAULT_SETTINGS = {
   uiMode: 'developer',
   autoGenerateMessages: true,
   showCommitAndPrButtons: false,
+  showBottomShellButton: false,
   sidebarResizeReversed: false,
   favorites: [] as string[],
   keepAwake: false,

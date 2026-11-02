@@ -53,6 +53,8 @@ interface Props {
   onAutoGenerateMessagesChange: (enabled: boolean) => void
   showCommitAndPrButtons: boolean
   onShowCommitAndPrButtonsChange: (enabled: boolean) => void
+  showBottomShellButton: boolean
+  onShowBottomShellButtonChange: (enabled: boolean) => void
   sidebarResizeReversed: boolean
   onSidebarResizeReversedChange: (enabled: boolean) => void
   uiScale: number
