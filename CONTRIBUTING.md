@@ -4,7 +4,7 @@ Thanks for your interest in contributing to Manifold! This guide will help you g
 
 ## Prerequisites
 
-- **Node.js** (v20+)
+- **Node.js** (v22.12+)
 - **npm**
 - **Platform** — macOS, or x64 WSL2 with WSLg and native build tools (`build-essential`, Python 3)
 - **Git**

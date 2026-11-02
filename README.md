@@ -81,7 +81,7 @@ sudo apt update && sudo apt install -y build-essential python3 ripgrep git
 # Recommended (for full prompt features — bash works too)
 sudo apt install -y zsh
 
-# Node.js 20+ via nvm: https://github.com/nvm-sh/nvm
+# Node.js 22.12+ via nvm: https://github.com/nvm-sh/nvm
 ```
 
 ### Install
@@ -243,7 +243,7 @@ The storage root (`~/.manifold` by default) is configurable in Settings → Stor
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22.12+
 - npm
 - macOS, or x64 WSL2 with WSLg and the native build tools listed above
 - Git
