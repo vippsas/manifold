@@ -9,9 +9,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 
 interface FakeTerminal {
+  cols: number
+  rows: number
   _viewportY: number
   _baseY: number
   scrollToLine: ReturnType<typeof vi.fn>
+  parseWrite: (baseY: number, viewportY: number) => void
+  keyHandler: ((event: KeyboardEvent) => boolean) | null
+  onDataHandler: ((data: string) => void) | null
 }
 
 const shared = vi.hoisted(() => ({
@@ -32,14 +37,28 @@ vi.mock('@xterm/xterm', () => {
     unicode = { activeVersion: '' }
     _viewportY = 0
     _baseY = 0
+    private writes: Array<(() => void) | undefined> = []
+    keyHandler: ((event: KeyboardEvent) => boolean) | null = null
+    onDataHandler: ((data: string) => void) | null = null
     scrollToLine = vi.fn((line: number) => { this._viewportY = line })
-    write = vi.fn()
+    // xterm queues writes. Only parseWrite changes the buffer and then invokes
+    // the completion callback, after the output handler has returned.
+    write = vi.fn((_data: string, callback?: () => void) => { this.writes.push(callback) })
+    parseWrite(baseY: number, viewportY: number): void {
+      if (!this.writes.length) throw new Error('no queued write to parse')
+      const callback = this.writes.shift()
+      this._baseY = baseY
+      this._viewportY = viewportY
+      callback?.()
+    }
     open = vi.fn()
     reset = vi.fn()
     focus = vi.fn()
     dispose = vi.fn()
     clearTextureAtlas = vi.fn()
-    attachCustomKeyEventHandler = vi.fn()
+    attachCustomKeyEventHandler = vi.fn((handler: (event: KeyboardEvent) => boolean) => {
+      this.keyHandler = handler
+    })
     loadAddon = vi.fn((addon: { activate?: (t: unknown) => void }) => { addon.activate?.(this) })
 
     constructor(options: Record<string, unknown>) {
@@ -52,7 +71,10 @@ vi.mock('@xterm/xterm', () => {
       return { active: { get viewportY() { return t._viewportY }, get baseY() { return t._baseY } } }
     }
 
-    onData(): { dispose: () => void } { return { dispose: vi.fn() } }
+    onData(handler: (data: string) => void): { dispose: () => void } {
+      this.onDataHandler = handler
+      return { dispose: vi.fn() }
+    }
   }
   return { Terminal: MockTerminal }
 })
@@ -81,8 +103,34 @@ function fireResize(): void {
   shared.resizeCallback?.([], {} as ResizeObserver)
 }
 
+function readyTerminal(): { term: FakeTerminal; view: ReturnType<typeof render> } {
+  const view = render(<Harness />)
+  vi.advanceTimersByTime(300)
+  const term = shared.terminal
+  if (!term) throw new Error('terminal was not created')
+  return { term, view }
+}
+
+function resizeWithOffset(term: FakeTerminal, offset: number, cols = 60, rows = 30): void {
+  term._baseY = 100
+  term._viewportY = 100 - offset
+  shared.fitImpl = (t) => {
+    t.cols = cols
+    t.rows = rows
+    t._baseY = 120
+    t._viewportY = 120 - offset
+  }
+  fireResize()
+  term.scrollToLine.mockClear()
+}
+
+function output(data = '\x1b[2J\x1b[3J\x1b[Htranscript replay'): void {
+  shared.outputHandler?.({ sessionId: 'agent-1', data })
+}
+
 describe('useTerminal scroll preservation on resize', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
     shared.terminal = null
     shared.fitImpl = null
     shared.resizeCallback = null
@@ -110,6 +158,7 @@ describe('useTerminal scroll preservation on resize', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('restores the scrollback offset from the bottom after a reflow', () => {
@@ -165,68 +214,148 @@ describe('useTerminal scroll preservation on resize', () => {
     expect(term.scrollToLine).toHaveBeenCalledWith(30)
   })
 
-  // Regression guard for issue #792: a Codex agent beside a resized shell pane
-  // still snapped to the top, while Claude did not. The synchronous reflow
-  // restore (above) is undone by the agent's repaint, which only arrives as
-  // asynchronous output once its PTY receives the SIGWINCH. A quiet-on-resize
-  // runtime (Claude) emits nothing, so it was unaffected; a repaint-heavy
-  // runtime (Codex) snapped back to the top. fitAndResize must keep re-pinning
-  // the distance-from-bottom as that repaint lands.
-  it('re-pins the scroll position when the agent repaints to the top after a resize', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
-    try {
-      render(<Harness />)
-      const term = shared.terminal
-      if (!term) throw new Error('terminal was not created')
+  it.each([
+    { offset: 0, cols: 60, rows: 30 },
+    { offset: 0, cols: 120, rows: 18 },
+    { offset: 90, cols: 60, rows: 30 },
+    { offset: 90, cols: 120, rows: 18 },
+  ])('restores offset $offset after parsing a repaint at $cols x $rows', ({ offset, cols, rows }) => {
+    const { term } = readyTerminal()
+    resizeWithOffset(term, offset, cols, rows)
 
-      // Flush the post-fit delay so the agent:output listener accepts writes.
-      vi.advanceTimersByTime(300)
+    output()
+    // The old implementation re-pinned here, before xterm changed its buffer.
+    expect(term.scrollToLine).not.toHaveBeenCalled()
+    expect(term._viewportY).toBe(120 - offset)
+    term.parseWrite(200, 0)
 
-      // User has scrolled up: 90 lines above the bottom.
-      term._baseY = 100
-      term._viewportY = 10
-      // The reflow snaps to the top; the synchronous restore puts it back.
-      shared.fitImpl = (t) => { t._baseY = 120; t._viewportY = 0 }
+    expect(term._viewportY).toBe(200 - offset)
+    expect(term.scrollToLine).toHaveBeenCalledWith(200 - offset)
+  })
 
-      fireResize()
-      expect(term._viewportY).toBe(30)
+  it.each([0, 90])('keeps offset %i through a purge and a replay lasting longer than 400 ms', (offset) => {
+    const { term } = readyTerminal()
+    resizeWithOffset(term, offset)
+    output('\x1b[2J\x1b[3J\x1b[H')
+    term.parseWrite(0, 0)
 
-      // Codex repaints asynchronously after the SIGWINCH and snaps the viewport
-      // to the top again. The post-resize guard must re-pin the position.
-      term._viewportY = 0
-      term.scrollToLine.mockClear()
-      shared.outputHandler?.({ sessionId: 'agent-1', data: 'repaint' })
-
-      expect(term.scrollToLine).toHaveBeenCalledWith(30)
-      expect(term._viewportY).toBe(30)
-    } finally {
-      vi.useRealTimers()
+    for (const baseY of [60, 120, 180, 240]) {
+      vi.advanceTimersByTime(250)
+      output('next transcript chunk\r\n')
+      term.parseWrite(baseY, 0)
+      expect(term._viewportY).toBe(Math.max(0, baseY - offset))
     }
   })
 
-  it('stops re-pinning once the guard window has elapsed', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
-    try {
-      render(<Harness />)
-      const term = shared.terminal
-      if (!term) throw new Error('terminal was not created')
-      vi.advanceTimersByTime(300)
+  it('waits for queued parsing before starting the quiet period', () => {
+    const { term } = readyTerminal()
+    resizeWithOffset(term, 90)
+    output()
+    output('more replay')
+    vi.advanceTimersByTime(600)
+    term.parseWrite(0, 0)
+    vi.advanceTimersByTime(600)
+    term.parseWrite(200, 0)
+    expect(term._viewportY).toBe(110)
 
-      term._baseY = 100
-      term._viewportY = 10
-      shared.fitImpl = (t) => { t._baseY = 120; t._viewportY = 0 }
-      fireResize()
+    vi.advanceTimersByTime(250)
+    output('last chunk')
+    term.parseWrite(220, 0)
+    expect(term._viewportY).toBe(130)
+  })
 
-      // A late repaint, after the guard window, must not yank the viewport — by
-      // then the user owns their scroll position.
-      vi.advanceTimersByTime(500)
-      term._viewportY = 0
-      term.scrollToLine.mockClear()
-      shared.outputHandler?.({ sessionId: 'agent-1', data: 'late output' })
+  it('preserves the original offset across another resize while scrollback is purged', () => {
+    const { term } = readyTerminal()
+    resizeWithOffset(term, 90)
+    output()
+    term.parseWrite(0, 0)
 
-      expect(term.scrollToLine).not.toHaveBeenCalled()
-    } finally {
-      vi.useRealTimers()
+    shared.fitImpl = (t) => { t.cols = 100 }
+    fireResize()
+    output('replayed history')
+    term.parseWrite(200, 0)
+    expect(term._viewportY).toBe(110)
+  })
+
+  it('stops re-pinning after the repaint goes quiet', () => {
+    const { term } = readyTerminal()
+    resizeWithOffset(term, 90)
+    output()
+    term.parseWrite(200, 0)
+
+    vi.advanceTimersByTime(401)
+    term.scrollToLine.mockClear()
+    output('ordinary later output')
+    term.parseWrite(220, 20)
+    expect(term._viewportY).toBe(20)
+    expect(term.scrollToLine).not.toHaveBeenCalled()
+  })
+
+  it('bounds the guard even when output never goes quiet', () => {
+    const { term } = readyTerminal()
+    resizeWithOffset(term, 90)
+    for (let elapsed = 250; elapsed < 5000; elapsed += 250) {
+      vi.advanceTimersByTime(250)
+      output('continuous output')
+      term.parseWrite(200, 0)
+      expect(term._viewportY).toBe(110)
     }
+    output('queued beyond the maximum lifetime')
+    vi.advanceTimersByTime(250)
+    term.scrollToLine.mockClear()
+    term.parseWrite(220, 20)
+    expect(term._viewportY).toBe(20)
+    expect(term.scrollToLine).not.toHaveBeenCalled()
+  })
+
+  it.each(['wheel', 'pointerdown', 'touchstart', 'paste', 'input', 'keydown'])(
+    'lets user %s interaction cancel even an already queued repaint', (type) => {
+      const { term, view } = readyTerminal()
+      resizeWithOffset(term, 90)
+      output()
+      if (type === 'keydown') {
+        term.keyHandler?.(new KeyboardEvent('keydown', { key: 'ArrowUp' }))
+      } else {
+        view.container.firstElementChild?.dispatchEvent(new Event(type))
+      }
+      term.parseWrite(200, 20)
+      expect(term._viewportY).toBe(20)
+      expect(term.scrollToLine).not.toHaveBeenCalled()
+    }
+  )
+
+  it('keeps the guard when parsing a cursor-position query sends a terminal reply', () => {
+    const { term } = readyTerminal()
+    resizeWithOffset(term, 90)
+    output('\x1b[6n')
+    term.onDataHandler?.('\x1b[24;1R')
+    term.parseWrite(200, 0)
+    expect(term._viewportY).toBe(110)
+    expect(window.electronAPI.invoke).toHaveBeenCalledWith('agent:input', 'agent-1', '\x1b[24;1R')
+  })
+
+  it('does not create a guard for an unchanged size or a failed fit', () => {
+    const { term } = readyTerminal()
+    term._baseY = 100
+    term._viewportY = 10
+    fireResize()
+    output()
+    term.parseWrite(100, 20)
+    expect(term._viewportY).toBe(20)
+
+    shared.fitImpl = () => { throw new Error('layout transition') }
+    fireResize()
+    output()
+    term.parseWrite(100, 30)
+    expect(term._viewportY).toBe(30)
+  })
+
+  it('ignores queued write callbacks after the terminal is disposed', () => {
+    const { term, view } = readyTerminal()
+    resizeWithOffset(term, 90)
+    output()
+    view.unmount()
+    term.parseWrite(200, 0)
+    expect(term.scrollToLine).not.toHaveBeenCalled()
   })
 })

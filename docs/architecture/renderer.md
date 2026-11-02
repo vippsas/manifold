@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-11-01
+updated: 2026-11-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -198,7 +198,7 @@ byte-identically; only the colliding cells change.
 
 **A terminal tells the PTY only about sizes it hasn't sent.** `fitAndResize` remembers the
 last `cols`/`rows` it reported per terminal instance and skips the `agent:resize` IPC when the
-fit produced the same numbers (`useTerminal.ts:370`). The fit itself is already a no-op then —
+fit produced the same numbers (`useTerminal.ts:405`). The fit itself is already a no-op then —
 xterm only resizes on a change, and `FitAddon.fit()` bails out entirely while the element is
 detached — but the resize IPC was sent unconditionally, and a redundant one still raises
 SIGWINCH on the PTY, which an agent TUI answers with a full repaint. Since dockview's default
@@ -206,6 +206,19 @@ SIGWINCH on the PTY, which an agent TUI answers with a full repaint. Since dockv
 switch (`AppShell.tsx:210` sets no `defaultRenderer`), that fired the ResizeObserver — and so a
 whole-screen agent repaint — each time the user switched agents. Pinned by
 `useTerminal.test.tsx` ("only resizes the PTY when the fitted size actually changed").
+
+**A terminal preserves its distance from the end through resize replay.** The synchronous
+fit preserves a reader's scrollback offset; a PTY resize also starts a guard that explicitly
+includes offset zero (pinned to the bottom). It retains that offset across another resize
+while Codex has temporarily purged scrollback (`useTerminal.ts:319`). Live output reapplies
+the anchor in xterm's `write` completion callback, after parsing, and keeps it alive while
+writes are queued and for 400 ms after the last parsed chunk, bounded to five seconds per
+resize (`useTerminal.ts:179`, `:222`). Keyboard, pointer, wheel, touch, paste and input events
+cancel the guard; terminal-generated replies such as cursor-position reports still reach
+the PTY without cancelling it (`useTerminal.ts:193`, `:267`, `:291`). Deferred-parser
+regressions are in `useTerminal.scroll.test.tsx`; `useTerminal.reflow.test.tsx` also drives
+the real xterm parser through clear/purge/replay in multiple chunks at narrower and wider
+sizes. These offline tests do not verify the live Codex repaint or Chromium viewport.
 
 **A workspace row's glyph says which kind it is.** Rows are grouped by repo — a muted
 `RepoGroupHeader` heads each repo and every workspace of it, the clone included, nests
