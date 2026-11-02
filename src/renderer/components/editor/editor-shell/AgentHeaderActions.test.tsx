@@ -189,6 +189,26 @@ describe('AgentHeaderActions', () => {
       expect(within(menu).getByRole('button', { name: /Claude Code/ })).toHaveFocus()
     })
 
+    it('focuses the first runtime that can be launched when the first listed one is not installed', async () => {
+      mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'runtimes:list'
+        ? [{ id: 'gemini', name: 'Gemini CLI', installed: false }, { id: 'codex', name: 'Codex', installed: true }]
+        : []))
+      const menu = await openMenu(makeState({ defaultRuntime: 'codex' }))
+
+      expect(within(menu).getByRole('button', { name: /^Codex/ })).toHaveFocus()
+    })
+
+    it('puts focus on More… when no runtime is installed, so Tab stays inside the menu', async () => {
+      mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'runtimes:list'
+        ? [{ id: 'gemini', name: 'Gemini CLI', installed: false }]
+        : []))
+      renderActions(makeState(), ['agent'])
+      fireEvent.click(screen.getByLabelText('Choose an agent'))
+      const menu = await screen.findByRole('group', { name: 'Start an agent' })
+
+      await waitFor(() => expect(within(menu).getByRole('button', { name: 'More…' })).toHaveFocus())
+    })
+
     it('still opens and closes after the dev StrictMode double-mount', async () => {
       const state = makeState()
       render(

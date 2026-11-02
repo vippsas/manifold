@@ -92,17 +92,20 @@ export function AgentLaunchList({
   // default you can't click.
   const installedProviders = providers.filter((rt) => rt.installed !== false)
   const lead = installedProviders.find((rt) => rt.id === leadRuntimeId) ?? installedProviders[0]
+  // A disabled button cannot take focus, so the row that gets it is the first
+  // one that can be launched, not simply the first one listed.
+  const firstEnabledId = installedProviders[0]?.id
 
   return (
     <div style={s.list}>
-      {providers.map((runtime, index) => {
+      {providers.map((runtime) => {
         const missing = runtime.installed === false
         const mode: AgentMode = runtime.kind === 'orchestrator' ? 'chat' : 'interactive'
         const launchName = runtime.id === 'viola' ? `${runtime.name} (alpha)` : runtime.name
         return (
           <Row
             key={runtime.id}
-            buttonRef={index === 0 ? firstRowRef : undefined}
+            buttonRef={runtime.id === firstEnabledId ? firstRowRef : undefined}
             glyph={runtimeGlyph(runtime)}
             name={launchName}
             metal={runtime.id === lead?.id}

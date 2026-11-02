@@ -26,6 +26,7 @@ export interface AgentQuickAddMenuProps {
 export const AgentQuickAddMenu = React.forwardRef<HTMLDivElement, AgentQuickAddMenuProps>(
   function AgentQuickAddMenu({ anchor, leadRuntimeId, onPick, onMore }, ref): React.JSX.Element {
     const [runtimes, setRuntimes] = React.useState<AgentRuntime[]>([])
+    const moreRef = React.useRef<HTMLButtonElement>(null)
 
     React.useEffect(() => {
       let live = true
@@ -34,6 +35,15 @@ export const AgentQuickAddMenu = React.forwardRef<HTMLDivElement, AgentQuickAddM
       })
       return () => { live = false }
     }, [])
+
+    // The list focuses its first launchable row. With nothing installed there is
+    // none, and focus would stay on the caret — behind a portal, so Tab would walk
+    // the app instead of this menu — so "More…" takes it.
+    React.useEffect(() => {
+      if (runtimes.length > 0 && !runtimes.some((rt) => !rt.needsModel && rt.installed !== false)) {
+        moreRef.current?.focus()
+      }
+    }, [runtimes])
 
     const left = Math.max(8, Math.min(anchor.left, window.innerWidth - MENU_WIDTH - 8))
     return (
@@ -53,6 +63,7 @@ export const AgentQuickAddMenu = React.forwardRef<HTMLDivElement, AgentQuickAddM
           onLaunch={onPick}
         />
         <button
+          ref={moreRef}
           type="button"
           style={{ ...styles.shellTypeMenuItem, ...styles.shellTypeMenuItemSeparated }}
           onClick={onMore}

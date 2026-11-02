@@ -41,7 +41,7 @@ import { useWorkspaces } from './hooks/project/useWorkspaces'
 import { usePersistedActiveWorkspace } from './hooks/project/usePersistedActiveWorkspace'
 import { useWorkspaceRepoStatuses } from './hooks/project/workspace-git-status'
 import { DEFAULT_SIDEBAR_VIEW, type SidebarViewId } from './components/sidebar/sidebar-views'
-import { resolveQuickAddLaunch } from './hooks/app/quick-add-agent'
+import { createSingleFlight, resolveQuickAddLaunch } from './hooks/app/quick-add-agent'
 import { useFavorites } from './hooks/project/useFavorites'
 import type { AgentSession, AgentSettingsUpdate } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
@@ -370,10 +370,11 @@ export function App(): React.JSX.Element {
   // workspace's runtime, else the default one, in the default mode. A failed
   // start (say the default runtime is not installed) opens the full dialog, which
   // can say why, instead of leaving the click looking like it did nothing.
-  const quickAddAgent = async (
+  const quickAddOnce = useRef(createSingleFlight()).current
+  const quickAddAgent = (
     workspaceId: string,
     pick?: { runtimeId: string; mode: 'interactive' | 'chat' },
-  ): Promise<void> => {
+  ): Promise<void> => quickAddOnce(async () => {
     const launch = resolveQuickAddLaunch({
       workspaceRuntimeId: workspaces.find((w) => w.id === workspaceId)?.runtimeId,
       defaultRuntime: settings.defaultRuntime,
@@ -387,7 +388,7 @@ export function App(): React.JSX.Element {
       console.error('[quickAddAgent] could not start the agent, opening New Agent instead:', err)
       openNewAgentModal(workspaceId)
     }
-  }
+  }).then(() => undefined)
 
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,

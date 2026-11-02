@@ -31,3 +31,25 @@ export function resolveQuickAddLaunch(args: {
   const { displayName } = withDefaultAgentName({ runtimeId }, args.workspaceSessions)
   return { runtimeId, displayName, nonInteractive }
 }
+
+/**
+ * Lets one async launch run at a time and drops the calls that arrive meanwhile.
+ *
+ * A quick-add computes its default name from the workspace's agents as they are
+ * when it starts, and the list only refreshes after the spawn lands. A second
+ * click in that window would read the same list, pick the same name and start a
+ * second agent that no tab can be told apart from. Dropping it is right: the user
+ * asked for one more agent and is getting one.
+ */
+export function createSingleFlight(): <T>(run: () => Promise<T>) => Promise<T | undefined> {
+  let busy = false
+  return async (run) => {
+    if (busy) return undefined
+    busy = true
+    try {
+      return await run()
+    } finally {
+      busy = false
+    }
+  }
+}

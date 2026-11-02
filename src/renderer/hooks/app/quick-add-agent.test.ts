@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { AgentSession } from '../../../shared/types'
-import { resolveQuickAddLaunch } from './quick-add-agent'
+import { createSingleFlight, resolveQuickAddLaunch } from './quick-add-agent'
 
 const agent = (displayName?: string): AgentSession => ({
   id: displayName ?? 'x', projectId: 'p', runtimeId: 'claude', branchName: 'b', worktreePath: '/w',
@@ -38,5 +38,30 @@ describe('resolveQuickAddLaunch', () => {
   it('names the agent past the ones the workspace already has', () => {
     const launch = resolveQuickAddLaunch({ defaultRuntime: 'claude', workspaceSessions: [agent('Claude'), agent('Claude 2')] })
     expect(launch.displayName).toBe('Claude 3')
+  })
+})
+
+describe('createSingleFlight', () => {
+  it('drops a call made while another is still running, and runs the next one after it settles', async () => {
+    const once = createSingleFlight()
+    let release: () => void = () => {}
+    const run = vi.fn(() => new Promise<string>((resolve) => { release = () => resolve('done') }))
+
+    const first = once(run)
+    const second = once(run)
+    expect(await second).toBeUndefined()
+    release()
+    expect(await first).toBe('done')
+    expect(run).toHaveBeenCalledTimes(1)
+
+    const third = once(async () => 'again')
+    expect(await third).toBe('again')
+  })
+
+  it('lets the next call through after a run that threw', async () => {
+    const once = createSingleFlight()
+    await expect(once(async () => { throw new Error('boom') })).rejects.toThrow('boom')
+
+    expect(await once(async () => 'ok')).toBe('ok')
   })
 })
