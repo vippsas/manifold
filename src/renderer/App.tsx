@@ -41,6 +41,7 @@ import { useWorkspaces } from './hooks/project/useWorkspaces'
 import { usePersistedActiveWorkspace } from './hooks/project/usePersistedActiveWorkspace'
 import { useWorkspaceRepoStatuses } from './hooks/project/workspace-git-status'
 import { DEFAULT_SIDEBAR_VIEW, type SidebarViewId } from './components/sidebar/sidebar-views'
+import { resolveQuickAddLaunch } from './hooks/app/quick-add-agent'
 import { useFavorites } from './hooks/project/useFavorites'
 import type { AgentSession, AgentSettingsUpdate } from '../shared/types'
 import { isGitProject } from '../shared/project-kind'
@@ -343,6 +344,51 @@ export function App(): React.JSX.Element {
     setNewAgentTarget({ workspaceId: created.id })
   }, [createWorkspace, setActiveProject, setActiveSession, workspaces])
 
+  // Starts an agent in a workspace and brings it on screen. Shared by the New
+  // Agent form and the header's quick-add, so both activate and subscribe alike.
+  const launchWorkspaceAgent = async (
+    workspaceId: string,
+    options: { runtimeId: string; displayName: string; nonInteractive?: boolean },
+  ): Promise<AgentSession> => {
+    const session = await spawnWorkspaceAgent(workspaceId, {
+      runtimeId: options.runtimeId,
+      displayName: options.displayName,
+      nonInteractive: options.nonInteractive,
+    })
+    setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
+    if (options.nonInteractive) {
+      try {
+        await window.electronAPI.invoke('simple:subscribe-chat', session.id)
+      } catch (err) {
+        console.error(`[onLaunchWorkspaceAgent] simple:subscribe-chat failed for ${session.id}:`, err)
+      }
+    }
+    return session
+  }
+
+  // The header "+" and its runtime dropdown: no dialog. Without a pick it is the
+  // workspace's runtime, else the default one, in the default mode. A failed
+  // start (say the default runtime is not installed) opens the full dialog, which
+  // can say why, instead of leaving the click looking like it did nothing.
+  const quickAddAgent = async (
+    workspaceId: string,
+    pick?: { runtimeId: string; mode: 'interactive' | 'chat' },
+  ): Promise<void> => {
+    const launch = resolveQuickAddLaunch({
+      workspaceRuntimeId: workspaces.find((w) => w.id === workspaceId)?.runtimeId,
+      defaultRuntime: settings.defaultRuntime,
+      defaultAgentMode: settings.defaultAgentMode,
+      pick,
+      workspaceSessions: sessionsByWorkspace[workspaceId] ?? [],
+    })
+    try {
+      await launchWorkspaceAgent(workspaceId, launch)
+    } catch (err) {
+      console.error('[quickAddAgent] could not start the agent, opening New Agent instead:', err)
+      openNewAgentModal(workspaceId)
+    }
+  }
+
   const dockState: DockAppState = {
     sessionId: effectiveSessionId, primarySessionId,
     onOpenDashboard: (cardId?: string) => { overlays.setDashboardInitialCard(cardId ?? null); overlays.setShowDashboard(true) },
@@ -402,25 +448,8 @@ export function App(): React.JSX.Element {
     onRenameWorkspace: (id: string, name: string) => { void renameWorkspace(id, name) },
     onRemoveWorkspace: removeWorkspaceWithRepos,
     onCopyWorkspace: (id: string) => { void copyWorkspaceToWorktree(id) },
-    onLaunchWorkspaceAgent: async (
-      workspaceId: string,
-      options: { runtimeId: string; displayName: string; nonInteractive?: boolean },
-    ) => {
-      const session = await spawnWorkspaceAgent(workspaceId, {
-        runtimeId: options.runtimeId,
-        displayName: options.displayName,
-        nonInteractive: options.nonInteractive,
-      })
-      setActiveWorkspaceId(workspaceId); overlays.handleSelectSession(session.id, session.projectId)
-      if (options.nonInteractive) {
-        try {
-          await window.electronAPI.invoke('simple:subscribe-chat', session.id)
-        } catch (err) {
-          console.error(`[onLaunchWorkspaceAgent] simple:subscribe-chat failed for ${session.id}:`, err)
-        }
-      }
-      return session
-    },
+    onLaunchWorkspaceAgent: launchWorkspaceAgent,
+    onQuickAddAgent: quickAddAgent,
     onAddProjectToWorkspace: addLocalFolderToWorkspace,
     onRemoveProjectFromWorkspace: (id: string, pid: string) => { void removeProjectFromWorkspace(id, pid) },
     behindCounts: branchStaleness.behindCounts, onProjectFetched: handleProjectFetched,

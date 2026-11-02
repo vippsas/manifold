@@ -72,6 +72,7 @@ export function makeDockState(overrides: Partial<DockAppState> = {}): DockAppSta
     onRenameAgent: vi.fn(),
     onRequestDeleteAgent: vi.fn(),
     onNewAgentFromHeader: vi.fn(),
+    onQuickAddAgent: vi.fn(),
     onNewProject: vi.fn(),
     activeSessionStatus: null,
     activeSessionRuntimeId: null,

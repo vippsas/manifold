@@ -88,6 +88,9 @@ export interface DockAppState {
   onToggleLocked: (sessionId: string, locked: boolean) => void
   onRequestDeleteAgent: (session: AgentSession, projectPath: string) => void
   onNewAgentFromHeader: (workspaceId?: string) => void
+  /** The header "+": start an agent in the workspace with no dialog. Without a
+   *  pick it is the workspace's runtime (else the default) in the default mode. */
+  onQuickAddAgent: (workspaceId: string, pick?: { runtimeId: string; mode: 'interactive' | 'chat' }) => Promise<void>
   onNewProject: () => void
   onNewWorkspace?: () => void
   workspaces: import('../../../../shared/workspace-types').Workspace[]
