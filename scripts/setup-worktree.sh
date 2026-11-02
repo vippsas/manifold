@@ -3,8 +3,8 @@
 #
 # A fresh worktree has no node_modules, and symlinking one from another clone leaves Electron
 # half-installed (missing node_modules/electron/path.txt), which surfaces as
-# `Error: Electron uninstall` on `npm run dev`. This script runs a real install, asserts the
-# Electron binary actually downloaded, rebuilds better-sqlite3 for Electron, and then runs the
+# `Error: Electron uninstall` on `npm run dev`. This script runs a real install, fetches and asserts the
+# Electron binary, rebuilds better-sqlite3 for Electron, and then runs the
 # doctor to confirm the result. See CLAUDE.md §7.
 set -euo pipefail
 
@@ -19,6 +19,12 @@ fi
 
 echo "→ Installing dependencies (npm install)…"
 npm install
+
+# Electron 42 dropped the npm package's postinstall download: `npm install` alone leaves no
+# binary (and no path.txt) until the first `electron` run. Fetch it now so the check below
+# and `npm run dev` / `drive:app` have something to find. A no-op when it is already there.
+echo "→ Fetching the Electron binary (install-electron)…"
+npx --no-install install-electron
 
 echo "→ Verifying the Electron binary downloaded…"
 PATH_TXT="node_modules/electron/path.txt"

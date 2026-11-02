@@ -103,7 +103,7 @@ Codex-specific rewrites for skills that need them.
 ## 7. Worktree setup
 
 A fresh worktree has no `node_modules`. **Run `npm run bootstrap`** — it does a real
-`npm install`, asserts the Electron binary actually downloaded, and rebuilds `better-sqlite3`
+`npm install`, fetches the Electron binary (`install-electron`; Electron 42 no longer downloads it on install) and asserts it is there, and rebuilds `better-sqlite3`
 for Electron's ABI, leaving the tree ready for both `npm run dev` and `npm test`. Do **not**
 symlink `node_modules` from another clone: the symlink leaves an incomplete install (missing
 `node_modules/electron/path.txt` → `Error: Electron uninstall`) and breaks some vitest `?url`
@@ -123,7 +123,7 @@ non-interactively.
 
 - **Architecture entry points:** [`docs/README.md`](docs/README.md) (doc map) and
   [`docs/architecture/`](docs/architecture/) — `app.md`, `ipc.md`, `renderer.md`, `plugins.md`.
-- **Prepare:** `npm ci` (lockfile-pinned; downloads the Electron binary). `npm test`'s
+- **Prepare:** `npm ci` (lockfile-pinned; since Electron 42 it does not download the Electron binary — the gate doesn't need it, only running the app does: `npx install-electron`). `npm test`'s
   `pretest` rebuilds `better-sqlite3` for the host Node when its ABI does not match, which needs
   a C/C++ toolchain.
 - **Offline gate** (the dispatcher's verify command; needs no network once prepared):

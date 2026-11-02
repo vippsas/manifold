@@ -1,7 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged for macOS and x64 WSL2/Linux, and released.
 covers: [package.json]
-updated: 2026-09-08
+updated: 2026-11-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -83,9 +83,12 @@ rebuild natives during packaging — the `pre*`/CI rebuild steps own that.
 
 **Worktree bootstrap & doctor.** A fresh (or symlinked) worktree isn't runnable until the right
 steps run in the right order, so two scripts front that. `bootstrap` (`package.json:7` →
-`scripts/setup-worktree.sh`) refuses a symlinked `node_modules`, runs `npm install`, asserts the
-Electron binary actually downloaded — `node_modules/electron/path.txt` and the `dist/` binary it
-names, whose absence is the `Error: Electron uninstall` symptom (`setup-worktree.sh:24-35`) — then
+`scripts/setup-worktree.sh`) refuses a symlinked `node_modules`, runs `npm install`, fetches the
+Electron binary (`npx install-electron` — Electron 42 stopped downloading it in the package's
+postinstall, so `npm install`/`npm ci` alone leave no binary until the first `electron` run;
+`setup-worktree.sh:23-27`), asserts it actually downloaded — `node_modules/electron/path.txt` and the
+`dist/` binary it names, whose absence is the `Error: Electron uninstall` symptom
+(`setup-worktree.sh:29-41`) — then
 runs `rebuild:electron`, enables local `git rerere` (with `autoupdate`, so recurring conflict
 resolutions replay hands-free — issue #835), and finishes by calling `doctor`. `doctor`
 (`package.json:8` → `scripts/doctor.mjs`) runs five checks (`runDoctor`, `doctor.mjs:220`): deps
