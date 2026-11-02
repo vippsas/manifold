@@ -1,7 +1,7 @@
 ---
 description: How the Manifold renderer (developer workspace UI) is structured — the React entry, the dockview panel layout, and the preload-only boundary to main.
 covers: [src/renderer]
-updated: 2026-11-01
+updated: 2026-11-02
 owner: see .github/CODEOWNERS
 ---
 
@@ -100,13 +100,16 @@ repo does not rediscover every registered project (`hooks/agent-session/useAllPr
 `:58`, `:113`). Each background discovery reply applies as it arrives, so a slower repo
 cannot delay its rows or overwrite subsequent lifecycle events when the batch finishes
 (`hooks/agent-session/useAllProjectSessions.ts:69`, `:82`). Startup auto-selection waits
-for `backgroundDiscoverySettled`, set after the full `Promise.all`, so it picks the first
-repo with agents in registry order rather than discovery reply order
+for the active repo's own load (`loadedProjectId === activeProjectId`, when a repo is active)
+and `backgroundDiscoverySettled`, set after the full `Promise.all`. A restored repo with
+agents therefore stays selected even when its reply arrives last; an empty active repo
+allows selecting the first repo with agents in registry order rather than discovery reply order
 (`hooks/agent-session/useAllProjectSessions.ts:83`, `:182`,
-`hooks/project/useAutoSelectActiveProject.ts:24`, `:25`, `App.tsx:93`).
-An active repo with agents disables startup auto-selection before that wait, preserving
-later user navigation to an empty repo while background discovery is still pending
-(`hooks/project/useAutoSelectActiveProject.ts:20`).
+`hooks/project/useAutoSelectActiveProject.ts:25`, `:26`, `:27`, `App.tsx:93`).
+An active repo with known agents disables startup auto-selection before either discovery wait,
+including agents spawned before its initial load finishes. This preserves later user navigation
+to an empty repo while discovery is still pending
+(`hooks/project/useAutoSelectActiveProject.ts:21`).
 `agent:sessions-changed` events for the active repo mark it dirty. A departing dirty repo, or one
 whose initial active-session discovery has not finished, gets one individual background
 discovery, since the active hook discards its pending reply on a switch. A newer active
@@ -155,7 +158,14 @@ dirty refresh write ordering. `useAllProjectSessions.versions.test.ts` delays th
 event updater until after a newer snapshot and another departure, isolating the version
 guard from both active-repo skips and React queue ordering. `useAutoSelectActiveProject.test.ts`
 defers p2 discovery while p3 replies first and verifies startup still selects p2; it also
-keeps a user-selected empty repo after the initial repo had agents during pending discovery.
+keeps a user-selected empty repo after the initial repo had agents during pending discovery
+(`hooks/project/useAutoSelectActiveProject.test.ts:11`, `:38`). Its delayed-active-reply cases
+resolve both background replies first, then verify that an active repo with agents stays
+selected and an empty active repo allows selection of p2 in registry order
+(`hooks/project/useAutoSelectActiveProject.test.ts:62`).
+A spawn-before-discovery case also verifies that switching to an empty repo stays selected,
+even though the departing repo's `loadedProjectId` was still null when its agent appeared
+(`hooks/project/useAutoSelectActiveProject.test.ts:98`).
 Native macOS rendering, including Working now clearing after a background
 agent exits, still requires a live app check.
 

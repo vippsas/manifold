@@ -90,7 +90,7 @@ export function App(): React.JSX.Element {
     return map
   }, [sessionsByWorkspace])
 
-  useAutoSelectActiveProject({ sessionsByProject, backgroundDiscoverySettled, activeProjectId, projects, setActiveProject })
+  useAutoSelectActiveProject({ sessionsByProject, backgroundDiscoverySettled, activeProjectId, loadedProjectId, projects, setActiveProject })
   useStatusNotification(outputtingSessionIds, settings.notificationSound)
   const { diff, changedFiles, refreshDiff } = useDiff(effectiveSessionId)
   const activeWorktreePath = activeSession?.worktreePath ?? null
