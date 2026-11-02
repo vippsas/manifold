@@ -23,6 +23,8 @@ interface Props {
   onAutoGenerateMessagesChange: (enabled: boolean) => void
   showCommitAndPrButtons: boolean
   onShowCommitAndPrButtonsChange: (enabled: boolean) => void
+  showBottomShellButton: boolean
+  onShowBottomShellButtonChange: (enabled: boolean) => void
   sidebarResizeReversed: boolean
   onSidebarResizeReversedChange: (enabled: boolean) => void
   uiScale: number
@@ -77,6 +79,11 @@ export function GeneralSettingsSection(props: Props): React.JSX.Element {
               <input type="checkbox" checked={props.showCommitAndPrButtons} onChange={(event) => props.onShowCommitAndPrButtonsChange(event.target.checked)} style={modalStyles.checkboxInput} />
               Show Commit and Create PR buttons in the status bar
               <span style={modalStyles.helpText}>Reveals the quick-action buttons that open the commit and PR panels from the status bar.</span>
+            </label>
+            <label style={{ ...modalStyles.checkboxField, ...modalStyles.fieldSpanFull }}>
+              <input type="checkbox" checked={props.showBottomShellButton} onChange={(event) => props.onShowBottomShellButtonChange(event.target.checked)} style={modalStyles.checkboxInput} />
+              Show a Shell button in the status bar
+              <span style={modalStyles.helpText}>Adds a one-click toggle for the shell panel at the bottom of the window. The terminal icon in the activity rail always works.</span>
             </label>
           </div>
         </SectionCard>

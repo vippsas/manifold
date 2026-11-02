@@ -189,6 +189,20 @@ describe('SettingsStore', () => {
   })
 
   describe('defaults', () => {
+    it('leaves the bottom Shell button off for a config written before the setting existed', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ theme: 'light' }))
+
+      expect(new SettingsStore().getSettings().showBottomShellButton).toBe(false)
+    })
+
+    it('keeps the bottom Shell button on when the config turned it on', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ showBottomShellButton: true }))
+
+      expect(new SettingsStore().getSettings().showBottomShellButton).toBe(true)
+    })
+
     it('includes uiMode in default settings', () => {
       mockExistsSync.mockReturnValue(false)
       const store = new SettingsStore()

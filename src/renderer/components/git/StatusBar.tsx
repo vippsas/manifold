@@ -3,6 +3,8 @@ import type { AgentSession, FileChange, AheadBehind } from '../../../shared/type
 import type { GitSyncResult } from '../../../shared/workspace-types'
 import { BranchSwitcher } from './BranchSwitcher'
 import { GitSyncFailureDialog } from './GitSyncFailureDialog'
+import { PanelGlyph } from '../ActivityBar'
+import { PANEL_TITLES } from '../../hooks/dock-layout/dock-layout-helpers'
 
 interface StatusBarBranchTarget {
   workspaceId: string
@@ -26,6 +28,9 @@ interface StatusBarProps {
   onCreatePR?: () => void
   onShowConflicts?: () => void
   showCommitAndPrButtons?: boolean
+  /** Renders the Shell toggle when given; `shellOpen` is its pressed state. */
+  onToggleShell?: () => void
+  shellOpen?: boolean
   branchTarget?: StatusBarBranchTarget
 }
 
@@ -40,6 +45,8 @@ export function StatusBar({
   onCreatePR,
   onShowConflicts,
   showCommitAndPrButtons = false,
+  onToggleShell,
+  shellOpen = false,
   branchTarget,
 }: StatusBarProps): React.JSX.Element {
   const hasConflicts = conflicts.length > 0
@@ -69,6 +76,18 @@ export function StatusBar({
 
   return (
     <div className="layout-status-bar">
+      {onToggleShell && (
+        <button
+          type="button"
+          onClick={onToggleShell}
+          className={`statusbar-button${shellOpen ? ' statusbar-button--pressed' : ''}`}
+          aria-pressed={shellOpen}
+          title={`${shellOpen ? 'Hide' : 'Show'} ${PANEL_TITLES.shell}`}
+        >
+          <PanelGlyph id="shell" size={14} />
+          {PANEL_TITLES.shell}
+        </button>
+      )}
       {branchTarget && (
         <>
           <BranchSwitcher

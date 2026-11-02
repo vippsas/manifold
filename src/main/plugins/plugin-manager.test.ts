@@ -14,7 +14,7 @@ const desc = (id: string, views: unknown[]): PluginDescriptor => ({
 })
 
 function makeManager(initial: Partial<ManifoldSettings> = {}) {
-  let settings: ManifoldSettings = { storagePath: '/tmp', setupCompleted: false, lastSeenReleaseNotesVersion: '', defaultRuntime: 'claude', theme: 'dark', scrollbackLines: 5000, terminalFontFamily: '', defaultBaseBranch: 'main', notificationSound: true, shellPrompt: true, shellHistoryScope: 'project', uiMode: 'developer', autoGenerateMessages: true, showCommitAndPrButtons: false, sidebarResizeReversed: false, keepAwake: false, ...initial }
+  let settings: ManifoldSettings = { storagePath: '/tmp', setupCompleted: false, lastSeenReleaseNotesVersion: '', defaultRuntime: 'claude', theme: 'dark', scrollbackLines: 5000, terminalFontFamily: '', defaultBaseBranch: 'main', notificationSound: true, shellPrompt: true, shellHistoryScope: 'project', uiMode: 'developer', autoGenerateMessages: true, showCommitAndPrButtons: false, showBottomShellButton: false, sidebarResizeReversed: false, keepAwake: false, ...initial }
   const store = {
     getSettings: () => settings,
     updateSettings: (patch: Partial<ManifoldSettings>) => { settings = { ...settings, ...patch } },

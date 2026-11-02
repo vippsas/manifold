@@ -94,6 +94,7 @@ export interface AppShellProps {
   workingSetNotices: WorkingSetNoticeState
   appEffects: { showOnboarding: boolean; setShowOnboarding: (v: boolean) => void; creatingProject: boolean; cloningProject: boolean }
   showCommitAndPrButtons: boolean
+  showBottomShellButton: boolean
   // Top-level handlers/state
   handleSelectFile: (path: string) => void
   handleOpenGitCommandOutput: (output: string) => void
@@ -126,6 +127,7 @@ export interface AppShellProps {
 
 export function AppShell(p: AppShellProps): React.JSX.Element {
   useLoadPluginContributions()
+  const shellDock = p.dockLayout as ActivityBarProps['dockLayout']
   const themeControls = {
     themeType: (p.themeClass === 'theme-light' ? 'light' : 'dark') as 'dark' | 'light',
     onToggleTheme: p.onToggleTheme,
@@ -244,6 +246,8 @@ export function AppShell(p: AppShellProps): React.JSX.Element {
           onCreatePR={() => p.overlays.setActivePanel('pr')}
           onShowConflicts={() => p.overlays.setActivePanel('conflicts')}
           showCommitAndPrButtons={p.showCommitAndPrButtons}
+          onToggleShell={p.showBottomShellButton ? () => shellDock.togglePanel('shell') : undefined}
+          shellOpen={shellDock.isPanelVisible('shell')}
           branchTarget={statusBarBranchTarget}
         />
       </div>

@@ -819,6 +819,11 @@ select:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 10px var(--accent-subtle);
 }
 
+.statusbar-button--pressed {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
 .statusbar-branch-button {
   border-color: transparent;
   background: transparent;

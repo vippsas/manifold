@@ -26,6 +26,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
   const [shellPromptSegments, setShellPromptSegments] = useState(settings.shellPromptSegments ?? DEFAULT_SETTINGS.shellPromptSegments)
   const [autoGenerateMessages, setAutoGenerateMessages] = useState(settings.autoGenerateMessages)
   const [showCommitAndPrButtons, setShowCommitAndPrButtons] = useState(settings.showCommitAndPrButtons)
+  const [showBottomShellButton, setShowBottomShellButton] = useState(settings.showBottomShellButton)
   const [sidebarResizeReversed, setSidebarResizeReversed] = useState(settings.sidebarResizeReversed)
   const [uiScale, setUiScale] = useState(settings.uiScale ?? DEFAULT_SETTINGS.uiScale)
   const [searchAiSettings, setSearchAiSettings] = useState(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
@@ -50,6 +51,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
     setShellPromptSegments(settings.shellPromptSegments ?? DEFAULT_SETTINGS.shellPromptSegments)
     setAutoGenerateMessages(settings.autoGenerateMessages)
     setShowCommitAndPrButtons(settings.showCommitAndPrButtons)
+    setShowBottomShellButton(settings.showBottomShellButton)
     setSidebarResizeReversed(settings.sidebarResizeReversed)
     setUiScale(settings.uiScale ?? DEFAULT_SETTINGS.uiScale)
     setSearchAiSettings(settings.search?.ai ?? DEFAULT_SETTINGS.search.ai)
@@ -72,6 +74,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       shellPromptSegments,
       autoGenerateMessages,
       showCommitAndPrButtons,
+      showBottomShellButton,
       sidebarResizeReversed,
       uiScale,
       search: { ai: searchAiSettings },
@@ -79,7 +82,7 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
       transcription,
     })
     onClose()
-  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, sidebarResizeReversed, uiScale, searchAiSettings, editorSettings, transcription, onSave, onClose])
+  }, [defaultRuntime, theme, scrollbackLines, terminalFontFamily, defaultBaseBranch, storagePath, notificationSound, notifications, shellHistoryScope, shellPromptSegments, autoGenerateMessages, showCommitAndPrButtons, showBottomShellButton, sidebarResizeReversed, uiScale, searchAiSettings, editorSettings, transcription, onSave, onClose])
 
   if (!visible) return null
 
@@ -127,6 +130,8 @@ export function SettingsModal({ visible, settings, onSave, onClose, onPreviewThe
           onAutoGenerateMessagesChange={setAutoGenerateMessages}
           showCommitAndPrButtons={showCommitAndPrButtons}
           onShowCommitAndPrButtonsChange={setShowCommitAndPrButtons}
+          showBottomShellButton={showBottomShellButton}
+          onShowBottomShellButtonChange={setShowBottomShellButton}
           sidebarResizeReversed={sidebarResizeReversed}
           onSidebarResizeReversedChange={setSidebarResizeReversed}
           uiScale={uiScale}
