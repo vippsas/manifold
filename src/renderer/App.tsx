@@ -59,8 +59,12 @@ export function App(): React.JSX.Element {
   }, [settings.uiScale])
 
   const { projects, activeProjectId, addProject, cloneProject, createNewProject, removeProject, updateProject, setActiveProject, error: projectError } = useProjects()
-  const { sessions, loadedProjectId, settledProjectId, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession: selectSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId)
+  // `useAgentSession` names new agents against the whole workspace, but the
+  // all-projects view is built from its own output a line below.
+  const allSessionsRef = useRef<Record<string, AgentSession[]>>({})
+  const { sessions, loadedProjectId, settledProjectId, activeSessionId, activeSession, spawnAgent, deleteAgent, setActiveSession: selectSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef } = useAgentSession(activeProjectId, allSessionsRef)
   const { sessionsByProject, backgroundDiscoverySettled, removeSession } = useAllProjectSessions(projects, activeProjectId, sessions, loadedProjectId)
+  allSessionsRef.current = sessionsByProject
   const { workspaces, createWorkspace, renameWorkspace, removeWorkspace, removeProject: removeProjectFromWorkspace, spawnAgent: spawnWorkspaceAgent } = useWorkspaces()
   const { activeWorkspaceId, setActiveWorkspaceId: selectWorkspace } = usePersistedActiveWorkspace(workspaces)
   const workspaceGitStatus = useWorkspaceRepoStatuses(activeWorkspaceId, {

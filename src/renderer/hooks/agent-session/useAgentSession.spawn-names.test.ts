@@ -60,4 +60,23 @@ describe('useAgentSession spawnAgent default name', () => {
 
     expect(spawnedOptions()[0].displayName).toBe('Codex')
   })
+
+  // A repo created inside a workspace spawns with the *new* project's id, so the
+  // names its sibling agents (other repos, same workspace) hold can only come
+  // from the caller's all-projects view.
+  it('numbers past an agent of another repo in the same workspace, but not past an unrelated workspace', async () => {
+    const inWorkspace = { ...makeSession('w1', 'p2', 'Codex'), workspaceId: 'ws-1' }
+    const elsewhere = { ...makeSession('e1', 'p3', 'Codex 2'), workspaceId: 'ws-2' }
+    mockInvoke.mockImplementation((channel: string) =>
+      Promise.resolve(channel === 'agent:sessions' ? [] : makeSession('x', 'p4')))
+    const allSessionsRef = { current: { p2: [inWorkspace], p3: [elsewhere] } }
+    const { result } = renderHook(() => useAgentSession('p1', allSessionsRef))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('agent:sessions', 'p1'))
+
+    await act(async () => {
+      await result.current.spawnAgent({ projectId: 'p4', workspaceId: 'ws-1', runtimeId: 'codex', prompt: '' })
+    })
+
+    expect(spawnedOptions()[0].displayName).toBe('Codex 2')
+  })
 })

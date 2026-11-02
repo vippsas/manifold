@@ -17,7 +17,7 @@ explicit selection, so the id need not change when the list arrives
 
 Discovery also exposes `settledProjectId` for startup auto-selection after success or
 failure. Failed requests preserve the loaded session list and `loadedProjectId`, so they
-introduce no sessions to auto-resume (`src/renderer/hooks/agent-session/useAgentSession.ts:149`,
+introduce no sessions to auto-resume (`src/renderer/hooks/agent-session/useAgentSession.ts:164`,
 `:153`, `:159`).
 
 `useAutoResume` observes both the selected id and the session list. It leaves a

@@ -111,7 +111,7 @@ An active discovery failure also settles this wait, allowing selection of a back
 with agents. `settledProjectId` clears when a request starts and only the latest request
 can settle it. Failures leave `loadedProjectId` and session rows intact, so the cache does
 not treat them as successful empty replies; later `agent:sessions-changed` events can retry
-(`hooks/agent-session/useAgentSession.ts:149`, `:153`, `:159`, `:181`).
+(`hooks/agent-session/useAgentSession.ts:164`, `:168`, `:174`, `:196`).
 An active repo with known agents disables startup auto-selection before either discovery wait,
 including agents spawned before its initial load finishes. This preserves later user navigation
 to an empty repo while discovery is still pending
@@ -132,7 +132,7 @@ or overrides the active repo when every row belongs to it. Empty lists also requ
 matching `loadedProjectId`; nonempty lists keep newly spawned agents visible before discovery
 finishes (`hooks/agent-session/useAllProjectSessions.ts:45`, `:76`, `:177`). Session
 loading sets that id alongside the reply and clears it on reset
-(`hooks/agent-session/useAgentSession.ts:39`, `:170`). Background
+(`hooks/agent-session/useAgentSession.ts:39`, `:185`). Background
 rows also consume `agent:status` by session id, and `agent:exit` sets `status: 'done'`
 and `pid: null`, without invoking discovery. Unknown ids and unchanged values retain
 the cached arrays and row identities. The listeners skip the active repo only when
@@ -144,7 +144,7 @@ replaces older event state through write ordering
 (`hooks/agent-session/useAllProjectSessions.ts:33`, `:98`, `:128`, `:136`, `:152`, `:159`).
 Project-session loading preserves an explicit valid
 selection ahead of repo memory, whose capture now uses a settled selection instead of a
-project-change cleanup (`hooks/agent-session/useAgentSession.ts:50`, `:139`). The existing
+project-change cleanup (`hooks/agent-session/useAgentSession.ts:50`, `:154`). The existing
 `rememberedActiveSessionRef` and dock-restore protection remain in place (#773).
 `useWorkspaceEntry.test.ts` pins the same-batch race and shared-repo memory;
 `useWorkspaceEntry.navigation.test.tsx` drives real cards, favorites, command dispatch and
@@ -753,9 +753,11 @@ The main-process status reader shares fresh FileWatcher porcelain and branch dat
   **Every spawn path is named, and a tab title is a safe fallback.** The form is not the only
   way an agent starts: opening a project, creating one and promoting a draft chat spawn through
   `useAgentSession`'s `spawnAgent` with no name. `useSpawnAgent` therefore applies
-  `withDefaultAgentName` (`agent-labels.ts`) to every project-scoped spawn, numbering past the
-  current project's agents (another project's list isn't to hand, so its first agent gets the
-  plain runtime name) and never overriding a name the caller gave. For agents that are already
+  `withDefaultAgentName` (`agent-labels.ts`) to every project-scoped spawn, numbering past every
+  known agent of the spawn's project *or* its target workspace (`siblingsFor` in
+  `useAgentSession.ts`, fed App's all-projects view through `allSessionsRef`, since a repo created
+  inside a workspace spawns under its own new project id) and never overriding a name the caller
+  gave. For agents that are already
   unnamed — restored from older state — the tab title is derived by `agentTabTitles`
   (`useAgentSiblingDockTabs.ts`): given names are shown as they are, the rest take the runtime
   label numbered past every name in use, in list order, so two tabs of a workspace never read

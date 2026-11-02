@@ -4,9 +4,9 @@ import { withDefaultAgentName } from '../../components/sidebar/agent-labels'
 
 export function useSpawnAgent(
   currentProjectId: string | null,
-  /** The current project's agents, read at spawn time so the default name sees
-   *  the latest list without making `spawnAgent` change identity with it. */
-  currentSessionsRef: React.MutableRefObject<AgentSession[]>,
+  /** The agents a spawn's default name must not collide with. Read at spawn
+   *  time, so `spawnAgent` keeps its identity as the lists change. */
+  siblingsFor: (options: SpawnAgentOptions) => readonly AgentSession[],
   refreshCurrentProject: (preferredSessionId?: string | null) => Promise<AgentSession[] | null>,
   setSessions: React.Dispatch<React.SetStateAction<AgentSession[]>>,
   setActiveSessionId: React.Dispatch<React.SetStateAction<string | null>>
@@ -15,9 +15,8 @@ export function useSpawnAgent(
     async (options: SpawnAgentOptions): Promise<AgentSession | null> => {
       // Every spawn is named here, so a path that passes no name (opening a
       // project, creating one, promoting a draft chat) still gets a tab that
-      // tells its agent apart. Another project's agents are not in the list, so
-      // the first agent there simply gets the plain runtime name.
-      const siblings = options.projectId === currentProjectId ? currentSessionsRef.current : []
+      // tells its agent apart.
+      const siblings = siblingsFor(options)
       try {
         const session = (await window.electronAPI.invoke('agent:spawn', withDefaultAgentName(options, siblings))) as AgentSession
         if (options.projectId === currentProjectId) {
@@ -39,7 +38,7 @@ export function useSpawnAgent(
         return null
       }
     },
-    [currentProjectId, currentSessionsRef, refreshCurrentProject, setSessions, setActiveSessionId]
+    [currentProjectId, siblingsFor, refreshCurrentProject, setSessions, setActiveSessionId]
   )
 }
 
