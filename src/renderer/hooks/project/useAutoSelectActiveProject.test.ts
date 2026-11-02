@@ -20,7 +20,7 @@ it('waits for background discovery to settle before selecting the first repo wit
     : Promise.resolve([three]))
   const { result } = renderHook(() => {
     const all = useAllProjectSessions(registered, 'p1', activeRows, 'p1')
-    useAutoSelectActiveProject({ ...all, loadedProjectId: 'p1', activeProjectId: 'p1', projects: registered, setActiveProject })
+    useAutoSelectActiveProject({ ...all, settledProjectId: 'p1', activeProjectId: 'p1', projects: registered, setActiveProject })
     return all
   })
 
@@ -46,7 +46,7 @@ it('keeps a user-selected empty repo after the initial repo already had agents w
     : new Promise<AgentSession[]>((resolve) => { finishThird = resolve }))
   const { result, rerender } = renderHook(({ active, sessions }) => {
     const all = useAllProjectSessions(registered, active, sessions, active)
-    useAutoSelectActiveProject({ ...all, loadedProjectId: active, activeProjectId: active, projects: registered, setActiveProject })
+    useAutoSelectActiveProject({ ...all, settledProjectId: active, activeProjectId: active, projects: registered, setActiveProject })
     return all
   }, { initialProps: { active: 'p1', sessions: [one] } })
   await waitFor(() => expect(result.current.sessionsByProject.p2).toEqual([]))
@@ -73,7 +73,7 @@ it.each([
   const { result } = renderHook(() => {
     const agent = useAgentSession('p1')
     const all = useAllProjectSessions(registered, 'p1', agent.sessions, agent.loadedProjectId)
-    useAutoSelectActiveProject({ ...all, loadedProjectId: agent.loadedProjectId, activeProjectId: 'p1', projects: registered, setActiveProject })
+    useAutoSelectActiveProject({ ...all, settledProjectId: agent.settledProjectId, activeProjectId: 'p1', projects: registered, setActiveProject })
     return { ...all, loadedProjectId: agent.loadedProjectId }
   })
 
@@ -95,6 +95,39 @@ it.each([
   expect(mockInvoke).toHaveBeenCalledTimes(3)
 })
 
+it.each([true, false])('selects the first repo with agents when active discovery fails (failure first: %s)', async (failureFirst) => {
+  const registered = [...projects, { ...projects[1], id: 'p3', name: 'Project Three' }]
+  const setActiveProject = vi.fn()
+  const replies = new Map<string, { resolve: (sessions: AgentSession[]) => void; reject: (error: Error) => void }>()
+  mockInvoke.mockImplementation((_channel: string, projectId: string) =>
+    new Promise<AgentSession[]>((resolve, reject) => { replies.set(projectId, { resolve, reject }) }))
+  const { result } = renderHook(() => {
+    const agent = useAgentSession('p1')
+    const all = useAllProjectSessions(registered, 'p1', agent.sessions, agent.loadedProjectId)
+    useAutoSelectActiveProject({ ...all, settledProjectId: agent.settledProjectId, activeProjectId: 'p1', projects: registered, setActiveProject })
+    return { agent, ...all }
+  })
+
+  await act(async () => {
+    replies.get('p3')!.resolve([makeSession('three', 'p3')])
+    if (failureFirst) replies.get('p1')!.reject(new Error('Discovery unavailable'))
+  })
+  expect(result.current.backgroundDiscoverySettled).toBe(false)
+  expect(setActiveProject).not.toHaveBeenCalled()
+
+  await act(async () => { replies.get('p2')!.resolve([makeSession('two', 'p2')]) })
+  expect(result.current.backgroundDiscoverySettled).toBe(true)
+  if (!failureFirst) {
+    expect(setActiveProject).not.toHaveBeenCalled()
+    await act(async () => { replies.get('p1')!.reject(new Error('Discovery unavailable')) })
+  }
+
+  expect(result.current.agent.loadedProjectId).toBeNull()
+  expect(result.current.agent.sessions).toEqual([])
+  expect(setActiveProject).toHaveBeenCalledExactlyOnceWith('p2')
+  expect(mockInvoke).toHaveBeenCalledTimes(3)
+})
+
 it('keeps a user-selected empty repo after spawning before the initial active discovery finishes', async () => {
   const spawned = { ...makeSession('one', 'p1'), nonInteractive: true, pid: null }
   const setActiveProject = vi.fn()
@@ -108,7 +141,7 @@ it('keeps a user-selected empty repo after spawning before the initial active di
   const { result, rerender } = renderHook(({ active }) => {
     const agent = useAgentSession(active)
     const all = useAllProjectSessions(projects, active, agent.sessions, agent.loadedProjectId)
-    useAutoSelectActiveProject({ ...all, loadedProjectId: agent.loadedProjectId, activeProjectId: active, projects, setActiveProject })
+    useAutoSelectActiveProject({ ...all, settledProjectId: agent.settledProjectId, activeProjectId: active, projects, setActiveProject })
     return { agent, ...all }
   }, { initialProps: { active: 'p1' } })
   await waitFor(() => expect(result.current.backgroundDiscoverySettled).toBe(true))

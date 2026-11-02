@@ -100,12 +100,17 @@ repo does not rediscover every registered project (`hooks/agent-session/useAllPr
 `:58`, `:113`). Each background discovery reply applies as it arrives, so a slower repo
 cannot delay its rows or overwrite subsequent lifecycle events when the batch finishes
 (`hooks/agent-session/useAllProjectSessions.ts:69`, `:82`). Startup auto-selection waits
-for the active repo's own load (`loadedProjectId === activeProjectId`, when a repo is active)
+for the active repo's discovery to complete (`settledProjectId === activeProjectId`, when a repo is active)
 and `backgroundDiscoverySettled`, set after the full `Promise.all`. A restored repo with
 agents therefore stays selected even when its reply arrives last; an empty active repo
 allows selecting the first repo with agents in registry order rather than discovery reply order
 (`hooks/agent-session/useAllProjectSessions.ts:83`, `:182`,
 `hooks/project/useAutoSelectActiveProject.ts:25`, `:26`, `:27`, `App.tsx:93`).
+An active discovery failure also settles this wait, allowing selection of a background repo
+with agents. `settledProjectId` clears when a request starts and only the latest request
+can settle it. Failures leave `loadedProjectId` and session rows intact, so the cache does
+not treat them as successful empty replies; later `agent:sessions-changed` events can retry
+(`hooks/agent-session/useAgentSession.ts:149`, `:153`, `:159`, `:181`).
 An active repo with known agents disables startup auto-selection before either discovery wait,
 including agents spawned before its initial load finishes. This preserves later user navigation
 to an empty repo while discovery is still pending
@@ -126,7 +131,7 @@ or overrides the active repo when every row belongs to it. Empty lists also requ
 matching `loadedProjectId`; nonempty lists keep newly spawned agents visible before discovery
 finishes (`hooks/agent-session/useAllProjectSessions.ts:45`, `:76`, `:177`). Session
 loading sets that id alongside the reply and clears it on reset
-(`hooks/agent-session/useAgentSession.ts:39`, `:163`). Background
+(`hooks/agent-session/useAgentSession.ts:39`, `:170`). Background
 rows also consume `agent:status` by session id, and `agent:exit` sets `status: 'done'`
 and `pid: null`, without invoking discovery. Unknown ids and unchanged values retain
 the cached arrays and row identities. The listeners skip the active repo only when
@@ -138,7 +143,7 @@ replaces older event state through write ordering
 (`hooks/agent-session/useAllProjectSessions.ts:33`, `:98`, `:128`, `:136`, `:152`, `:159`).
 Project-session loading preserves an explicit valid
 selection ahead of repo memory, whose capture now uses a settled selection instead of a
-project-change cleanup (`hooks/agent-session/useAgentSession.ts:50`, `:132`). The existing
+project-change cleanup (`hooks/agent-session/useAgentSession.ts:50`, `:139`). The existing
 `rememberedActiveSessionRef` and dock-restore protection remain in place (#773).
 `useWorkspaceEntry.test.ts` pins the same-batch race and shared-repo memory;
 `useWorkspaceEntry.navigation.test.tsx` drives real cards, favorites, command dispatch and
@@ -163,9 +168,14 @@ keeps a user-selected empty repo after the initial repo had agents during pendin
 resolve both background replies first, then verify that an active repo with agents stays
 selected and an empty active repo allows selection of p2 in registry order
 (`hooks/project/useAutoSelectActiveProject.test.ts:62`).
+Failure cases reject the active discovery before and after background completion and still
+select p2 in registry order (`hooks/project/useAutoSelectActiveProject.test.ts:98`).
+`useAgentSession.loaded-project.test.ts` verifies failed loads stay distinct from successful
+loads, recovery on a later event, preservation of loaded rows after a failed refresh, and
+obsolete replies leaving a newer request pending.
 A spawn-before-discovery case also verifies that switching to an empty repo stays selected,
 even though the departing repo's `loadedProjectId` was still null when its agent appeared
-(`hooks/project/useAutoSelectActiveProject.test.ts:98`).
+(`hooks/project/useAutoSelectActiveProject.test.ts:131`).
 Native macOS rendering, including Working now clearing after a background
 agent exits, still requires a live app check.
 

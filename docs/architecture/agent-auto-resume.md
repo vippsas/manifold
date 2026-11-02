@@ -1,19 +1,24 @@
 ---
 description: How selected dormant interactive agents resume when their repo's session list arrives, without duplicate attempts.
 covers: [src/renderer/hooks/agent-session/useAgentSession.ts, src/renderer/hooks/agent-session/useAutoResume.ts]
-updated: 2026-11-01
+updated: 2026-11-02
 owner: see .github/CODEOWNERS
 ---
 
 # Agent auto-resume
 
 `useAgentSession` owns the current repo's session list and invokes `useAutoResume`
-with that list and the selected id (`src/renderer/hooks/agent-session/useAgentSession.ts:74`,
-`:93`). A workspace tab selection also selects its agent's repo in the same batch
+with that list and the selected id (`src/renderer/hooks/agent-session/useAgentSession.ts:76`,
+`:95`). A workspace tab selection also selects its agent's repo in the same batch
 (`src/renderer/hooks/app/useWorkspaceEntry.ts:38`). The selected id can therefore arrive
 before its session is in the current list. Loading the destination repo preserves that
 explicit selection, so the id need not change when the list arrives
 (`src/renderer/hooks/agent-session/useAgentSession.ts:39`, `:50`).
+
+Discovery also exposes `settledProjectId` for startup auto-selection after success or
+failure. Failed requests preserve the loaded session list and `loadedProjectId`, so they
+introduce no sessions to auto-resume (`src/renderer/hooks/agent-session/useAgentSession.ts:149`,
+`:153`, `:159`).
 
 `useAutoResume` observes both the selected id and the session list. It leaves a
 selection pending while its session is absent, then handles it once the session appears

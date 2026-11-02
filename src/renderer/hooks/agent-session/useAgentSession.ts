@@ -56,6 +56,8 @@ function applyProjectSessions(
 interface UseAgentSessionResult {
   sessions: AgentSession[]
   loadedProjectId: string | null
+  /** Discovery completed, including a failed load; cleared while a request is pending. */
+  settledProjectId: string | null
   activeSessionId: string | null
   activeSession: AgentSession | null
   spawnAgent: (options: SpawnAgentOptions) => Promise<AgentSession | null>
@@ -85,7 +87,7 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
     setActiveSessionId(next)
   }, [])
 
-  const { refreshSessions, rememberedActiveSessionRef } = useFetchSessionsOnProjectChange(
+  const { refreshSessions, settledProjectId, rememberedActiveSessionRef } = useFetchSessionsOnProjectChange(
     projectId, activeSessionId, sessions, setSessions, setLoadedProjectId, setActiveSessionId, clearedRef,
   )
   useStatusListener(setSessions)
@@ -105,11 +107,12 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null
 
-  return { sessions, loadedProjectId, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef }
+  return { sessions, loadedProjectId, settledProjectId, activeSessionId, activeSession, spawnAgent, killAgent, deleteAgent, setActiveSession, resumeAgent, outputtingSessionIds, rememberedActiveSessionRef }
 }
 
 interface FetchSessionsResult {
   refreshSessions: (preferredSessionId?: string | null) => Promise<AgentSession[] | null>
+  settledProjectId: string | null
   rememberedActiveSessionRef: React.MutableRefObject<string | null>
 }
 
@@ -123,6 +126,7 @@ function useFetchSessionsOnProjectChange(
   clearedRef: React.MutableRefObject<boolean>,
 ): FetchSessionsResult {
   const requestIdRef = useRef(0)
+  const [settledProjectId, setSettledProjectId] = useState<string | null>(null)
   // Remembers the last active session per project so re-entering a repo
   // restores the agent that was selected, instead of resetting to the first.
   const lastSessionByProjectRef = useRef<Map<string, string>>(new Map())
@@ -142,6 +146,7 @@ function useFetchSessionsOnProjectChange(
     async (preferredSessionId?: string | null): Promise<AgentSession[] | null> => {
       if (!projectId) return null
       const requestId = ++requestIdRef.current
+      setSettledProjectId(null)
       try {
         const result = await fetchProjectSessions(projectId)
         if (requestId !== requestIdRef.current) return null
@@ -150,6 +155,8 @@ function useFetchSessionsOnProjectChange(
       } catch {
         // IPC not ready yet during init, sessions will arrive via events
         return null
+      } finally {
+        if (requestId === requestIdRef.current) setSettledProjectId(projectId)
       }
     },
     [projectId, setSessions, setLoadedProjectId, setActiveSessionId, clearedRef]
@@ -161,6 +168,7 @@ function useFetchSessionsOnProjectChange(
       rememberedActiveSessionRef.current = null
       setSessions([])
       setLoadedProjectId(null)
+      setSettledProjectId(null)
       setActiveSessionId(null)
       return
     }
@@ -181,7 +189,7 @@ function useFetchSessionsOnProjectChange(
     )
   )
 
-  return { refreshSessions: syncSessions, rememberedActiveSessionRef }
+  return { refreshSessions: syncSessions, settledProjectId, rememberedActiveSessionRef }
 }
 
 function useStatusListener(
