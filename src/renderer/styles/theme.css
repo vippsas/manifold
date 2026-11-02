@@ -513,6 +513,18 @@ select:focus-visible {
   min-width: 0;
 }
 
+.dock-tab__name-input {
+  min-width: 6ch;
+  width: 14ch;
+  padding: 0 var(--space-xs);
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--control-bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs);
+  outline: none;
+}
+
 /* Text tabs (agent, shell, module panels) fill the header strip's full height and
    sit flush against each other, drawing no shape of their own: no fill at rest,
    so there is no seam between a tab and the strip and no box to mistake for a

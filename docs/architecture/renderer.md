@@ -22,6 +22,7 @@ boundaries. Individual panels and hooks are catalogued only enough to locate the
 - `src/renderer/AppShell.tsx` — presentational shell: title bar, the activity-bar icon rail + `DockviewReact` host (side by side in `.layout-workbench`), status bar, and all modals/overlays/toasts (`AppShell.tsx:80`).
 - `src/renderer/components/TitleBar.tsx` — the window title bar. Carries the theme controls at its trailing edge: a family `<select>` and a light/dark toggle, rendered on every shell branch including the pre-setup and no-project screens (`AppShell.tsx:123`). The family list is derived from the theme registry via `getThemeFamilies()` rather than hardcoded, so it cannot outlive the themes it names — an earlier hardcoded copy kept offering Royal after that family was retired. Switching family preserves the current variant; the toggle flips the variant within the family (`App.tsx:186`).
 - `src/renderer/DockTab.tsx` — `DockTab` (the per-panel tab header) and `EmptyWatermark` (the empty-group drop hint).
+- `src/renderer/AgentTabNameInput.tsx` — the agent tab's inline rename field and `agentNameOnlyUpdate`, the name-only settings update it saves.
 - `src/renderer/components/AgentTabUsage.tsx` — `AgentTabUsage`: the agent tab's cost coin and the hover-loaded tooltip behind it (`agent:session-usage`). `AgentTabUsage.fixture.tsx` renders its priced / unpriced / no-usage states.
 - `src/renderer/monaco-setup.ts` — wires `MonacoEnvironment.getWorker` to the per-language Vite `?worker` bundles, applies `monaco-ts-defaults`, and calls `loader.config({ monaco })`.
 - `src/renderer/monaco-ts-defaults.ts` — `configureTypeScriptDefaults(monaco)`: turns off semantic TS/JS validation (the worker has no project graph) and enables `jsx`.
@@ -110,7 +111,7 @@ An active discovery failure also settles this wait, allowing selection of a back
 with agents. `settledProjectId` clears when a request starts and only the latest request
 can settle it. Failures leave `loadedProjectId` and session rows intact, so the cache does
 not treat them as successful empty replies; later `agent:sessions-changed` events can retry
-(`hooks/agent-session/useAgentSession.ts:149`, `:153`, `:159`, `:181`).
+(`hooks/agent-session/useAgentSession.ts:164`, `:168`, `:174`, `:196`).
 An active repo with known agents disables startup auto-selection before either discovery wait,
 including agents spawned before its initial load finishes. This preserves later user navigation
 to an empty repo while discovery is still pending
@@ -131,7 +132,7 @@ or overrides the active repo when every row belongs to it. Empty lists also requ
 matching `loadedProjectId`; nonempty lists keep newly spawned agents visible before discovery
 finishes (`hooks/agent-session/useAllProjectSessions.ts:45`, `:76`, `:177`). Session
 loading sets that id alongside the reply and clears it on reset
-(`hooks/agent-session/useAgentSession.ts:39`, `:170`). Background
+(`hooks/agent-session/useAgentSession.ts:39`, `:185`). Background
 rows also consume `agent:status` by session id, and `agent:exit` sets `status: 'done'`
 and `pid: null`, without invoking discovery. Unknown ids and unchanged values retain
 the cached arrays and row identities. The listeners skip the active repo only when
@@ -143,7 +144,7 @@ replaces older event state through write ordering
 (`hooks/agent-session/useAllProjectSessions.ts:33`, `:98`, `:128`, `:136`, `:152`, `:159`).
 Project-session loading preserves an explicit valid
 selection ahead of repo memory, whose capture now uses a settled selection instead of a
-project-change cleanup (`hooks/agent-session/useAgentSession.ts:50`, `:139`). The existing
+project-change cleanup (`hooks/agent-session/useAgentSession.ts:50`, `:154`). The existing
 `rememberedActiveSessionRef` and dock-restore protection remain in place (#773).
 `useWorkspaceEntry.test.ts` pins the same-batch race and shared-repo memory;
 `useWorkspaceEntry.navigation.test.tsx` drives real cards, favorites, command dispatch and
@@ -184,7 +185,7 @@ agent exits, still requires a live app check.
 deliberately not for grouped ones (a Viola run's workers), which are opened on demand by their
 owner UI. The dock layout is one window-wide object (`hooks/dock-layout/useDockLayout.ts:70`);
 workspace switches reconcile its agent tabs, removing panels outside the current workspace
-(`hooks/agent-session/useAgentSiblingDockTabs.ts:128`). Returning must recreate an on-demand
+(`hooks/agent-session/useAgentSiblingDockTabs.ts:115`). Returning must recreate an on-demand
 grouped panel. `opened-agent-tabs.ts` records that the user opened one, the mirror image of
 `dismissed-agent-tabs.ts` recording that they closed one — except that it is not pruned against
 the active workspace's sessions, which would discard every other workspace's record on a repo
@@ -736,7 +737,7 @@ The main-process status reader shares fresh FileWatcher porcelain and branch dat
   warning** — several agents sharing one checkout is the point of a workspace, not a collision to
   guard against. It doesn't even ask for a name: an agent takes the first free slot among the
   names its workspace is already using — `Claude`, then `Claude 2` (`nextAgentName`,
-  `agent-labels.ts:33`, called from `useNewAgentForm.tsx:88`). The name is only a **label** — it
+  `agent-labels.ts:47`, called from `useNewAgentForm.tsx:94`). The name is only a **label** — it
   travels as `displayName` and titles the agent's tab (`session-creator.ts`); it cuts no branch.
 
   **Two rules there exist to stop agents sharing a tab label.** *Check the names, don't count
@@ -747,10 +748,31 @@ The main-process status reader shares fresh FileWatcher porcelain and branch dat
   scans every sibling's `displayName`, whatever its runtime, since names are what collide.
   *And name the first agent too*: a blank name is left undefined downstream
   (`session-creator.ts:216`) and an unnamed session falls back to its **branch** label
-  (`DockTab.tsx:93`) — which every agent in a workspace shares, so the first Claude agent and
+  (`DockTab.tsx:87`) — which every agent in a workspace shares, so the first Claude agent and
   the first Codex agent used to show identical tabs. Note the label comes from `runtimeLabel`
   (`Claude`), not the runtime's own `name` (`Claude Code`), matching the rest of the UI and
   keeping tabs narrow.
+
+  **Every spawn path is named, and a tab title is a safe fallback.** The form is not the only
+  way an agent starts: opening a project, creating one and promoting a draft chat spawn through
+  `useAgentSession`'s `spawnAgent` with no name. `useSpawnAgent` therefore applies
+  `withDefaultAgentName` (`agent-labels.ts`) to every project-scoped spawn, numbering past every
+  known agent of the spawn's project *or* its target workspace (`siblingsFor` in
+  `useAgentSession.ts`, fed App's all-projects view through `allSessionsRef`, since a repo created
+  inside a workspace spawns under its own new project id) and never overriding a name the caller
+  gave. For agents that are already
+  unnamed — restored from older state — the tab title is derived by `agentTabTitles`
+  (`useAgentSiblingDockTabs.ts`): given names are shown as they are, the rest take the runtime
+  label numbered past every name in use, in list order, so two tabs of a workspace never read
+  alike. Nothing is written back; the stored name stays blank until the user sets one.
+
+  **Rename is one step from the tab.** The tab's `…` menu leads with a top-level **Rename**
+  (`DockTab.tsx`), which swaps the label for an inline field (`AgentTabNameInput.tsx`): Enter
+  saves, Escape cancels, blur saves, and the field settles once so the blur that follows an
+  Escape cannot save the discarded draft. It saves through `onRenameAgent` with
+  `agentNameOnlyUpdate` — the agent's own runtime and view mode echoed back — which keeps
+  `configureSession` off its restart path, so the agent and its chat are untouched. Double-click on
+  the tab stays focus/maximize; **Agent settings…** is unchanged.
 
   **A provider list, one hook.** The state and the launch live in `useNewAgentForm`
   (`modals/useNewAgentForm.tsx:45`); its `launch(runtimeId, mode)` takes the provider and mode

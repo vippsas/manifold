@@ -73,7 +73,13 @@ interface UseAgentSessionResult {
   rememberedActiveSessionRef: React.MutableRefObject<string | null>
 }
 
-export function useAgentSession(projectId: string | null): UseAgentSessionResult {
+export function useAgentSession(
+  projectId: string | null,
+  /** Every known agent, by project — the caller's all-projects view, which this
+   *  hook cannot build itself (it only loads the active project's). Lets a spawn
+   *  into a workspace avoid the names its agents from other repos already use. */
+  allSessionsRef?: React.MutableRefObject<Record<string, AgentSession[]>>,
+): UseAgentSessionResult {
   const [sessions, setSessions] = useState<AgentSession[]>([])
   const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null)
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
@@ -95,7 +101,16 @@ export function useAgentSession(projectId: string | null): UseAgentSessionResult
   useAutoResume(activeSessionId, sessions, setSessions)
   const outputtingSessionIds = useActivityStateListener()
 
-  const spawnAgent = useSpawnAgent(projectId, refreshSessions, setSessions, selectSessionId)
+  const sessionsRef = useRef(sessions)
+  sessionsRef.current = sessions
+  // A new agent shares a tab bar with its workspace's agents, which may come from
+  // other repos, so those count as well as the project's own.
+  const siblingsFor = useCallback((options: SpawnAgentOptions): AgentSession[] => {
+    const known = [...sessionsRef.current, ...Object.values(allSessionsRef?.current ?? {}).flat()]
+    return known.filter((s) => s.projectId === options.projectId
+      || (options.workspaceId !== undefined && s.workspaceId === options.workspaceId))
+  }, [allSessionsRef])
+  const spawnAgent = useSpawnAgent(projectId, siblingsFor, refreshSessions, setSessions, selectSessionId)
   const killAgent = useKillAgent()
   const deleteAgent = useDeleteAgent(setSessions, setActiveSessionId)
   const resumeAgent = useResumeAgent(setSessions)
