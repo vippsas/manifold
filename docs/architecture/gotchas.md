@@ -94,9 +94,10 @@ leaves Electron half-installed (missing `node_modules/electron/path.txt`) and br
 vitest `?url` imports — a real install is the supported setup.
 
 **Guardrail.** `npm run bootstrap` (`scripts/setup-worktree.sh`) refuses a symlinked
-`node_modules` (`:14`), runs a real `npm install`, asserts the Electron binary actually
+`node_modules` (`:14`), runs a real `npm install`, fetches the Electron binary with
+`install-electron` (Electron 42 no longer downloads it on install, `:23-27`), asserts it actually
 downloaded — the missing `path.txt` is the `Error: Electron uninstall` symptom
-(`:25-29`) — and rebuilds SQLite for Electron (`:37-38`). `npm run doctor` reports whether
+(`:29-41`) — and rebuilds SQLite for Electron (`:43-44`). `npm run doctor` reports whether
 a worktree is runnable. See CLAUDE.md §7 and [Build & release](build.md).
 
 ## 4. Dockview layout: width-0 while maximized, and collapse doesn't survive `fromJSON`
