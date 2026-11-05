@@ -1,0 +1,10 @@
+# Read by manifold-server from the default branch (cached for about five minutes).
+# An unknown key makes the repository ineligible, so keep to documented keys.
+#
+# verify_command runs once in the prepared checkout after the agent finishes, with no
+# credentials and a 30-minute timeout. A non-zero exit stops the run with `needs-human`
+# and publishes no PR. This is the offline gate from AGENTS.md section 8, preceded by `npm ci`
+# because node_modules is not committed. npm_config_nodedir points node-gyp at the Node
+# headers that ship with the runner image: package.json overrides prebuild-install, so
+# better-sqlite3 is always compiled from source during `npm ci`.
+verify_command = "npm_config_nodedir=/usr/local npm ci --no-audit --no-fund && npm run typecheck && npm test"
