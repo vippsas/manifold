@@ -31,7 +31,7 @@ npm run bootstrap    # One-step worktree setup (install + verify Electron + rebu
 npm run doctor       # Report environment health (deps, Electron, ABI, out/ staleness)
 npm run dev          # Start Electron in dev mode (hot reload)
 npm run build        # Production build
-npm run typecheck    # Full typecheck (main + renderer)
+npm run typecheck    # Full typecheck (web + node + plugins)
 npm test             # Run all tests
 npm run test:watch   # Watch mode
 ```
