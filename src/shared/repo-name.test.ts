@@ -6,6 +6,30 @@ describe('repo-name helpers', () => {
     expect(slugifyRepoName('Fancy Timer App!')).toBe('fancy-timer-app')
   })
 
+  it.each([
+    ['Café Münster', 'cafe-munster'],
+    ['Señor Niño', 'senor-nino'],
+    ['Ålesund', 'alesund'],
+    ['A\u030Alesund', 'alesund'],
+    ['Ærø Åpen', 'aero-apen'],
+    ['Fancy Timer App!', 'fancy-timer-app'],
+  ])('slugifies %j as %j', (input, expected) => {
+    expect(slugifyRepoName(input)).toBe(expected)
+  })
+
+  it('suggests a repo name without diacritics', () => {
+    expect(suggestRepoName('Café')).toBe('cafe')
+  })
+
+  it('limits slugs to 60 characters without leading or trailing hyphens', () => {
+    expect(slugifyRepoName(`!${'a'.repeat(59)} café!`)).toBe('a'.repeat(59))
+    expect(slugifyRepoName('é'.repeat(61))).toBe('e'.repeat(60))
+  })
+
+  it('uses the fallback for an empty description', () => {
+    expect(suggestRepoName('')).toBe('new-project')
+  })
+
   it('uses a GitHub repository name from copied instructions', () => {
     expect(suggestRepoName('Clone https://github.com/sven/canvas-starter.git and continue.')).toBe('canvas-starter')
   })
