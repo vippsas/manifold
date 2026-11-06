@@ -267,12 +267,14 @@ cd manifold
 | `npm run dist` | Build and package a macOS `.dmg` for distribution. |
 | `npm run dist:linux` | Build the x64 Linux unpacked directory without publishing it. |
 | `npm run verify:linux-package` | Verify the Linux executable and packaged native modules. |
+| `npm run typecheck` | Run the web, node, and plugins typechecks below. |
 | `npm run typecheck:node` | Typecheck main process, preload, and shared code (`tsconfig.node.json`). |
 | `npm run typecheck:web` | Typecheck renderer and shared code (`tsconfig.web.json`). |
+| `npm run typecheck:plugins` | Typecheck plugin sources under `resources/plugins` (`tsconfig.plugins.json`). |
 | `npm test` | Run the full vitest suite once. |
 | `npm run test:watch` | Run vitest in watch mode while iterating on tests. |
 
-Before opening a pull request, make sure `npm run typecheck:node`, `npm run typecheck:web`, and `npm test` all pass.
+Before opening a pull request, make sure `npm run typecheck` and `npm test` both pass.
 
 ## Architecture
 
@@ -295,7 +297,7 @@ Contributions are welcome. A quick outline:
 1. Fork the repo and create a branch from `main`.
 2. Follow the [Local Development](#local-development) steps to get the app running.
 3. Make your change, keeping it focused and small where possible.
-4. Run `npm run typecheck:node`, `npm run typecheck:web`, and `npm test` — all must pass.
+4. Run `npm run typecheck` and `npm test` — both must pass.
 5. Open a pull request describing the change and the testing you ran.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor setup, code conventions, test commands, and pull request workflow.
