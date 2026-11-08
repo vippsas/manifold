@@ -138,7 +138,7 @@ non-interactively.
   (DMG, signing, notarization), darwin `node-pty` prebuilds, native macOS behaviour, and
   §4's "see it" step (`drive:app`, and `screenshot:component` when no Chromium is present).
   For renderer/theme changes, rely on unit tests and list the visual check as a live gap.
-- Connected checks (CI's `npm run dist:linux` + package verification, CodeQL, live-app driving)
+- Connected checks (CodeQL, live-app driving)
   are downstream; list them as unverified rather than claiming them.
 - Follow the dispatcher's prompt protocol: finish with root `MANIFOLD_SUMMARY.md` (change
   description + a **Verification** section with commands/results and live-system gaps; not

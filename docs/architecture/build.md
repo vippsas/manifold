@@ -1,7 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged for macOS and x64 WSL2/Linux, and released.
 covers: [package.json]
-updated: 2026-11-02
+updated: 2026-11-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -132,9 +132,10 @@ target (`:76`) enables `hardenedRuntime` + `notarize`, points at
 
 The Linux target is an unpacked x64 directory rather than AppImage (`package.json:100-108`).
 `install-linux.sh` verifies and stages that directory before transactionally replacing the app
-and launcher (`install-linux.sh:37-85`). Pull requests and `main` pushes run the
-non-publishing Linux build and verifier on Ubuntu (`.github/workflows/ci-linux.yml:1-46`);
-downloadable release artifacts remain macOS-only.
+and launcher (`install-linux.sh:37-85`). CI does not package or verify the Linux build: the
+Ubuntu workflow runs only install, typecheck, `shellcheck install-linux.sh` and tests
+(`.github/workflows/ci-linux.yml:25-38`), so `dist:linux` is exercised only by
+`install-linux.sh`. Downloadable release artifacts are macOS-only.
 
 **Release flow (`release.sh`).** The script takes one of `patch`/`minor`/`major`/`publish`
 (`release.sh:262-268`) and, after asserting a clean worktree, configured `origin`, and a
