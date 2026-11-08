@@ -38,7 +38,7 @@ afterEach(async () => {
   vi.useRealTimers()
 })
 
-it('evicts only the removed primary verdict state, then closes tree and verdict state at the last primary', async () => {
+it('evicts primary verdict state while preserving the tree watcher for additional consumers', async () => {
   const tree = new FakeTreeWatcher()
   const recorder = new FakeVerdictRecorder()
   const evict = vi.spyOn(VerdictPollForwarder.prototype, 'evict')
@@ -64,7 +64,9 @@ it('evicts only the removed primary verdict state, then closes tree and verdict 
   expect(recorder.files).toEqual(['s2'])
   send.mockClear()
   tree.listener?.('s1', '/repo/a')
-  expect(send).toHaveBeenCalledExactlyOnceWith('files:tree-changed', { sessionId: 's2', rootPath: '/repo/a' })
+  expect(send).toHaveBeenCalledWith('files:tree-changed', { sessionId: 's2', rootPath: '/repo/a' })
+  expect(send).toHaveBeenCalledWith('files:tree-changed', { sessionId: 's3', rootPath: '/repo/a', source: '/repo/a' })
+  expect(send).toHaveBeenCalledTimes(2)
 
   // Rejoining starts a fresh HEAD baseline, proving s1's old state was evicted.
   watcher.watch('/repo/a', 's1')
@@ -73,12 +75,13 @@ it('evicts only the removed primary verdict state, then closes tree and verdict 
   await watcher.unwatch('/repo/a', 's1')
   await watcher.unwatch('/repo/a', 's2')
   expect(evict).toHaveBeenLastCalledWith('/repo/a')
-  expect(tree.roots.size).toBe(0)
-  expect(tree.closed).toEqual(['/repo/a'])
+  expect(tree.roots.has('/repo/a')).toBe(true)
+  expect(tree.closed).toEqual([])
 
   send.mockClear()
   tree.listener?.('s2', '/repo/a')
-  expect(send).not.toHaveBeenCalled()
+  expect(send).toHaveBeenCalledExactlyOnceWith('files:tree-changed', { sessionId: 's3', rootPath: '/repo/a', source: '/repo/a' })
+  send.mockClear()
   head = 'sha-c'
   status = ''
   await vi.advanceTimersByTimeAsync(2000)

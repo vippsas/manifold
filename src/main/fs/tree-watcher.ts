@@ -1,6 +1,7 @@
 import * as path from 'node:path'
 import chokidar, { type FSWatcher } from 'chokidar'
 import { EXCLUDED_DIRS } from './file-watcher-utils'
+import { debugLog } from '../app/debug-log'
 
 const DEBOUNCE_MS = 200
 
@@ -59,8 +60,8 @@ export class ChokidarTreeWatcher implements TreeWatcher {
     watcher.on('unlink', triggerChange)
     watcher.on('addDir', triggerChange)
     watcher.on('unlinkDir', triggerChange)
-    watcher.on('error', () => {
-      // Swallow watcher errors; polling layer continues to provide updates.
+    watcher.on('error', (error) => {
+      debugLog(`[tree-watcher] error watching ${rootPath}: ${error instanceof Error ? error.message : String(error)}`)
     })
   }
 

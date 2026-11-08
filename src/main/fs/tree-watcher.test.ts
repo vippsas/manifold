@@ -25,7 +25,10 @@ vi.mock('chokidar', () => ({
   },
 }))
 
+vi.mock('../app/debug-log', () => ({ debugLog: vi.fn() }))
+
 import { ChokidarTreeWatcher } from './tree-watcher'
+import { debugLog } from '../app/debug-log'
 
 describe('ChokidarTreeWatcher', () => {
   beforeEach(() => {
@@ -72,6 +75,15 @@ describe('ChokidarTreeWatcher', () => {
 
     expect(onTreeChanged).toHaveBeenCalledWith('session-1', '/repos/alpha')
 
+    await watcher.unwatchAll()
+  })
+
+  it('logs watcher errors with the affected root and diagnostic', async () => {
+    const watcher = new ChokidarTreeWatcher()
+    watcher.watch('/repos/alpha', 'session-1')
+    chokidarMock.handlers.get('error')?.(new Error('ENOSPC: system limit for file watchers reached'))
+    expect(debugLog).toHaveBeenCalledWith(expect.stringContaining('/repos/alpha'))
+    expect(debugLog).toHaveBeenCalledWith(expect.stringContaining('ENOSPC'))
     await watcher.unwatchAll()
   })
 })

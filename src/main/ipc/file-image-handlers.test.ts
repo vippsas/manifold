@@ -40,15 +40,21 @@ describe('registerFileHandlers', () => {
     mocks.openTerminal.mockResolvedValue(undefined)
   })
 
-  it('writes a pasted clipboard image into the requested directory', async () => {
+  it.each(['primary', 'additional', 'project', 'workspace', 'session'])('writes a pasted image and names its %s root', async (kind) => {
     const { registerFileHandlers } = await import('./file-handlers')
     const root = await mkdtemp(join(tmpdir(), 'manifold-paste-image-test-'))
-    const targetDir = join(root, 'assets')
+    const additional = kind === 'additional'
+    const folderRoot = kind === 'primary' ? root : join(root, 'extra')
+    const targetDir = join(folderRoot, 'assets')
     const tree: FileTreeNode = { name: 'repo', path: root, isDirectory: true, children: [] }
 
     try {
-      await mkdir(targetDir)
-      const deps = makeDeps(makeSession(root), tree)
+      await mkdir(targetDir, { recursive: true })
+      const deps = makeDeps(makeSession(root, additional ? [folderRoot] : []), tree, {
+        projectPaths: kind === 'project' ? [folderRoot] : [],
+        workspaceWorktreePaths: kind === 'workspace' ? { 'proj-2': folderRoot } : undefined,
+        otherSessions: kind === 'session' ? [{ ...makeSession(folderRoot), id: 'sess-2' }] : [],
+      })
       registerFileHandlers(deps)
       const handler = mocks.handlers.get('files:paste-image')
       if (!handler) throw new Error('files:paste-image handler was not registered')
@@ -57,7 +63,7 @@ describe('registerFileHandlers', () => {
 
       expect(result).toEqual({ path: join(targetDir, 'pasted-image.png'), tree })
       await expect(readFile(join(targetDir, 'pasted-image.png'))).resolves.toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
-      expect(deps.fileWatcher.notifyTreeChanged).toHaveBeenCalledWith('sess-1', undefined)
+      expect(deps.fileWatcher.notifyTreeChanged).toHaveBeenCalledWith('sess-1', folderRoot, additional ? folderRoot : undefined)
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -123,7 +129,7 @@ describe('registerFileHandlers', () => {
 
       expect(result).toEqual({ pasted: true, path: join(root, 'pasted-image.png'), tree })
       await expect(readFile(join(root, 'pasted-image.png'))).resolves.toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
-      expect(deps.fileWatcher.notifyTreeChanged).toHaveBeenCalledWith('sess-1', undefined)
+      expect(deps.fileWatcher.notifyTreeChanged).toHaveBeenCalledWith('sess-1', root, undefined)
     } finally {
       await rm(root, { recursive: true, force: true })
     }

@@ -19,7 +19,8 @@ vi.mock('node:fs/promises', () => ({
   readdir: vi.fn(),
 }))
 
-vi.mock('node:path', () => ({
+vi.mock('node:path', async (importOriginal) => ({
+  ...await importOriginal<typeof import('node:path')>(),
   join: (...args: string[]) => args.join('/'),
   relative: (from: string, to: string) => to.replace(from + '/', ''),
   basename: (p: string) => p.split('/').pop() ?? p,

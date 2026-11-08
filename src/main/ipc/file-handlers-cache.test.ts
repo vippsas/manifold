@@ -34,6 +34,7 @@ describe('file mutations invalidate workspace status', () => {
   let entry: CheckoutStatusCacheEntry
   let otherEntry: CheckoutStatusCacheEntry
   let read: ReturnType<typeof createWorkspaceStatusReader>
+  const notifyTreeChanged = vi.fn()
 
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -56,6 +57,7 @@ describe('file mutations invalidate workspace status', () => {
     const deps = makeDeps(makeSession(other), tree, { projectPaths: [root] })
     const watcher = new FileWatcher()
     vi.spyOn(watcher, 'getFileTree').mockResolvedValue(tree)
+    vi.spyOn(watcher, 'notifyTreeChanged').mockImplementation(notifyTreeChanged)
     deps.fileWatcher = watcher
     registerFileHandlers(deps)
     read = createWorkspaceStatusReader({
@@ -93,6 +95,9 @@ describe('file mutations invalidate workspace status', () => {
       'files:paste-clipboard-image': ['sess-1', root],
     }
     await fakes.handlers.get(channel)!({}, ...args[channel])
+    if (['files:import', 'files:paste-image', 'files:paste-clipboard-image'].includes(channel)) {
+      expect(notifyTreeChanged).toHaveBeenCalledWith('sess-1', root, undefined)
+    }
     const [row] = await read('ws')
     expect(row).toMatchObject(parseWorkspaceStatus(await gitExec(['status', '--porcelain'], root)))
     expect(fakes.status).toHaveBeenCalledExactlyOnceWith(root)

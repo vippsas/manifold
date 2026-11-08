@@ -43,6 +43,9 @@ export class FileWatcher {
       for (const sessionId of this.polls.primaryIds(rootPath)) {
         this.sendToRenderer('files:tree-changed', { sessionId, rootPath })
       }
+      for (const [sessionId, source] of this.polls.additionalSources(rootPath)) {
+        this.sendToRenderer('files:tree-changed', { sessionId, rootPath, source })
+      }
     })
   }
 
@@ -67,23 +70,30 @@ export class FileWatcher {
     }
   }
 
-  notifyTreeChanged(sessionId: string, source?: string): void {
-    this.sendToRenderer('files:tree-changed', source ? { sessionId, source } : { sessionId })
+  notifyTreeChanged(sessionId: string, rootPath: string, source?: string): void {
+    const event = { sessionId, rootPath: path.resolve(rootPath) }
+    this.sendToRenderer('files:tree-changed', source ? { ...event, source } : event)
   }
 
   watchAdditionalDir(dirPath: string, sessionId: string): void {
+    const checkout = path.resolve(dirPath)
+    const firstSubscriber = !this.polls.hasSubscribers(checkout)
     this.polls.watchAdditionalDir(dirPath, sessionId)
+    if (firstSubscriber) this.treeWatcher.watch(checkout, sessionId)
   }
 
-  unwatchAdditionalDir(dirPath: string, sessionId: string): void {
-    this.polls.unwatchAdditionalDir(dirPath, sessionId)
+  async unwatchAdditionalDir(dirPath: string, sessionId: string): Promise<void> {
+    const checkout = path.resolve(dirPath)
+    if (!this.polls.additionalSources(checkout).some(([id]) => id === sessionId)) return
+    this.polls.unwatchAdditionalDir(checkout, sessionId)
+    if (!this.polls.hasSubscribers(checkout)) await this.treeWatcher.unwatch(checkout)
   }
 
   watch(worktreePath: string, sessionId: string): void {
     const checkout = path.resolve(worktreePath)
-    const firstPrimary = this.polls.primaryIds(checkout).length === 0
+    const firstSubscriber = !this.polls.hasSubscribers(checkout)
     this.polls.watch(checkout, sessionId)
-    if (firstPrimary) this.treeWatcher.watch(checkout, sessionId)
+    if (firstSubscriber) this.treeWatcher.watch(checkout, sessionId)
   }
 
   async unwatch(worktreePath: string, sessionId?: string): Promise<void> {
@@ -96,7 +106,7 @@ export class FileWatcher {
       return
     }
     this.verdictForwarder.evict(checkout)
-    await this.treeWatcher.unwatch(checkout)
+    if (!this.polls.hasSubscribers(checkout)) await this.treeWatcher.unwatch(checkout)
   }
 
   async unwatchAll(): Promise<void> {

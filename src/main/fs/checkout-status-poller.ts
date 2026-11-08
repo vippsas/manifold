@@ -50,6 +50,15 @@ export class CheckoutStatusPoller {
     return [...(this.producers.get(path.resolve(checkout))?.primary.keys() ?? [])]
   }
 
+  additionalSources(checkout: string): [string, string][] {
+    return [...(this.producers.get(path.resolve(checkout))?.additional.entries() ?? [])]
+  }
+
+  hasSubscribers(checkout: string): boolean {
+    const entry = this.producers.get(path.resolve(checkout))
+    return !!entry && (entry.primary.size > 0 || entry.additional.size > 0)
+  }
+
   watch(checkout: string, sessionId: string): void {
     const key = path.resolve(checkout)
     const entry = this.producer(key)

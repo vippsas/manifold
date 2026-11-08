@@ -1,7 +1,7 @@
 ---
 description: Cached sidebar folder trees and coalesced reloads for shared checkout events.
 covers: [src/renderer/hooks/editor/useWorkspaceTree.ts]
-updated: 2026-11-01
+updated: 2026-11-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -17,8 +17,11 @@ The hook matches `files:tree-changed` by `rootPath` or, for session folders, by 
 additional-directory `files:changed` matches the exact `source` string
 (`useWorkspaceTree.ts:133`, `:138`). Window focus and explicit
 refresh use the same reload path (`useWorkspaceTree.ts:56`, `:142`). The main process still
-sends tree events for every primary session, preserving consumers that filter by session id
-(`src/main/fs/file-watcher.ts:42`, `src/renderer/hooks/editor/useFileWatcher.ts:95`).
+sends tree events for every primary and additional-directory subscriber, preserving consumers
+that filter by session id or the original additional-directory `source`
+(`src/main/fs/file-watcher.ts:42`, `src/renderer/hooks/editor/useFileWatcher.ts:95`,
+`src/renderer/hooks/project/useAdditionalDirs.ts:62`). Explicit import/paste notifications
+also carry the normalized root, even without an active watcher (`file-watcher.ts:73`).
 
 A `null` `files:tree` reply leaves the cached tree and expanded paths intact
 (`useWorkspaceTree.ts:73`). Discovery emits a `files:tree-changed` event with the adopted
@@ -34,7 +37,8 @@ or unmounting discards old results and cancels scheduled reloads (`useWorkspaceT
 
 `src/main/fs/file-watcher-workspace-tree.test.tsx` drives the real `FileWatcher` fan-out
 with two primaries and fake tree/IPC adapters. It pins one walk per burst, one trailing walk
-for changes during a request, failure recovery, folder matching, and teardown cancellation.
+for changes during a request, failure recovery, folder matching, teardown cancellation, and
+project-folder reloads after explicit UI notifications without an active watcher.
 `src/renderer/hooks/editor/useWorkspaceTree.test.ts:15` pins null replies and
 discovery retries for an uncached session folder.
 These checks run offline; Electron delivery timing and the macOS app require live validation.
