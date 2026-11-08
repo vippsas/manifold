@@ -32,11 +32,7 @@ jobs:
       - name: Shellcheck install script
         run: shellcheck install-linux.sh
 
+      # No packaging step: macOS is the only shipped target, and packaging made
+      # every PR depend on GitHub serving Electron release assets (#1048).
       - name: Run tests
         run: npm test
-
-      - name: Build Linux distribution
-        run: npm run dist:linux
-
-      - name: Verify Linux package
-        run: npm run verify:linux-package
