@@ -140,7 +140,7 @@ describe('FileWatcher shared checkout subscriptions', () => {
     expect(branchChanged).toHaveBeenCalledExactlyOnceWith('s2', 'main')
   })
 
-  it('keeps other consumers and tree notifications alive until their final primary leaves', async () => {
+  it('keeps tree notifications alive until the final primary or additional consumer leaves', async () => {
     watcher.watch('/repo/a', 's1')
     watcher.watch('/repo/a', 's2')
     watcher.watchAdditionalDir('/repo/a/', 's3')
@@ -149,6 +149,8 @@ describe('FileWatcher shared checkout subscriptions', () => {
     tree.listener?.('s1', '/repo/a')
     expect(send).toHaveBeenCalledWith('files:tree-changed', { sessionId: 's1', rootPath: '/repo/a' })
     expect(send).toHaveBeenCalledWith('files:tree-changed', { sessionId: 's2', rootPath: '/repo/a' })
+    expect(send).toHaveBeenCalledWith('files:tree-changed', { sessionId: 's3', rootPath: '/repo/a', source: '/repo/a/' })
+    expect(tree.watches).toEqual(['/repo/a'])
     await watcher.unwatch('/repo/a/', 'unknown')
     await watcher.unwatch('/repo/a/', 's1')
     expect(tree.roots.has('/repo/a')).toBe(true)
@@ -157,14 +159,20 @@ describe('FileWatcher shared checkout subscriptions', () => {
     await vi.advanceTimersByTimeAsync(2000)
     expect(send.mock.calls.map(([, payload]) => payload.sessionId)).toEqual(['s2', 's2', 's3'])
     await watcher.unwatch('/repo/a', 's2')
-    expect(tree.roots.size).toBe(0)
+    expect(tree.roots.has('/repo/a')).toBe(true)
+    send.mockClear()
+    tree.listener?.('s1', '/repo/a')
+    expect(send).toHaveBeenCalledExactlyOnceWith('files:tree-changed', {
+      sessionId: 's3', rootPath: '/repo/a', source: '/repo/a/',
+    })
     git.status = '?? new.txt\n'
     send.mockClear()
     await vi.advanceTimersByTimeAsync(2000)
     expect(send).toHaveBeenCalledExactlyOnceWith('files:changed', {
       sessionId: 's3', source: '/repo/a/', changes: [{ path: 'new.txt', type: 'added' }],
     })
-    watcher.unwatchAdditionalDir('/repo/a', 's3')
+    await watcher.unwatchAdditionalDir('/repo/a', 's3')
+    expect(tree.roots.size).toBe(0)
     const calls = git.calls.length
     await vi.advanceTimersByTimeAsync(4000)
     expect(git.calls).toHaveLength(calls)
@@ -175,16 +183,33 @@ describe('FileWatcher shared checkout subscriptions', () => {
   it('removes additional subscribers independently and stops only the last one', async () => {
     watcher.watchAdditionalDir('/repo/a/', 's1')
     watcher.watchAdditionalDir('/repo/a', 's2')
+    watcher.watchAdditionalDir('/repo/a/', 's1')
+    expect(tree.watches).toEqual(['/repo/a'])
     await vi.advanceTimersByTimeAsync(0)
     watcher.unwatchAdditionalDir('/repo/a/', 'unknown')
     watcher.unwatchAdditionalDir('/repo/a', 's1')
+    expect(tree.roots.has('/repo/a')).toBe(true)
     send.mockClear()
     git.status = ''
     await vi.advanceTimersByTimeAsync(2000)
     expect(send).toHaveBeenCalledExactlyOnceWith('files:changed', { sessionId: 's2', source: '/repo/a', changes: [] })
-    watcher.unwatchAdditionalDir('/repo/a/', 's2')
+    await watcher.unwatchAdditionalDir('/repo/a/', 's2')
+    expect(tree.roots.size).toBe(0)
     await vi.advanceTimersByTimeAsync(6000)
     expect(git.calls).toHaveLength(2)
+  })
+
+  it('shares a tree watcher when an additional directory gains and loses a primary', async () => {
+    watcher.watchAdditionalDir('/repo/a/', 's1')
+    watcher.watch('/repo/a', 's2')
+    expect(tree.watches).toEqual(['/repo/a'])
+    await watcher.unwatchAdditionalDir('/repo/a', 's1')
+    expect(tree.roots.has('/repo/a')).toBe(true)
+    send.mockClear()
+    tree.listener?.('s1', '/repo/a')
+    expect(send).toHaveBeenCalledExactlyOnceWith('files:tree-changed', { sessionId: 's2', rootPath: '/repo/a' })
+    await watcher.unwatch('/repo/a')
+    expect(tree.roots.size).toBe(0)
   })
 
   it('polls distinct checkouts independently and clears every timer on unwatchAll', async () => {

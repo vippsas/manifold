@@ -170,6 +170,14 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     return sessionTree(sessionId)
   })
 
+  const notifyTreeChanged = (session: AgentSession, dirPath: string): void => {
+    const source = session.additionalDirs.find((additionalDir) => isUnderDir(dirPath, additionalDir))
+    const rootPath = source ?? [session.worktreePath, ...workspaceRoots(deps)]
+      .filter((root) => isUnderDir(dirPath, root))
+      .sort((a, b) => b.length - a.length)[0] ?? session.worktreePath
+    fileWatcher.notifyTreeChanged(session.id, rootPath, source)
+  }
+
   ipcMain.handle('files:import', async (_event, sessionId: string, dirPath: string, sourcePaths: string[]) => {
     const session = sessionManager.getSession(sessionId)
     if (!session) throw new Error(`Session not found: ${sessionId}`)
@@ -184,8 +192,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
       invalidateCheckoutStatus(resolvedDir)
     }
 
-    const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
-    fileWatcher.notifyTreeChanged(sessionId, source)
+    notifyTreeChanged(session, resolvedDir)
 
     return { tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
@@ -198,8 +205,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     const filePath = writePastedImage(session, resolvedDir, ext, buffer, isAllowed)
     invalidateCheckoutStatus(filePath)
 
-    const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
-    fileWatcher.notifyTreeChanged(sessionId, source)
+    notifyTreeChanged(session, resolvedDir)
 
     return { path: filePath, tree: await fileWatcher.getFileTree(session.worktreePath) }
   })
@@ -216,8 +222,7 @@ export function registerFileHandlers(deps: IpcDependencies): void {
     const filePath = writePastedImage(session, resolvedDir, 'png', buffer, isAllowed)
     invalidateCheckoutStatus(filePath)
 
-    const source = session.additionalDirs.find((additionalDir) => isUnderDir(resolvedDir, additionalDir))
-    fileWatcher.notifyTreeChanged(sessionId, source)
+    notifyTreeChanged(session, resolvedDir)
 
     return { pasted: true, path: filePath, tree: await fileWatcher.getFileTree(session.worktreePath) }
   })

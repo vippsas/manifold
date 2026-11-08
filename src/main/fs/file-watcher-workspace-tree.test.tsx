@@ -86,6 +86,18 @@ describe('useWorkspaceTree reload coalescing', () => {
     expect(ipc.invoke).toHaveBeenCalledTimes(1)
   })
 
+  it.each([undefined, '/repo/a/'])('reloads a project folder after a UI operation with source %s', async (source) => {
+    const { result } = await mount()
+    await watcher.unwatchAll()
+    // UI operations must refresh even a dormant session with no registered watcher.
+    watcher.notifyTreeChanged('s1', source ?? root.path, source)
+    await flushReload()
+    expect(ipc.invoke).toHaveBeenCalledExactlyOnceWith('files:tree-by-project', 'p1', 'w1')
+    const latest = { ...root, children: [{ name: 'new.txt', path: '/repo/a/new.txt', isDirectory: false }] }
+    await act(async () => { ipc.requests[1].resolve(latest) })
+    expect(result.current.tree).toEqual(latest)
+  })
+
   it('runs exactly one trailing reload for changes arriving during a pending walk', async () => {
     const { result } = await mount()
     tree.change()

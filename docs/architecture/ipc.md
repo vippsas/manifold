@@ -1,7 +1,7 @@
 ---
 description: How Manifold's main-process services are exposed to the renderer over Electron IPC — the channel namespaces, the handler registration pattern, and how handlers delegate to subsystem managers.
 covers: [src/main/ipc]
-updated: 2026-11-01
+updated: 2026-11-08
 owner: see .github/CODEOWNERS
 ---
 
@@ -109,6 +109,13 @@ be browsed and edited before an agent has ever run in it, so requiring a session
 "New File"/"New Folder" fail silently. One repo can be open in several workspaces at once, each with its own
 checkout, so `files:tree-by-project` takes an optional `workspaceId` that decides *which*
 checkout's files come back; without it the repo's own clone answers (`file-handlers.ts:70`).
+Imports and image pastes explicitly notify tree consumers with the destination's open
+folder root and any additional-directory `source`, letting sidebar project folders match
+the event by `rootPath` even when the session has no active watcher
+(`file-handlers.ts:173`, `:195`, `:208`, `:225`; `src/main/fs/file-watcher.ts:73`).
+Without an additional-directory source, the root follows the edited path across other open
+projects, workspace checkouts and sessions' folders, choosing the most specific containing
+root (`file-handlers.ts:175`).
 `chat-image-handlers.ts`
 restricts pasted/read-back chat images to a small allow-list of directories
 (`resolveReadableChatImagePath`, `chat-image-handlers.ts:26`). `project-handlers.ts` rejects
