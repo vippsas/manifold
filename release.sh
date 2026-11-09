@@ -245,7 +245,9 @@ publish_release() {
   git tag -a "$tag" "$main_sha" -m "Release $tag"
   git push origin "$tag"
 
-  if ! gh release create "$tag" --verify-tag --generate-notes; then
+  # Draft until release-dmg.yml has uploaded the artifacts and publishes it; a published
+  # release with no latest-mac.yml makes every installed app's update check 404.
+  if ! gh release create "$tag" --verify-tag --generate-notes --draft; then
     echo "Error: failed to create GitHub release '$tag'. The tag was pushed, so the release workflow may still create or update it." >&2
     exit 1
   fi

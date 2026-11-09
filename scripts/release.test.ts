@@ -97,7 +97,7 @@ exit 1
     expect(commands).not.toContain('gh auth status')
     expect(commands).toContain('git tag -a v1.2.3')
     expect(commands).toContain('git push origin v1.2.3')
-    expect(commands).toContain('gh release create v1.2.3 --verify-tag --generate-notes')
+    expect(commands).toContain('gh release create v1.2.3 --verify-tag --generate-notes --draft')
   })
 
   it('stops before tagging when the release check does not return 404', () => {

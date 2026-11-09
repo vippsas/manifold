@@ -1,7 +1,7 @@
 ---
 description: How Manifold is built, type-checked, tested, packaged for macOS and x64 WSL2/Linux, and released.
 covers: [package.json]
-updated: 2026-11-08
+updated: 2026-11-09
 owner: see .github/CODEOWNERS
 ---
 
@@ -138,19 +138,19 @@ Ubuntu workflow runs only install, typecheck, `shellcheck install-linux.sh` and 
 `install-linux.sh`. Downloadable release artifacts are macOS-only.
 
 **Release flow (`release.sh`).** The script takes one of `patch`/`minor`/`major`/`publish`
-(`release.sh:262-268`) and, after asserting a clean worktree, configured `origin`, and a
-stored `gh` authentication token (`release.sh:270-287`), branches into two paths. The token
+(`release.sh:264-270`) and, after asserting a clean worktree, configured `origin`, and a
+stored `gh` authentication token (`release.sh:272-289`), branches into two paths. The token
 preflight uses `gh auth token` rather than the network-backed `gh auth status`, so transient
 failures from GitHub's `/user` endpoint do not masquerade as missing credentials:
 
 - *Prepare* (`prepare_release`, `release.sh:141`): fetches `origin/main`, computes the next version from main's `package.json`, creates `release/v<next>` off `origin/main`, runs `npm version <type> --no-git-tag-version`, commits the bump, pushes, and opens (or reuses) a `gh pr create` against `main` (`release.sh:190-224`). It does **not** tag.
-- *Publish* (`publish_release`, `release.sh:231`): run *after* the bump PR is merged. Re-fetches `origin/main`, reads its now-bumped version, guards that the tag/release don't already exist (`release.sh:242-243`), then `git tag -a v<version>` at `origin/main`'s SHA, pushes the tag, and `gh release create --verify-tag --generate-notes` (`release.sh:245-250`). The release guard continues only after an explicit HTTP 404; authorization, rate-limit, and network failures abort before the tag is created.
+- *Publish* (`publish_release`, `release.sh:231`): run *after* the bump PR is merged. Re-fetches `origin/main`, reads its now-bumped version, guards that the tag/release don't already exist (`release.sh:242-243`), then `git tag -a v<version>` at `origin/main`'s SHA, pushes the tag, and `gh release create --verify-tag --generate-notes --draft` (`release.sh:245-253`). The release stays a draft until CI has attached the artifacts, so installed apps never see a published "latest" release without `latest-mac.yml` (which makes their update check 404). The release guard continues only after an explicit HTTP 404; authorization, rate-limit, and network failures abort before the tag is created.
 
 Pushing the `v*` tag is the trigger for the real build: `release-dmg.yml` runs on
 `push: tags: v*` (`release-dmg.yml:6-7`), does `npm ci`, `npm run typecheck`, `npm test`,
 `rebuild:electron`, then `npm run build` + `npx electron-builder --mac --publish never`
 with the Apple signing/notarization secrets, and uploads the `.dmg`/`.zip`/`.yml`/`.blockmap`
-to the GitHub release (`release-dmg.yml:38-59`). So locally `dist` exists for one-off
+to the GitHub release, then publishes the draft with `gh release edit --draft=false` (`release-dmg.yml:38-61`). So locally `dist` exists for one-off
 packaging, but the canonical release artifacts come from CI on tag push.
 
 **electron-builder must be ≥ 26.16.1** (`package.json:131`, `^26.16.1`). Up to 26.15.3 it
@@ -190,6 +190,6 @@ fixed line is published under the `v26` tag, so `npm update` will not pick it up
 - **`extraResources` ships plugins *outside* the asar.** Only `out/**` goes in the asar (`package.json:67-69`); the compiled `resources/plugins/` is copied to `Resources/plugins` so the host can load it from a real directory, not the archive.
 - **`build:plugins` derives the TS entry from each manifest's `main`.** A manifest whose `main` points at a path with no matching `src/<name>.ts` throws (`build-plugins.mjs:28`); the convention is `main: ./out/plugin.js` ↔ `src/plugin.ts` (see `new-plugin.mjs:38`).
 - **`.claude/skills/` is the source for checked-in skills.** After changing a repo skill, run `npm run sync:codex-skills` so Codex's installed copy is refreshed; the sync keeps unrelated user-installed Codex skills intact and only replaces matching checked-in skill names.
-- **`release.sh` prepare never tags; publish never bumps.** The bump lands via merged PR; the tag is created only by `publish` from `origin/main`'s SHA. Running `publish` before the bump PR merges tags the *old* version. Both halves require a clean worktree and abort otherwise (`release.sh:23-33`, `:271`).
+- **`release.sh` prepare never tags; publish never bumps.** The bump lands via merged PR; the tag is created only by `publish` from `origin/main`'s SHA. Running `publish` before the bump PR merges tags the *old* version. Both halves require a clean worktree and abort otherwise (`release.sh:23-33`, `:285`).
 - **The real artifacts come from CI, not local `dist`.** Signing/notarization secrets only exist in the `release` GitHub environment; the local `dist` script (`--publish always`) is for developer-side packaging, while tag-triggered `release-dmg.yml` (`--publish never` + explicit upload) produces the published `.dmg`.
 - **Linux package verification is glibc-specific.** The supported WSL2 target requires the GNU x64 canvas binary plus Electron-compatible `node-pty` and `better-sqlite3` modules (`scripts/verify-linux-package.mjs:15-33`).

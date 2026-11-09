@@ -57,6 +57,8 @@ jobs:
           else
             gh release create "$TAG_NAME" dist/*.dmg dist/*.zip dist/*.yml dist/*.blockmap --generate-notes
           fi
+          # release.sh creates the release as a draft; publish only once the assets are attached.
+          gh release edit "$TAG_NAME" --draft=false
 
       - name: Upload artifacts (manual runs)
         if: github.event_name == 'workflow_dispatch'
