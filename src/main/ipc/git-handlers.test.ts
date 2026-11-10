@@ -256,3 +256,39 @@ describe('git mutations invalidate shared workspace status', () => {
     expect(vi.getTimerCount()).toBe(1)
   })
 })
+
+describe('registerDiffHandler overlapping refreshes', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    mocks.handlers.clear()
+  })
+
+  // The renderer asks for the diff on every file-change event. A slow diff used
+  // to be started again for each one, and the passes piled up until the main
+  // process ran out of heap.
+  it('does not start another diff pass per request while one is running', async () => {
+    const { registerDiffHandler } = await import('./git-handlers')
+    const finishers: ((diff: string) => void)[] = []
+    const getDiff = vi.fn(() => new Promise<string>((resolve) => { finishers.push(resolve) }))
+    registerDiffHandler({
+      sessionManager: { getSession: vi.fn(() => ({ id: 's1', projectId: 'p1', worktreePath: '/wt' })) },
+      projectRegistry: { getProject: vi.fn(() => ({ id: 'p1', path: '/p1', baseBranch: 'main' })) },
+      diffProvider: { getDiff, getChangedFiles: vi.fn(async () => []) },
+    } as never)
+    const diffHandler = mocks.handlers.get('diff:get')!
+
+    const results = Array.from({ length: 20 }, () => diffHandler({}, 's1'))
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(getDiff).toHaveBeenCalledTimes(1)
+
+    finishers[0]('first')
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(getDiff).toHaveBeenCalledTimes(2)
+
+    finishers[1]('second')
+    const diffs = (await Promise.all(results) as { diff: string }[]).map((result) => result.diff)
+    expect(diffs).toEqual(['first', ...Array(19).fill('second')])
+    expect(getDiff).toHaveBeenCalledTimes(2)
+  })
+})

@@ -47,7 +47,7 @@ producer running because a subscriber joined mid-request (`checkout-status-polle
 their generations; file paths invalidate containing checkouts, and directory paths also invalidate
 nested checkouts (`checkout-status-cache.ts:35`, `:42`). Git and file mutation handlers call this
 helper before returning or sending follow-up refresh events (`src/main/ipc/git-workspace-handlers.ts:37`,
-`:105`, `:141`; `src/main/ipc/git-handlers.ts:80`, `:103`; `src/main/ipc/file-handlers.ts:113`).
+`:105`, `:141`; `src/main/ipc/git-handlers.ts:87`, `:110`; `src/main/ipc/file-handlers.ts:113`).
 Polls capture the generation before awaiting Git and reject invalidated status, fingerprint and
 branch completions (`checkout-status-poller.ts:176`, `:183`, `:199`). Invalidation leaves the
 change-detection status and fingerprint intact, so it cannot itself emit `files:changed` or
