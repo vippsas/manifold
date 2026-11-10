@@ -8,6 +8,7 @@ import { createWorkspaceStatusReader } from './workspace-status'
 import { getRuntimeById } from '../agent/runtimes'
 import type { IpcDependencies } from './types'
 import { resolveSession, resolveSessionForRead } from './types'
+import { createLatestRequest } from './latest-request'
 
 /** The base branch to diff/PR/compare against: the session's own base branch
  *  (e.g. a no-worktree agent based off a selected branch) or the project's. */
@@ -18,7 +19,11 @@ function baseBranchFor(session: { baseBranch?: string }, project: { baseBranch: 
 export function registerDiffHandler(deps: IpcDependencies): void {
   const { sessionManager, projectRegistry, diffProvider } = deps
 
-  ipcMain.handle('diff:get', async (_event, sessionId: string) => {
+  // The renderer asks again on every file-change event, and a diff of a large
+  // checkout outlasts the gap between two of them. Unbounded, the passes pile
+  // up — each one spawning git and buffering its output — so a session gets one
+  // running pass and at most one waiting.
+  const latestDiff = createLatestRequest(async (sessionId: string) => {
     const session = sessionManager.getSession(sessionId)
     // Session teardown removes the session before the renderer necessarily
     // clears every in-flight refresh. Treat that race as an empty diff.
@@ -35,6 +40,8 @@ export function registerDiffHandler(deps: IpcDependencies): void {
 
     return { diff, changedFiles }
   })
+
+  ipcMain.handle('diff:get', (_event, sessionId: string) => latestDiff(sessionId))
 
   ipcMain.handle('diff:file-original', async (_event, sessionId: string, relativePath: string) => {
     const session = sessionManager.getSession(sessionId)

@@ -325,7 +325,7 @@ interpolation rather than the resting one.
 **A folder row fetches its repo's clone, not the workspace's checkout.** Each git folder
 row of an open workspace card carries a `RepoFetchButton` (`WorkspaceRepoRow.tsx:94`) that
 invokes `git:fetch` with the *project* id, so main fetches `project.path` and updates
-`project.baseBranch` (`git-handlers.ts:117`) — the branch new work is cut from, and the
+`project.baseBranch` (`git-handlers.ts:124`) — the branch new work is cut from, and the
 branch `git:staleness` measures "behind origin" against. A worktree workspace's own
 checkout is deliberately untouched. Idle the button is a quiet `↻`; once the base branch
 trails origin it becomes an accent pill carrying the count, capped at `9+`

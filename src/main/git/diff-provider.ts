@@ -7,6 +7,14 @@ import { gitExec } from './git-exec'
 const execFileAsync = promisify(execFile)
 const DIFF_MAX_BUFFER = 10 * 1024 * 1024
 
+// Untracked files are diffed one `git diff --no-index` spawn at a time and the
+// output is held in memory, so the work must not scale with the checkout. A
+// repo whose build output is not ignored reports tens of thousands of them;
+// diffing them all ran the main process out of heap. Past the budget the files
+// are still listed by getChangedFiles — they just carry no diff text.
+export const MAX_UNTRACKED_DIFF_FILES = 200
+export const MAX_UNTRACKED_DIFF_CHARS = 5 * 1024 * 1024
+
 export class DiffProvider {
   async getOriginalContent(
     worktreePath: string,
@@ -33,9 +41,14 @@ export class DiffProvider {
       // May fail if no commits yet on branch; continue
     }
 
-    for (const filePath of await this.listUntrackedFiles(worktreePath)) {
+    const untrackedFiles = await this.listUntrackedFiles(worktreePath)
+    let untrackedChars = 0
+    for (const filePath of untrackedFiles.slice(0, MAX_UNTRACKED_DIFF_FILES)) {
+      if (untrackedChars >= MAX_UNTRACKED_DIFF_CHARS) break
       const untrackedDiff = await this.getUntrackedFileDiff(worktreePath, filePath)
-      if (untrackedDiff) diffParts.push(untrackedDiff.trimEnd())
+      if (!untrackedDiff) continue
+      diffParts.push(untrackedDiff.trimEnd())
+      untrackedChars += untrackedDiff.length
     }
 
     return diffParts.join('\n')
